@@ -2,7 +2,7 @@
 
 using Microsoft.AspNetCore.Hosting;
 
-namespace VStore.Host
+namespace NuClear.VStore.Host
 {
     public class Program
     {
