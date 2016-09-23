@@ -1,4 +1,5 @@
 ﻿using Amazon;
+using Amazon.S3;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +35,7 @@ namespace NuClear.VStore.Host
             services.AddOptions();
 
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
+            services.AddAWSService<IAmazonS3>();
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
             AWSConfigsS3.UseSignatureVersion4 = false;
 
