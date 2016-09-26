@@ -21,7 +21,7 @@ namespace NuClear.VStore.Host.Controllers
         public ContentController(IAmazonS3 amazonS3, IOptions<CephOptions> cephOptions)
         {
             _amazonS3 = amazonS3;
-            _bucketName = cephOptions.Value.BucketName;
+            _bucketName = cephOptions.Value.ContentBucketName;
         }
 
         [HttpGet]

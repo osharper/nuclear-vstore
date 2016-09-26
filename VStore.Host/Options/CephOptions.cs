@@ -2,6 +2,7 @@
 {
     public sealed class CephOptions
     {
-        public string BucketName { get; set; }
+        public string TemplatesBucketName { get; set; }
+        public string ContentBucketName { get; set; }
     }
 }

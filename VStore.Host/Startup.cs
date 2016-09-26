@@ -29,17 +29,16 @@ namespace NuClear.VStore.Host
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
+
             services.AddMvc();
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
 
             services.AddOptions();
-
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
-            services.AddAWSService<IAmazonS3>();
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
-            AWSConfigsS3.UseSignatureVersion4 = false;
-
             services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
+
+            services.AddAWSService<IAmazonS3>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
