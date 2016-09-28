@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using NuClear.VStore.Host.Locks;
 using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Swashbuckle;
 
@@ -37,8 +38,11 @@ namespace NuClear.VStore.Host
             services.AddOptions();
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
             services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
+            services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
 
             services.AddAWSService<IAmazonS3>();
+            services.AddSingleton<LockSessionManager>();
+            services.AddScoped<LockSessionFactory>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
