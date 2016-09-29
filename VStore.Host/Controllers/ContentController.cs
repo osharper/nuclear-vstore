@@ -12,7 +12,7 @@ using NuClear.VStore.Host.Options;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("api/1.0/content")]
+    [Route("content")]
     public sealed class ContentController : Controller
     {
         private readonly IAmazonS3 _amazonS3;
@@ -33,21 +33,21 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
-        [Route("{key}/{version}")]
-        public async Task<FileStreamResult> Get(string key, string version)
+        [Route("{id}/{versionId}")]
+        public async Task<FileStreamResult> Get(string id, string versionId)
         {
-            var response = await _amazonS3.GetObjectAsync(_bucketName, key, version);
+            var response = await _amazonS3.GetObjectAsync(_bucketName, id, versionId);
             return File(response.ResponseStream, response.Headers.ContentType);
         }
 
         [HttpPut]
-        [Route("{key}")]
-        public async Task<string> Put(string key, IFormFile file)
+        [Route("{id}")]
+        public async Task<string> Put(string id, IFormFile file)
         {
             var response = await _amazonS3.PutObjectAsync(
                                new PutObjectRequest
                                    {
-                                       Key = key,
+                                       Key = id,
                                        BucketName = _bucketName,
                                        ContentType = file.ContentType,
                                        InputStream = file.OpenReadStream(),

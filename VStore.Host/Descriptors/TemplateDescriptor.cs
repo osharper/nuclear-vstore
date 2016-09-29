@@ -1,24 +1,28 @@
 ﻿using System;
+using System.Collections.Generic;
 
-namespace NuClear.VStore.Host.Model
+namespace NuClear.VStore.Host.Descriptors
 {
     public struct TemplateDescriptor : IEquatable<TemplateDescriptor>
     {
-        public TemplateDescriptor(string key, string versionId, string name)
+        public TemplateDescriptor(Guid id, string versionId, string name, IEnumerable<IElementDescriptor> elementDescriptors)
         {
-            Key = key;
+            Id = id;
             VersionId = versionId;
             Name = name;
+            ElementDescriptors = elementDescriptors;
         }
 
-        public string Key { get; }
+        public Guid Id { get; }
 
         public string VersionId { get; }
 
         public string Name { get; }
 
+        public IEnumerable<IElementDescriptor> ElementDescriptors { get; }
+
         public static bool operator ==(TemplateDescriptor descriptor1, TemplateDescriptor descriptor2)
-            => string.Equals(descriptor1.Key, descriptor2.Key, StringComparison.OrdinalIgnoreCase) &&
+            => descriptor1.Id == descriptor2.Id &&
                string.Equals(descriptor1.VersionId, descriptor2.VersionId, StringComparison.OrdinalIgnoreCase);
 
         public static bool operator !=(TemplateDescriptor descriptor1, TemplateDescriptor descriptor2)
@@ -32,7 +36,7 @@ namespace NuClear.VStore.Host.Model
         {
             unchecked
             {
-                return ((Key?.GetHashCode() ?? 0) * 397) ^ (VersionId?.GetHashCode() ?? 0);
+                return (Id.GetHashCode() * 397) ^ (VersionId?.GetHashCode() ?? 0);
             }
         }
     }

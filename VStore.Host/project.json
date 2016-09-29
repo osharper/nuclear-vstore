@@ -1,7 +1,6 @@
 {
   "version": "0.0.0",
   "dependencies": {
-    "AWSSDK.S3": "3.3.0",
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.1",
     "Microsoft.AspNetCore.Mvc": "1.0.1",
     "Microsoft.AspNetCore.Routing": "1.0.1",
@@ -18,7 +17,8 @@
       "version": "1.0.1",
       "type": "platform"
     },
-    "Swashbuckle": "6.0.0-beta902"
+    "Swashbuckle": "6.0.0-beta902",
+    "AWSSDK.S3": "3.3.0.1"
   },
   "frameworks": {
     "netcoreapp1.0": {

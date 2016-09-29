@@ -21,7 +21,6 @@ namespace NuClear.VStore.Host.Locks
             _expirationDate = DateTime.UtcNow.Add(lockOptions.Value.Expiration);
         }
 
-        public LockSession CreateLockSession(string rootObjectKey)
-            => new LockSession(_amazonS3, _bucketName, rootObjectKey, _expirationDate);
+        public LockSession CreateLockSession(Guid rootObjectId) => new LockSession(_amazonS3, _bucketName, rootObjectId, _expirationDate);
     }
 }

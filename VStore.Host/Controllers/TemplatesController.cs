@@ -1,44 +1,39 @@
-﻿using System.Collections.Concurrent;
-using System.Threading.Tasks;
-
-using Amazon.S3;
+﻿using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
-using NuClear.VStore.Host.Core;
-using NuClear.VStore.Host.Model;
-using NuClear.VStore.Host.Options;
+using NuClear.VStore.Host.Descriptors;
+using NuClear.VStore.Host.Templates;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("api/1.0/templates")]
+    [Route("template")]
     public class TemplatesController : Controller
     {
-        private readonly IAmazonS3 _amazonS3;
-        private readonly string _bucketName;
+        private readonly TemplateManagementService _templateManagementService;
 
-        public TemplatesController(IAmazonS3 amazonS3, IOptions<CephOptions> cephOptions)
+        public TemplatesController(TemplateManagementService templateManagementService)
         {
-            _amazonS3 = amazonS3;
-            _bucketName = cephOptions.Value.TemplatesBucketName;
+            _templateManagementService = templateManagementService;
+        }
+
+        [HttpGet("element-descriptors/available")]
+        public JsonResult GetAvailableElementDescriptors()
+        {
+            return Json(_templateManagementService.GetAvailableElementDescriptors());
         }
 
         [HttpGet]
         public async Task<JsonResult> List()
         {
-            var listObjectsResponse = await _amazonS3.ListObjectsAsync(_bucketName);
+            return Json(await _templateManagementService.GetAllTemplateDescriptors());
+        }
 
-            var descriptors = new ConcurrentBag<TemplateDescriptor>();
-            Parallel.ForEach(
-                listObjectsResponse.S3Objects,
-                async obj =>
-                    {
-                        var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, obj.Key);
-                        descriptors.Add(new TemplateDescriptor(obj.Key, metadataResponse.VersionId, metadataResponse.Metadata["name".AsMetadata()]));
-                    });
-
-            return Json(descriptors);
+        [HttpPut]
+        public async Task<IActionResult> CreateTemplate([FromBody]TemplateDescriptor templateDescriptor)
+        {
+            await _templateManagementService.CreateTemplate(templateDescriptor);
+            return Ok();
         }
     }
 }

@@ -6,12 +6,12 @@ using NuClear.VStore.Host.Locks;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("api/1.0/mgmt/lock-session")]
-    public sealed class LockSessionManagenetController : Controller
+    [Route("mgmt/lock-session")]
+    public sealed class LockSessionManagementController : Controller
     {
         private readonly LockSessionManager _lockSessionManager;
 
-        public LockSessionManagenetController(LockSessionManager lockSessionManager)
+        public LockSessionManagementController(LockSessionManager lockSessionManager)
         {
             _lockSessionManager = lockSessionManager;
         }
@@ -25,10 +25,10 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpDelete]
-        [Route("{rootObjectKey}")]
-        public async Task DeleteSessionLock(string rootObjectKey)
+        [Route("{rootObjectId}")]
+        public async Task DeleteSessionLock(string rootObjectId)
         {
-            await _lockSessionManager.DeleteLockSession(rootObjectKey);
+            await _lockSessionManager.DeleteLockSession(rootObjectId);
         }
     }
 }

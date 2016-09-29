@@ -11,35 +11,34 @@ namespace NuClear.VStore.Host.Locks
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly string _bucketName;
+        private readonly string _rootObjectId;
 
-        public LockSession(IAmazonS3 amazonS3, string bucketName, string rootObjectKey, DateTime expirationDate)
+        public LockSession(IAmazonS3 amazonS3, string bucketName, Guid rootObjectId, DateTime expirationDate)
         {
-            RootObjectKey = rootObjectKey;
+            _rootObjectId = rootObjectId.ToString();
             _amazonS3 = amazonS3;
             _bucketName = bucketName;
 
-            EnsureLockNotExist();
+            EnsureLockNotExists();
 
             var content = JsonConvert.SerializeObject(new { ExpirationDate = expirationDate });
             CreateSessionLock(content);
         }
 
-        public string RootObjectKey { get; }
+        public void Dispose() => _amazonS3.DeleteObjectAsync(_bucketName, _rootObjectId).Wait();
 
-        public void Dispose() => _amazonS3.DeleteObjectAsync(_bucketName, RootObjectKey);
-
-        private void EnsureLockNotExist()
+        private void EnsureLockNotExists()
         {
             var responseTask = _amazonS3.ListObjectsV2Async(
                 new ListObjectsV2Request
                     {
                         BucketName = _bucketName,
-                        Prefix = RootObjectKey
+                        Prefix = _rootObjectId
                     });
 
             if (responseTask.Result.S3Objects.Count > 0)
             {
-                throw new SessionLockAlreadyExistsException(RootObjectKey);
+                throw new SessionLockAlreadyExistsException(_rootObjectId);
             }
         }
 
@@ -48,7 +47,7 @@ namespace NuClear.VStore.Host.Locks
                             new PutObjectRequest
                                 {
                                     BucketName = _bucketName,
-                                    Key = RootObjectKey,
+                                    Key = _rootObjectId,
                                     ContentType = "application/json",
                                     ContentBody = content,
                                     CannedACL = S3CannedACL.PublicRead

@@ -20,7 +20,7 @@ namespace NuClear.VStore.Host.Controllers
         [Route("lock-session")]
         public void CreateLockSession()
         {
-            _lockSessionFactory.CreateLockSession(Guid.Empty.ToString());
+            _lockSessionFactory.CreateLockSession(Guid.Empty);
         }
     }
 }
