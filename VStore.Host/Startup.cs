@@ -36,11 +36,9 @@ namespace NuClear.VStore.Host
         {
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
 
-            services.AddMvc(options =>
-                                {
-                                    options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0"));
-                                    options.ModelBinderProviders.Insert(0, new TemplateDescriptorBinderProvider());
-                                });
+            services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
+                    .AddJsonOptions(options => options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter()));
+
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
 
             services.AddOptions();

@@ -3,34 +3,40 @@ using System.Collections.Generic;
 
 namespace NuClear.VStore.Host.Descriptors
 {
-    public struct TemplateDescriptor : IEquatable<TemplateDescriptor>
+    public sealed class TemplateDescriptor : IEquatable<TemplateDescriptor>
     {
-        public TemplateDescriptor(Guid id, string versionId, string name, IEnumerable<IElementDescriptor> elementDescriptors)
+        public TemplateDescriptor()
         {
-            Id = id;
-            VersionId = versionId;
-            Name = name;
-            ElementDescriptors = elementDescriptors;
+            ElementDescriptors = new List<IElementDescriptor>();
         }
 
-        public Guid Id { get; }
+        public Guid Id { get; set; }
 
-        public string VersionId { get; }
+        public string VersionId { get; set; }
 
-        public string Name { get; }
+        public string Name { get; set; }
 
-        public IEnumerable<IElementDescriptor> ElementDescriptors { get; }
+        public bool IsRequired { get; set; }
 
-        public static bool operator ==(TemplateDescriptor descriptor1, TemplateDescriptor descriptor2)
-            => descriptor1.Id == descriptor2.Id &&
-               string.Equals(descriptor1.VersionId, descriptor2.VersionId, StringComparison.OrdinalIgnoreCase);
+        public IList<IElementDescriptor> ElementDescriptors { get; }
 
-        public static bool operator !=(TemplateDescriptor descriptor1, TemplateDescriptor descriptor2)
-            => !(descriptor1 == descriptor2);
+        public override bool Equals(object obj)
+        {
+            var other = obj as TemplateDescriptor;
+            if (other == null)
+            {
+                return false;
+            }
 
-        public override bool Equals(object obj) => obj is TemplateDescriptor && Equals((TemplateDescriptor)obj);
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
 
-        public bool Equals(TemplateDescriptor other) => this == other;
+            return Id == other.Id && (VersionId?.Equals(other.VersionId, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        public bool Equals(TemplateDescriptor other) => other.Equals(this);
 
         public override int GetHashCode()
         {
