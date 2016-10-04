@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  vstore.host:
+    image: microsoft/aspnetcore-build:1.0.1
+    volumes:
+      - .:/sln
+      - ~/.aws:/sln/.aws:ro
+    working_dir: /sln
+    entrypoint: ["sh", "./build.sh"]

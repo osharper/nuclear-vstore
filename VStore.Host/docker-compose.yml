@@ -10,5 +10,3 @@ services:
       - "5000:5000"
     volumes:
       - ~/.aws:/root/.aws:ro
-    extra_hosts:
-      - "ceph-aio vstore-templates.ceph-aio vstore-content.ceph-aio:10.154.14.50"
