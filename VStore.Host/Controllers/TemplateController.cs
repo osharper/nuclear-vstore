@@ -49,7 +49,7 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var versionId = await _templateManagementService.CreateTemplate(templateDescriptor);
-                var url = Url.AbsoluteAction("Get", "Templates", new { templateDescriptor.Id, versionId });
+                var url = Url.AbsoluteAction("Get", "Template", new { templateDescriptor.Id, versionId });
                 return Created(url, null);
             }
             catch (Exception ex)
