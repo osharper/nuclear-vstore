@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
-using NuClear.VStore.Host.Options;
+using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Host.Controllers
 {

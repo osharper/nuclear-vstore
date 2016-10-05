@@ -2,7 +2,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 
-using NuClear.VStore.Host.Locks;
+using NuClear.VStore.Locks;
 
 namespace NuClear.VStore.Host.Controllers
 {

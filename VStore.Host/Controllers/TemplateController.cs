@@ -3,9 +3,9 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 
-using NuClear.VStore.Host.Core;
-using NuClear.VStore.Host.Descriptors;
-using NuClear.VStore.Host.Templates;
+using NuClear.VStore.Descriptors;
+using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Host.Controllers
 {

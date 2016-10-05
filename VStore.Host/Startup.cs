@@ -7,13 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
-using NuClear.VStore.Host.Bindings;
 using NuClear.VStore.Host.Convensions;
-using NuClear.VStore.Host.Locks;
-using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Swashbuckle;
-using NuClear.VStore.Host.Templates;
+using NuClear.VStore.Json;
+using NuClear.VStore.Locks;
+using NuClear.VStore.Options;
+using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Host
 {
@@ -47,9 +48,9 @@ namespace NuClear.VStore.Host
             services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
 
             services.AddAWSService<IAmazonS3>();
-            services.AddSingleton<LockSessionManager>();
-            services.AddScoped<LockSessionFactory>();
-            services.AddScoped<TemplateManagementService>();
+            services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
+            services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
+            services.AddScoped(x => new TemplateManagementService(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>(), x.GetService<LockSessionFactory>()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
