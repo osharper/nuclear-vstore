@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -55,18 +57,23 @@ namespace NuClear.VStore.Host.Templates
             var listVersionsResponse = await _amazonS3.ListVersionsAsync(_bucketName);
 
             var descriptors = new ConcurrentBag<TemplateDescriptor>();
+            var versions = listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker);
+            versions.Sort((x, y) => x.LastModified > y.LastModified ? 1 : -1);
             Parallel.ForEach(
-                listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker),
+                versions,
                 obj =>
                     {
                         var response = _amazonS3.GetObjectMetadataAsync(_bucketName, obj.Key, obj.VersionId);
                         var metadata = response.Result.Metadata;
+
+                        var name = Encoding.UTF8.GetString(Convert.FromBase64String(metadata[NameToken.AsMetadata()]));
+                        var isRequired = bool.Parse(metadata[IsRequiredToken.AsMetadata()]);
                         descriptors.Add(new TemplateDescriptor
                                             {
                                                 Id = Guid.Parse(obj.Key),
                                                 VersionId = obj.VersionId,
-                                                Name = metadata[NameToken.AsMetadata()],
-                                                IsRequired = bool.Parse(metadata[IsRequiredToken.AsMetadata()])
+                                                Name = name,
+                                                IsRequired = isRequired
                                             });
                     });
 
@@ -96,7 +103,7 @@ namespace NuClear.VStore.Host.Templates
                 };
 
             string content;
-            using (var reader = new StreamReader(response.ResponseStream))
+            using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
             {
                 content = reader.ReadToEnd();
             }
@@ -189,12 +196,16 @@ namespace NuClear.VStore.Host.Templates
 
         private async Task PutTemplate(string id, string name, bool isRequired, IEnumerable<IElementDescriptor> elementDescriptors)
         {
+            var encodedName = Convert.ToBase64String(Encoding.UTF8.GetBytes(name));
+
             var content = JsonConvert.SerializeObject(
                 elementDescriptors,
                 new JsonSerializerSettings
                     {
+                        Culture = CultureInfo.InvariantCulture,
                         ContractResolver = new CamelCasePropertyNamesContractResolver()
                     });
+
             var putRequest = new PutObjectRequest
                 {
                     Key = id,
@@ -204,7 +215,7 @@ namespace NuClear.VStore.Host.Templates
                     CannedACL = S3CannedACL.PublicRead,
                     Metadata =
                         {
-                            [NameToken.AsMetadata()] = name,
+                            [NameToken.AsMetadata()] = encodedName,
                             [IsRequiredToken.AsMetadata()] = isRequired.ToString()
                         }
                 };
