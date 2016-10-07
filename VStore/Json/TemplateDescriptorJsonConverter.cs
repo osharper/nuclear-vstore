@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -22,7 +23,7 @@ namespace NuClear.VStore.Json
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            if (objectType == typeof(TemplateDescriptor))
+            if (typeof(ITemplateDescriptor).IsAssignableFrom(objectType))
             {
                 var jObject = JObject.Load(reader);
 
@@ -48,7 +49,7 @@ namespace NuClear.VStore.Json
         }
 
         public override bool CanConvert(Type objectType)
-            => objectType == typeof(TemplateDescriptor) || objectType == typeof(IEnumerable<IElementDescriptor>);
+            => typeof(ITemplateDescriptor).IsAssignableFrom(objectType) || objectType == typeof(IEnumerable<IElementDescriptor>);
 
         private static void DeserializeElementDescriptors(JToken token, IList<IElementDescriptor> elementDescriptors)
         {
