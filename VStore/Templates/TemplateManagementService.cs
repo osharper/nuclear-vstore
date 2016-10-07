@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,21 +10,17 @@ using Amazon.S3;
 using Amazon.S3.Model;
 
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Descriptors;
-using NuClear.VStore.Extensions;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
+using NuClear.VStore.s3;
 
 namespace NuClear.VStore.Templates
 {
     public sealed class TemplateManagementService
     {
-        private const string NameToken = "name";
-        private const string IsRequiredToken = "isrequired";
-
         private readonly IAmazonS3 _amazonS3;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
@@ -54,27 +50,22 @@ namespace NuClear.VStore.Templates
             var listVersionsResponse = await _amazonS3.ListVersionsAsync(_bucketName);
 
             var descriptors = new ConcurrentBag<TemplateDescriptor>();
-            var versions = listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker);
-            versions.Sort((x, y) => x.LastModified > y.LastModified ? 1 : -1);
             Parallel.ForEach(
-                versions,
+                listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker),
                 obj =>
                     {
                         var response = _amazonS3.GetObjectMetadataAsync(_bucketName, obj.Key, obj.VersionId);
                         var metadata = response.Result.Metadata;
 
-                        var name = Encoding.UTF8.GetString(Convert.FromBase64String(metadata[NameToken.AsMetadata()]));
-                        var isRequired = bool.Parse(metadata[IsRequiredToken.AsMetadata()]);
-                        descriptors.Add(new TemplateDescriptor
-                                            {
-                                                Id = Guid.Parse(obj.Key),
-                                                VersionId = obj.VersionId,
-                                                Name = name,
-                                                IsRequired = isRequired
-                                            });
+                        var descriptor = TemplateDescriptorBuilder.For(obj.Key)
+                                                                  .WithVersion(obj.VersionId)
+                                                                  .WithLastModified(obj.LastModified)
+                                                                  .WithMetadata(metadata)
+                                                                  .Build();
+                        descriptors.Add(descriptor);
                     });
 
-            return descriptors;
+            return descriptors.OrderBy(x => x.LastModified).ToArray();
         }
 
         public async Task<TemplateDescriptor> GetTemplateDescriptor(Guid id, string versionId)
@@ -91,13 +82,11 @@ namespace NuClear.VStore.Templates
             }
 
             var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
-            var descriptor = new TemplateDescriptor
-                {
-                    Id = id,
-                    VersionId = objectVersionId,
-                    Name = response.Metadata[NameToken.AsMetadata()],
-                    IsRequired = bool.Parse(response.Metadata[IsRequiredToken.AsMetadata()])
-                };
+            var descriptor = TemplateDescriptorBuilder.For(id)
+                                                      .WithVersion(objectVersionId)
+                                                      .WithLastModified(response.LastModified)
+                                                      .WithMetadata(response.Metadata)
+                                                      .Build();
 
             string content;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
@@ -114,16 +103,11 @@ namespace NuClear.VStore.Templates
             return descriptor;
         }
 
-        public async Task<string> CreateTemplate(TemplateDescriptor templateDescriptor)
+        public async Task<string> CreateTemplate(ITemplateDescriptor templateDescriptor)
         {
             if (templateDescriptor.Id == Guid.Empty)
             {
                 throw new InvalidOperationException($"Template Id must be set to the value different from '{templateDescriptor.Id}'");
-            }
-
-            if (!string.IsNullOrEmpty(templateDescriptor.VersionId))
-            {
-                throw new InvalidOperationException("VersionId must not be set");
             }
 
             using (_lockSessionFactory.CreateLockSession(templateDescriptor.Id))
@@ -135,12 +119,12 @@ namespace NuClear.VStore.Templates
                                                BucketName = _bucketName,
                                                Prefix = id
                                            });
-                if (listResponse.S3Objects.Count != 0 || !string.IsNullOrEmpty(templateDescriptor.VersionId))
+                if (listResponse.S3Objects.Count != 0)
                 {
                     throw new InvalidOperationException($"Template with Id '{templateDescriptor.Id}' already exists");
                 }
 
-                await PutTemplate(id, templateDescriptor.Name, templateDescriptor.IsRequired, templateDescriptor.ElementDescriptors);
+                await PutTemplate(id, templateDescriptor.Name, templateDescriptor.IsMandatory, templateDescriptor.ElementDescriptors);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id);
@@ -148,7 +132,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        public async Task<string> ModifyTemplate(TemplateDescriptor templateDescriptor)
+        public async Task<string> ModifyTemplate(IModifiableTemplateDescriptor templateDescriptor)
         {
             if (templateDescriptor.Id == Guid.Empty)
             {
@@ -183,7 +167,7 @@ namespace NuClear.VStore.Templates
                                                         $"Latest versionId is '{latestVersionId}'");
                 }
 
-                await PutTemplate(id, templateDescriptor.Name, templateDescriptor.IsRequired, templateDescriptor.ElementDescriptors);
+                await PutTemplate(id, templateDescriptor.Name, templateDescriptor.IsMandatory, templateDescriptor.ElementDescriptors);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id);
@@ -191,18 +175,9 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private async Task PutTemplate(string id, string name, bool isRequired, IEnumerable<IElementDescriptor> elementDescriptors)
+        private async Task PutTemplate(string id, string name, bool isMandatory, IEnumerable<IElementDescriptor> elementDescriptors)
         {
-            var encodedName = Convert.ToBase64String(Encoding.UTF8.GetBytes(name));
-
-            var content = JsonConvert.SerializeObject(
-                elementDescriptors,
-                new JsonSerializerSettings
-                    {
-                        Culture = CultureInfo.InvariantCulture,
-                        ContractResolver = new CamelCasePropertyNamesContractResolver()
-                    });
-
+            var content = JsonConvert.SerializeObject(elementDescriptors, SerializerSettings.Default);
             var putRequest = new PutObjectRequest
                 {
                     Key = id,
@@ -210,12 +185,11 @@ namespace NuClear.VStore.Templates
                     ContentType = "application/javascript",
                     ContentBody = content,
                     CannedACL = S3CannedACL.PublicRead,
-                    Metadata =
-                        {
-                            [NameToken.AsMetadata()] = encodedName,
-                            [IsRequiredToken.AsMetadata()] = isRequired.ToString()
-                        }
                 };
+
+            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+            metadataWrapper.Write(MetadataElement.Name, name);
+            metadataWrapper.Write(MetadataElement.IsMandatory, isMandatory);
 
             await _amazonS3.PutObjectAsync(putRequest);
         }

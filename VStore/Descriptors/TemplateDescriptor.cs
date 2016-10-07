@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NuClear.VStore.Descriptors
 {
-    public sealed class TemplateDescriptor : IEquatable<TemplateDescriptor>
+    public sealed class TemplateDescriptor : IEquatable<TemplateDescriptor>, IModifiableTemplateDescriptor
     {
         public TemplateDescriptor()
         {
@@ -14,9 +14,11 @@ namespace NuClear.VStore.Descriptors
 
         public string VersionId { get; set; }
 
+        public DateTime? LastModified { get; internal set; }
+
         public string Name { get; set; }
 
-        public bool IsRequired { get; set; }
+        public bool IsMandatory { get; set; }
 
         public IList<IElementDescriptor> ElementDescriptors { get; }
 

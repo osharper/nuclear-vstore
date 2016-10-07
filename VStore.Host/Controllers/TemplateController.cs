@@ -44,7 +44,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPut]
-        public async Task<IActionResult> CreateTemplate([FromBody] TemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> CreateTemplate([FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
             {
@@ -59,7 +59,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ModifyTemplate([FromBody] TemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> ModifyTemplate([FromBody] IModifiableTemplateDescriptor templateDescriptor)
         {
             try
             {

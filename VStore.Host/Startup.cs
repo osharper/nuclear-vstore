@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Newtonsoft.Json.Converters;
+
 using NuClear.VStore.Host.Convensions;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
@@ -38,7 +40,11 @@ namespace NuClear.VStore.Host
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
 
             services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
-                    .AddJsonOptions(options => options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter()));
+                    .AddJsonOptions(options =>
+                                        {
+                                            options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter());
+                                            options.SerializerSettings.Converters.Insert(1, new StringEnumConverter());
+                                        });
 
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
 
