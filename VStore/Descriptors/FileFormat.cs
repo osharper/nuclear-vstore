@@ -1,6 +1,6 @@
 ﻿namespace NuClear.VStore.Descriptors
 {
-    public enum SupportedFileFormat
+    public enum FileFormat
     {
         Png = 1,
         Gif = 2,

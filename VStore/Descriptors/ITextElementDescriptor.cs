@@ -2,6 +2,6 @@
 {
     public interface ITextElementDescriptor : IElementDescriptor
     {
-        int? MinSymbolsPerWord { get; set; }
+        int? MaxSymbols { get; set; }
     }
 }

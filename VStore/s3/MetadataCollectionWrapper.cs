@@ -3,7 +3,7 @@ using System.Text;
 
 using Amazon.S3.Model;
 
-namespace NuClear.VStore.s3
+namespace NuClear.VStore.S3
 {
     public sealed class MetadataCollectionWrapper
     {
@@ -23,7 +23,7 @@ namespace NuClear.VStore.s3
 
         public T Read<T>(MetadataElement metadataElement)
         {
-            var name = AsMetadata(metadataElement);
+            var name = AsMetadataKey(metadataElement);
             var value = _metadataCollection[name];
             if (typeof(T) == typeof(string))
             {
@@ -35,7 +35,7 @@ namespace NuClear.VStore.s3
 
         public void Write<T>(MetadataElement metadataElement, T value)
         {
-            var name = AsMetadata(metadataElement);
+            var name = AsMetadataKey(metadataElement);
             var valueToWrite = value.ToString();
             if (typeof(T) == typeof(string))
             {
@@ -45,6 +45,6 @@ namespace NuClear.VStore.s3
             _metadataCollection[name] = valueToWrite;
         }
 
-        private static string AsMetadata(MetadataElement metadataElement) => $"x-amz-meta-{metadataElement.ToString().ToLower()}";
+        private static string AsMetadataKey(MetadataElement metadataElement) => $"x-amz-meta-{metadataElement.ToString().ToLower()}";
     }
 }

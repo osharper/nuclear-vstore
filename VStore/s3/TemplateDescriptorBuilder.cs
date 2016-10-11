@@ -4,7 +4,7 @@ using Amazon.S3.Model;
 
 using NuClear.VStore.Descriptors;
 
-namespace NuClear.VStore.s3
+namespace NuClear.VStore.S3
 {
     public sealed class TemplateDescriptorBuilder
     {

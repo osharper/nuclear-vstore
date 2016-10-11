@@ -14,7 +14,7 @@ namespace NuClear.VStore.Descriptors
 
         public string VersionId { get; set; }
 
-        public DateTime? LastModified { get; internal set; }
+        public DateTime? LastModified { get; set; }
 
         public string Name { get; set; }
 

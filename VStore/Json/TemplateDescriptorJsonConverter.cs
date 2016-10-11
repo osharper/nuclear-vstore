@@ -78,6 +78,12 @@ namespace NuClear.VStore.Json
                     return token.ToObject<ImageElementDescriptor>();
                 case ElementDescriptorType.Article:
                     return token.ToObject<ArticleElementDescriptor>();
+                case ElementDescriptorType.FasComment:
+                    return token.ToObject<FasCommantElementDescriptor>();
+                case ElementDescriptorType.Date:
+                    return token.ToObject<DateElementDescriptor>();
+                case ElementDescriptorType.Link:
+                    return token.ToObject<LinkElementDescriptor>();
                 default:
                     return null;
             }

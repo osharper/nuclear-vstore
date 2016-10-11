@@ -22,11 +22,7 @@
     "VStore": "0.0.1"
   },
   "frameworks": {
-    "netcoreapp1.0": {
-      "imports": [
-        "dotnet5.6"
-      ]
-    }
+    "netcoreapp1.0": {}
   },
   "buildOptions": {
     "emitEntryPoint": true,

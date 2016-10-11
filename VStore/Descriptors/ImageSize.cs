@@ -2,13 +2,38 @@
 {
     public struct ImageSize
     {
-        public ImageSize(int width, int legnth)
+        public int Width { get; set; }
+
+        public int Height { get; set; }
+
+        public static ImageSize Empty { get; } = new ImageSize();
+
+        public static bool operator ==(ImageSize obj1, ImageSize obj2)
         {
-            Width = width;
-            Legnth = legnth;
+            return obj1.Height == obj2.Height && obj1.Width == obj2.Width;
         }
 
-        public int Width { get; }
-        public int Legnth { get; }
+        public static bool operator !=(ImageSize obj1, ImageSize obj2)
+        {
+            return !(obj1 == obj2);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ImageSize && this == (ImageSize)obj;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (Height * 397) ^ Width;
+            }
+        }
+
+        public override string ToString()
+        {
+            return $"{Width}x{Height}";
+        }
     }
 }

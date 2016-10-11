@@ -1,4 +1,4 @@
-﻿namespace NuClear.VStore.s3
+﻿namespace NuClear.VStore.S3
 {
     public enum MetadataElement
     {

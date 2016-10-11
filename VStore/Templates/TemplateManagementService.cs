@@ -15,12 +15,18 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
-using NuClear.VStore.s3;
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Templates
 {
     public sealed class TemplateManagementService
     {
+        private static readonly IReadOnlyCollection<FileFormat> ImageFileFormats =
+            new[] { FileFormat.Bmp, FileFormat.Gif, FileFormat.Png };
+
+        private static readonly IReadOnlyCollection<FileFormat> ArticleFileFormats =
+            new[] { FileFormat.Chm };
+
         private readonly IAmazonS3 _amazonS3;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
@@ -41,7 +47,10 @@ namespace NuClear.VStore.Templates
                 {
                     new TextElementDescriptor(),
                     new ImageElementDescriptor(),
-                    new ArticleElementDescriptor()
+                    new ArticleElementDescriptor(),
+                    new FasCommantElementDescriptor(),
+                    new DateElementDescriptor(),
+                    new LinkElementDescriptor()
                 };
         }
 
@@ -175,8 +184,45 @@ namespace NuClear.VStore.Templates
             }
         }
 
+        private static void VerifyDescriptorsConsistency(string templateId, IEnumerable<IElementDescriptor> elementDescriptors)
+        {
+            foreach (var elementDescriptor in elementDescriptors)
+            {
+                ImageElementDescriptor imageElementDescriptor;
+                ArticleElementDescriptor articleElementDescriptor;
+
+                if ((imageElementDescriptor = elementDescriptor as ImageElementDescriptor) != null)
+                {
+                    if (imageElementDescriptor.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
+                    {
+                        throw new TemplateInconsistentException(
+                            templateId,
+                            $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
+                    }
+
+                    if (imageElementDescriptor.ImageSize == ImageSize.Empty)
+                    {
+                        throw new TemplateInconsistentException(
+                            templateId,
+                            $"Image size must be set to the value different than: {ImageSize.Empty}");
+                    }
+                }
+                else if ((articleElementDescriptor = elementDescriptor as ArticleElementDescriptor) != null)
+                {
+                    if (articleElementDescriptor.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
+                    {
+                        throw new TemplateInconsistentException(
+                            templateId,
+                            $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
+                    }
+                }
+            }
+        }
+
         private async Task PutTemplate(string id, string name, bool isMandatory, IEnumerable<IElementDescriptor> elementDescriptors)
         {
+            VerifyDescriptorsConsistency(id, elementDescriptors);
+
             var content = JsonConvert.SerializeObject(elementDescriptors, SerializerSettings.Default);
             var putRequest = new PutObjectRequest
                 {

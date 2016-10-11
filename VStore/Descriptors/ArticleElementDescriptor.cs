@@ -8,6 +8,6 @@ namespace NuClear.VStore.Descriptors
         public bool IsMandatory { get; set; }
         public int? MaxSize { get; set; }
         public int? MaxFilenameLenght { get; set; }
-        public IEnumerable<SupportedFileFormat> SupportedFileFormats { get; set; }
+        public IEnumerable<FileFormat> SupportedFileFormats { get; set; }
     }
 }

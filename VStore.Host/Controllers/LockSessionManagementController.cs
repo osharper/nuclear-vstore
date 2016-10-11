@@ -17,15 +17,13 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
-        [Route("list")]
         public async Task<JsonResult> ListAllCurrentLockSessios()
         {
             var keys = await _lockSessionManager.GetAllCurrentLockSessions();
             return Json(keys);
         }
 
-        [HttpDelete]
-        [Route("{rootObjectId}")]
+        [HttpDelete("{rootObjectId}")]
         public async Task DeleteSessionLock(string rootObjectId)
         {
             await _lockSessionManager.DeleteLockSession(rootObjectId);
