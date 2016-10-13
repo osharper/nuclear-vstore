@@ -27,7 +27,7 @@ namespace NuClear.VStore.Host.Controllers
             return Json(_templateManagementService.GetAvailableElementDescriptors());
         }
 
-        [HttpHead]
+        [HttpGet]
         public async Task<JsonResult> List()
         {
             return Json(await _templateStorageReader.GetAllTemplateDescriptors());
