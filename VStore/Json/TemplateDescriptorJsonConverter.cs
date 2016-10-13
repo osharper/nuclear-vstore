@@ -31,28 +31,29 @@ namespace NuClear.VStore.Json
                 jObject.Remove(ElementDescriptorsToken);
 
                 var templateDescriptor = jObject.ToObject<TemplateDescriptor>();
-                DeserializeElementDescriptors(descriptors, templateDescriptor.ElementDescriptors);
+                foreach (var elementDescriptor in DeserializeElementDescriptors(descriptors))
+                {
+                    templateDescriptor.AddElementDescriptor(elementDescriptor);
+                }
 
                 return templateDescriptor;
             }
 
-            if (objectType == typeof(IEnumerable<IElementDescriptor>))
+            if (objectType == typeof(IReadOnlyCollection<IElementDescriptor>))
             {
                 var jArray = JArray.Load(reader);
-                var elementDescriptors = new List<IElementDescriptor>();
-                DeserializeElementDescriptors(jArray, elementDescriptors);
-
-                return elementDescriptors;
+                return DeserializeElementDescriptors(jArray);
             }
 
             throw new ArgumentOutOfRangeException();
         }
 
         public override bool CanConvert(Type objectType)
-            => typeof(ITemplateDescriptor).IsAssignableFrom(objectType) || objectType == typeof(IEnumerable<IElementDescriptor>);
+            => typeof(ITemplateDescriptor).IsAssignableFrom(objectType) || objectType == typeof(IReadOnlyCollection<IElementDescriptor>);
 
-        private static void DeserializeElementDescriptors(JToken token, IList<IElementDescriptor> elementDescriptors)
+        private static IReadOnlyCollection<IElementDescriptor> DeserializeElementDescriptors(JToken token)
         {
+            var elementDescriptors = new List<IElementDescriptor>();
             foreach (var descriptor in token)
             {
                 var type = descriptor[ElementDescriptorTypeToken].ToString();
@@ -61,11 +62,13 @@ namespace NuClear.VStore.Json
                 var elementDescriptor = Deserialize(descriptor, descriptorType);
                 if (elementDescriptor == null)
                 {
-                    return;
+                    return Array.Empty<IElementDescriptor>();
                 }
 
                 elementDescriptors.Add(elementDescriptor);
             }
+
+            return elementDescriptors;
         }
 
         private static IElementDescriptor Deserialize(JToken token, ElementDescriptorType descriptorType)

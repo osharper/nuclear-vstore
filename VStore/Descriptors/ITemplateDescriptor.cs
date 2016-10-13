@@ -8,6 +8,6 @@ namespace NuClear.VStore.Descriptors
         Guid Id { get; set; }
         string Name { get; set; }
         bool IsMandatory { get; set; }
-        IList<IElementDescriptor> ElementDescriptors { get; }
+        IReadOnlyCollection<IElementDescriptor> ElementDescriptors { get; }
     }
 }

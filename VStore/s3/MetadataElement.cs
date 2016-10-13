@@ -3,6 +3,9 @@
     public enum MetadataElement
     {
         Name = 1,
-        IsMandatory
+        IsMandatory,
+        Id,
+        VersionId,
+        TemplateVersionId
     }
 }

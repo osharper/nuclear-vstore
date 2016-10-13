@@ -25,7 +25,7 @@ namespace NuClear.VStore.S3
         {
             var name = AsMetadataKey(metadataElement);
             var value = _metadataCollection[name];
-            if (typeof(T) == typeof(string))
+            if (metadataElement == MetadataElement.Name)
             {
                 value = _defaultEncoding.GetString(Convert.FromBase64String(value));
             }
@@ -37,7 +37,7 @@ namespace NuClear.VStore.S3
         {
             var name = AsMetadataKey(metadataElement);
             var valueToWrite = value.ToString();
-            if (typeof(T) == typeof(string))
+            if (metadataElement == MetadataElement.Name)
             {
                 valueToWrite = Convert.ToBase64String(_defaultEncoding.GetBytes(valueToWrite));
             }

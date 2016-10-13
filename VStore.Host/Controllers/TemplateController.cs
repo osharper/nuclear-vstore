@@ -12,10 +12,12 @@ namespace NuClear.VStore.Host.Controllers
     [Route("template")]
     public class TemplateController : Controller
     {
+        private readonly TemplateStorageReader _templateStorageReader;
         private readonly TemplateManagementService _templateManagementService;
 
-        public TemplateController(TemplateManagementService templateManagementService)
+        public TemplateController(TemplateStorageReader templateStorageReader, TemplateManagementService templateManagementService)
         {
+            _templateStorageReader = templateStorageReader;
             _templateManagementService = templateManagementService;
         }
 
@@ -25,22 +27,22 @@ namespace NuClear.VStore.Host.Controllers
             return Json(_templateManagementService.GetAvailableElementDescriptors());
         }
 
-        [HttpGet]
+        [HttpHead]
         public async Task<JsonResult> List()
         {
-            return Json(await _templateManagementService.GetAllTemplateDescriptors());
+            return Json(await _templateStorageReader.GetAllTemplateDescriptors());
         }
 
         [HttpGet("{id}")]
         public async Task<JsonResult> Get(Guid id)
         {
-            return Json(await _templateManagementService.GetTemplateDescriptor(id, null));
+            return Json(await _templateStorageReader.GetTemplateDescriptor(id, null));
         }
 
         [HttpGet("{id}/{versionId}")]
         public async Task<JsonResult> Get(Guid id, string versionId)
         {
-            return Json(await _templateManagementService.GetTemplateDescriptor(id, versionId));
+            return Json(await _templateStorageReader.GetTemplateDescriptor(id, versionId));
         }
 
         [HttpPut]
@@ -59,7 +61,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ModifyTemplate([FromBody] IModifiableTemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> ModifyTemplate([FromBody] IVersionedTemplateDescriptor templateDescriptor)
         {
             try
             {

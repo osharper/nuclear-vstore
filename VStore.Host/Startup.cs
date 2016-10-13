@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 
 using Newtonsoft.Json.Converters;
 
+using NuClear.VStore.Content;
 using NuClear.VStore.Host.Convensions;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
@@ -56,7 +57,21 @@ namespace NuClear.VStore.Host
             services.AddAWSService<IAmazonS3>();
             services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
-            services.AddScoped(x => new TemplateManagementService(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>(), x.GetService<LockSessionFactory>()));
+            services.AddScoped(x => new TemplateStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
+            services.AddScoped(x => new TemplateManagementService(
+                                   x.GetService<IOptions<CephOptions>>().Value,
+                                   x.GetService<IAmazonS3>(),
+                                   x.GetService<TemplateStorageReader>(),
+                                   x.GetService<LockSessionFactory>()));
+            services.AddScoped(x => new ContentStorageReader(
+                                   x.GetService<IOptions<CephOptions>>().Value,
+                                   x.GetService<IAmazonS3>(),
+                                   x.GetService<TemplateStorageReader>()));
+            services.AddScoped(x => new ContentManagementService(
+                                   x.GetService<IOptions<CephOptions>>().Value,
+                                   x.GetService<IAmazonS3>(),
+                                   x.GetService<TemplateStorageReader>(),
+                                   x.GetService<LockSessionFactory>()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

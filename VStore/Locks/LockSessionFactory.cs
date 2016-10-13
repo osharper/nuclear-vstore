@@ -20,5 +20,6 @@ namespace NuClear.VStore.Locks
         }
 
         public LockSession CreateLockSession(Guid rootObjectId) => new LockSession(_amazonS3, _bucketName, rootObjectId, _expirationDate);
+        public LockSession CreateLockSession(long rootObjectId) => new LockSession(_amazonS3, _bucketName, rootObjectId, _expirationDate);
     }
 }

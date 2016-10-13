@@ -3,12 +3,9 @@ using System.Collections.Generic;
 
 namespace NuClear.VStore.Descriptors
 {
-    public sealed class TemplateDescriptor : IEquatable<TemplateDescriptor>, IModifiableTemplateDescriptor
+    public sealed class TemplateDescriptor : IEquatable<TemplateDescriptor>, IVersionedTemplateDescriptor
     {
-        public TemplateDescriptor()
-        {
-            ElementDescriptors = new List<IElementDescriptor>();
-        }
+        private readonly List<IElementDescriptor> _elementDescriptors = new List<IElementDescriptor>();
 
         public Guid Id { get; set; }
 
@@ -20,7 +17,12 @@ namespace NuClear.VStore.Descriptors
 
         public bool IsMandatory { get; set; }
 
-        public IList<IElementDescriptor> ElementDescriptors { get; }
+        public IReadOnlyCollection<IElementDescriptor> ElementDescriptors => _elementDescriptors;
+
+        public void AddElementDescriptor(IElementDescriptor elementDescriptor)
+        {
+            _elementDescriptors.Add(elementDescriptor);
+        }
 
         public override bool Equals(object obj)
         {

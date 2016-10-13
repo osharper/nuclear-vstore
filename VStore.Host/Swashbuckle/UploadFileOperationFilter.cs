@@ -8,7 +8,7 @@ namespace NuClear.VStore.Host.Swashbuckle
         public void Apply(Operation operation, OperationFilterContext context)
         {
             // controller and action name
-            if (operation.OperationId == "Api1.0ContentByIdPut")
+            if (operation.OperationId == "Api1.0ContentByIdByElementIdPut")
             {
                 if (operation.Parameters.Count > 0)
                 {
@@ -22,7 +22,7 @@ namespace NuClear.VStore.Host.Swashbuckle
                                  {
                                      Name = "File",
                                      In = "formData",
-                                     Description = "Uplaod Image",
+                                     Description = "Upload Image",
                                      Required = true,
                                      Type = "file"
                                  });
