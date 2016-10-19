@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Host.Controllers
@@ -34,18 +35,32 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<JsonResult> Get(Guid id)
+        public async Task<IActionResult> Get(Guid id)
         {
-            return Json(await _templateStorageReader.GetTemplateDescriptor(id, null));
+            try
+            {
+                return Json(await _templateStorageReader.GetTemplateDescriptor(id, null));
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(id);
+            }
         }
 
         [HttpGet("{id}/{versionId}")]
-        public async Task<JsonResult> Get(Guid id, string versionId)
+        public async Task<IActionResult> Get(Guid id, string versionId)
         {
-            return Json(await _templateStorageReader.GetTemplateDescriptor(id, versionId));
+            try
+            {
+                return Json(await _templateStorageReader.GetTemplateDescriptor(id, versionId));
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(new { id, versionId });
+            }
         }
 
-        [HttpPut]
+        [HttpPost]
         public async Task<IActionResult> CreateTemplate([FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
@@ -60,7 +75,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost]
+        [HttpPut]
         public async Task<IActionResult> ModifyTemplate([FromBody] IVersionedTemplateDescriptor templateDescriptor)
         {
             try

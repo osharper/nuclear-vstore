@@ -45,7 +45,7 @@ namespace NuClear.VStore.Json
                 return DeserializeElementDescriptors(jArray);
             }
 
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(objectType));
         }
 
         public override bool CanConvert(Type objectType)

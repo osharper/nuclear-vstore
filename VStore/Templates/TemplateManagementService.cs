@@ -79,7 +79,7 @@ namespace NuClear.VStore.Templates
         {
             if (templateDescriptor.Id == Guid.Empty)
             {
-                throw new ArgumentException($"Template Id must be set", nameof(templateDescriptor.Id));
+                throw new ArgumentException("Template Id must be set", nameof(templateDescriptor.Id));
             }
 
             if (string.IsNullOrEmpty(templateDescriptor.VersionId))

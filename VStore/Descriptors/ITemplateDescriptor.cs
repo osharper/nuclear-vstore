@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NuClear.VStore.Descriptors
 {
-    public interface ITemplateDescriptor
+    public interface ITemplateDescriptor : IDescriptor
     {
         Guid Id { get; set; }
         string Name { get; set; }

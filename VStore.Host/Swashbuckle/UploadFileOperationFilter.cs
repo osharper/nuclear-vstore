@@ -8,7 +8,7 @@ namespace NuClear.VStore.Host.Swashbuckle
         public void Apply(Operation operation, OperationFilterContext context)
         {
             // controller and action name
-            if (operation.OperationId == "Api1.0ContentByIdByElementIdPut")
+            if (operation.OperationId == "Api1.0DevContentByIdPut")
             {
                 if (operation.Parameters.Count > 0)
                 {

@@ -1,4 +1,7 @@
-﻿using System.Linq;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -12,6 +15,7 @@ using NuClear.VStore.Content;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Options;
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Host.Controllers
 {
@@ -35,36 +39,50 @@ namespace NuClear.VStore.Host.Controllers
             _bucketName = cephOptions.Value.ContentBucketName;
         }
 
-        [HttpGet]
-        public async Task<JsonResult> List()
+        [HttpGet("template/{id}/{versionId}")]
+        public async Task<JsonResult> GetTemplateDescriptor(long id, string versionId)
         {
-            var response = await _amazonS3.ListVersionsAsync(_bucketName);
-            return Json(response.Versions.Where(x => !x.IsDeleteMarker).Select(x => new { x.Key, x.VersionId, x.IsLatest }));
+            var descriptor = await _contentStorageReader.GetTemplateDescriptor(id, versionId);
+            return Json(descriptor);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> Get(long id)
+        {
+            try
+            {
+                var descriptor = await _contentStorageReader.GetContentDescriptor(id, null);
+                return Json(descriptor);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(id);
+            }
+            catch (ObjectInconsistentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet("{id}/{versionId}")]
-        public async Task<FileStreamResult> Get(string id, string versionId)
+        public async Task<IActionResult> Get(long id, string versionId)
         {
-            var response = await _amazonS3.GetObjectAsync(_bucketName, id, versionId);
-            return File(response.ResponseStream, response.Headers.ContentType);
+            try
+            {
+                var descriptor = await _contentStorageReader.GetContentDescriptor(id, versionId);
+                return Json(descriptor);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(id);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
-        [HttpPut("{id}/{elementId}")]
-        public async Task<string> Put(string id, string elementId, IFormFile file)
-        {
-            var response = await _amazonS3.PutObjectAsync(
-                               new PutObjectRequest
-                                   {
-                                       Key = id,
-                                       BucketName = _bucketName,
-                                       ContentType = file.ContentType,
-                                       InputStream = file.OpenReadStream(),
-                                       CannedACL = S3CannedACL.PublicRead
-                                   });
-            return response.VersionId;
-        }
-
-        [HttpPut("{id}")]
+        [HttpPost("{id}")]
         public async Task<IActionResult> Initialize(long id, [FromBody]IVersionedTemplateDescriptor templateDescriptor)
         {
             var versionId = await _contentManagementService.Initialize(id, templateDescriptor);
@@ -72,11 +90,24 @@ namespace NuClear.VStore.Host.Controllers
             return Created(url, versionId);
         }
 
-        [HttpGet("template/{id}/{versionId}")]
-        public async Task<JsonResult> GetTemplateDescriptor(long id, string versionId)
+        [HttpPut("title/{id}/{versionId}")]
+        public async Task<IActionResult> SetTitle(long id, string versionId, [FromBody]string title)
         {
-            var descriptor = await _contentStorageReader.GetTemplateDescriptor(id, versionId);
-            return Json(descriptor);
+            try
+            {
+                var currentVersionId = await _contentManagementService.SetTitle(id, versionId, title);
+                return Json(new { versionId = currentVersionId });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("text/{id}/{versionId}/{elementId}")]
+        public async Task<string> SetTextElement(long id, string versionId, long elementId, [FromBody]string content)
+        {
+            return await _contentManagementService.ModifyElement(id, versionId, elementId, content);
         }
     }
 }

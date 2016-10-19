@@ -41,11 +41,11 @@ namespace NuClear.VStore.Templates
                         var response = _amazonS3.GetObjectMetadataAsync(_bucketName, obj.Key, obj.VersionId);
                         var metadata = response.Result.Metadata;
 
-                        var descriptor = TemplateDescriptorBuilder.For(obj.Key)
-                                                                  .WithVersion(obj.VersionId)
-                                                                  .WithLastModified(obj.LastModified)
-                                                                  .WithMetadata(metadata)
-                                                                  .Build();
+                        var descriptor = DescriptorBuilder.For(obj.Key)
+                                                          .WithVersion(obj.VersionId)
+                                                          .WithLastModified(obj.LastModified)
+                                                          .WithMetadata(metadata)
+                                                          .Build<TemplateDescriptor>();
                         descriptors.Add(descriptor);
                     });
 
@@ -57,11 +57,16 @@ namespace NuClear.VStore.Templates
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetTemplateLatestVersion(id) : versionId;
 
             var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
-            var descriptor = TemplateDescriptorBuilder.For(id)
-                                                      .WithVersion(objectVersionId)
-                                                      .WithLastModified(response.LastModified)
-                                                      .WithMetadata(response.Metadata)
-                                                      .Build();
+            if (response.ResponseStream == null)
+            {
+                throw new ObjectNotFoundException($"Template '{id}' not found");
+            }
+
+            var descriptor = DescriptorBuilder.For(id)
+                                              .WithVersion(objectVersionId)
+                                              .WithLastModified(response.LastModified)
+                                              .WithMetadata(response.Metadata)
+                                              .Build<TemplateDescriptor>();
 
             string content;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))

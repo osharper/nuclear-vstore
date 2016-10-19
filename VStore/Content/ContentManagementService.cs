@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -57,6 +58,53 @@ namespace NuClear.VStore.Content
             }
         }
 
+        public async Task<string> SetTitle(long rootObjectId, string rootObjectVersionId, string title)
+        {
+            using (_lockSessionFactory.CreateLockSession(rootObjectId))
+            {
+                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
+                await EnsureObjectState(descriptorKey, rootObjectVersionId);
+
+                var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, descriptorKey, rootObjectVersionId);
+
+                var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+                metadataWrapper.Write(MetadataElement.Title, title);
+                var metadata = metadataWrapper.Unwrap();
+
+                var copyRequest = new CopyObjectRequest
+                    {
+                        SourceBucket = _bucketName,
+                        DestinationBucket = _bucketName,
+                        SourceKey = descriptorKey,
+                        DestinationKey = descriptorKey,
+                        SourceVersionId = rootObjectVersionId,
+                        MetadataDirective = S3MetadataDirective.REPLACE,
+                        CannedACL = S3CannedACL.PublicRead
+                    };
+                foreach (var metadataKey in metadata.Keys)
+                {
+                    copyRequest.Metadata[metadataKey] = metadata[metadataKey];
+                }
+
+                await _amazonS3.CopyObjectAsync(copyRequest);
+
+                var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, descriptorKey);
+                return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
+            }
+        }
+
+        public async Task<string> ModifyElement(long rootObjectId, string rootObjectVersionId, long elementId, string content)
+        {
+            using (_lockSessionFactory.CreateLockSession(rootObjectId))
+            {
+                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
+                await EnsureObjectState(descriptorKey, rootObjectVersionId);
+
+            }
+
+            return string.Empty;
+        }
+
         private async Task SaveTemplate(long rootObjectId, IVersionedTemplateDescriptor templateDescriptor)
         {
             var key = rootObjectId.AsS3ObjectKey(Tokens.TemplatePostfix, templateDescriptor.Id);
@@ -97,6 +145,21 @@ namespace NuClear.VStore.Content
             // ceph does not return version-id response header, so we need to do another request to get version
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, key);
             return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
+        }
+
+        private async Task EnsureObjectState(string key, string versionId)
+        {
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, key);
+            if (versionsResponse.Versions.Count == 0)
+            {
+                throw new ObjectNotFoundException($"Object '{key}' not found");
+            }
+
+            var latestVersionId = versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
+            if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
+            {
+                throw new ConcurrencyException(key, versionId, latestVersionId);
+            }
         }
     }
 }
