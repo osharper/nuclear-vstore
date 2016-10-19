@@ -82,6 +82,7 @@ namespace NuClear.VStore.Host
 
             app.UseDeveloperExceptionPage();
 
+            app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
             app.UseMvc();
             app.UseSwagger();
             app.UseSwaggerUi();

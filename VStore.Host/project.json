@@ -19,7 +19,8 @@
     },
     "Swashbuckle": "6.0.0-beta902",
     "AWSSDK.S3": "3.3.0.1",
-    "VStore": "0.0.1"
+    "VStore": "0.0.1",
+    "Microsoft.AspNetCore.Cors": "1.0.0"
   },
   "frameworks": {
     "netcoreapp1.0": {}
