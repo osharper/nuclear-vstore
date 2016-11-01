@@ -13,11 +13,6 @@ namespace NuClear.VStore.Locks
         private readonly string _bucketName;
         private readonly string _rootObjectId;
 
-        public LockSession(IAmazonS3 amazonS3, string bucketName, Guid rootObjectId, DateTime expirationDate)
-            : this(amazonS3, bucketName, rootObjectId.ToString(), expirationDate)
-        {
-        }
-
         public LockSession(IAmazonS3 amazonS3, string bucketName, long rootObjectId, DateTime expirationDate)
             : this(amazonS3, bucketName, rootObjectId.ToString(), expirationDate)
         {

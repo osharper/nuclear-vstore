@@ -2,11 +2,11 @@
 {
     public struct ImageSize
     {
+        public static ImageSize Empty { get; } = new ImageSize();
+
         public int Width { get; set; }
 
         public int Height { get; set; }
-
-        public static ImageSize Empty { get; } = new ImageSize();
 
         public static bool operator ==(ImageSize obj1, ImageSize obj2)
         {

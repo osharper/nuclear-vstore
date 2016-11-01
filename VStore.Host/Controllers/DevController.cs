@@ -31,7 +31,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPut("lock-session")]
         public void CreateLockSession()
         {
-            _lockSessionFactory.CreateLockSession(Guid.Empty);
+            _lockSessionFactory.CreateLockSession(0);
         }
 
         [HttpGet("content")]

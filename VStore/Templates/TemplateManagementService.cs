@@ -9,6 +9,7 @@ using Amazon.S3.Model;
 using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
@@ -54,116 +55,119 @@ namespace NuClear.VStore.Templates
                 };
         }
 
-        public async Task<string> CreateTemplate(ITemplateDescriptor templateDescriptor)
+        public async Task<string> CreateTemplate(long id, ITemplateDescriptor templateDescriptor)
         {
-            if (templateDescriptor.Id == Guid.Empty)
+            if (id == 0)
             {
-                throw new ArgumentException($"Template Id must be set to the value different from '{templateDescriptor.Id}'", nameof(templateDescriptor.Id));
+                throw new ArgumentException($"Template Id must be set", nameof(id));
             }
 
-            using (_lockSessionFactory.CreateLockSession(templateDescriptor.Id))
+            using (_lockSessionFactory.CreateLockSession(id))
             {
-                if (await _templateStorageReader.IsTemplateExists(templateDescriptor.Id))
+                if (await _templateStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{templateDescriptor.Id}' already exists");
+                    throw new InvalidOperationException($"Template '{id}' already exists");
                 }
 
-                await PutTemplate(templateDescriptor.Id, templateDescriptor.Name, templateDescriptor.IsMandatory, templateDescriptor.ElementDescriptors);
+                await PutTemplate(id, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
-                return await _templateStorageReader.GetTemplateLatestVersion(templateDescriptor.Id);
+                return await _templateStorageReader.GetTemplateLatestVersion(id);
             }
         }
 
-        public async Task<string> ModifyTemplate(IVersionedTemplateDescriptor templateDescriptor)
+        public async Task<string> ModifyTemplate(long id, string versionId, ITemplateDescriptor templateDescriptor)
         {
-            if (templateDescriptor.Id == Guid.Empty)
+            if (id == 0)
             {
-                throw new ArgumentException("Template Id must be set", nameof(templateDescriptor.Id));
+                throw new ArgumentException("Template Id must be set", nameof(id));
             }
 
-            if (string.IsNullOrEmpty(templateDescriptor.VersionId))
+            if (string.IsNullOrEmpty(versionId))
             {
-                throw new ArgumentException("VersionId must be set", nameof(templateDescriptor.VersionId));
+                throw new ArgumentException("VersionId must be set", nameof(versionId));
             }
 
-            using (_lockSessionFactory.CreateLockSession(templateDescriptor.Id))
+            using (_lockSessionFactory.CreateLockSession(id))
             {
-                if (!await _templateStorageReader.IsTemplateExists(templateDescriptor.Id) || string.IsNullOrEmpty(templateDescriptor.VersionId))
+                if (!await _templateStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{templateDescriptor.Id}' does not exist");
+                    throw new InvalidOperationException($"Template '{id}' does not exist");
                 }
 
-                var latestVersionId = await _templateStorageReader.GetTemplateLatestVersion(templateDescriptor.Id);
-                if (!templateDescriptor.VersionId.Equals(latestVersionId, StringComparison.Ordinal))
+                var latestVersionId = await _templateStorageReader.GetTemplateLatestVersion(id);
+                if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
                 {
-                    throw new InvalidOperationException($"Template '{templateDescriptor.Id}' cannot be modified. " +
-                                                        $"Reason: version '{templateDescriptor.VersionId}' has been overwritten. " +
+                    throw new InvalidOperationException($"Template '{id}' cannot be modified. " +
+                                                        $"Reason: version '{versionId}' has been overwritten. " +
                                                         $"Latest versionId is '{latestVersionId}'");
                 }
 
-                await PutTemplate(templateDescriptor.Id, templateDescriptor.Name, templateDescriptor.IsMandatory, templateDescriptor.ElementDescriptors);
+                await PutTemplate(id, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
-                return await _templateStorageReader.GetTemplateLatestVersion(templateDescriptor.Id);
+                return await _templateStorageReader.GetTemplateLatestVersion(id);
             }
         }
 
-        private static void VerifyDescriptorsConsistency(string templateId, IEnumerable<IElementDescriptor> elementDescriptors)
+        public void VerifyElementDescriptorsConsistency(long? templateId, IEnumerable<IElementDescriptor> elementDescriptors)
         {
-            foreach (var elementDescriptor in elementDescriptors)
-            {
-                ImageElementDescriptor imageElementDescriptor;
-                ArticleElementDescriptor articleElementDescriptor;
+            Parallel.ForEach(
+                elementDescriptors,
+                elementDescriptor =>
+                    {
+                        TextElementDescriptor textElementDescriptor;
+                        ImageElementDescriptor imageElementDescriptor;
+                        ArticleElementDescriptor articleElementDescriptor;
+                        if ((textElementDescriptor = elementDescriptor as TextElementDescriptor) != null)
+                        {
+                            if (textElementDescriptor.MaxSymbols < textElementDescriptor.MaxSymbolsPerWord)
+                            {
+                                throw new TemplateInconsistentException(
+                                          templateId,
+                                          $"MaxSymbols must be equal or greater than MaxSymbolsPerWord");
+                            }
+                        }
+                        else if ((imageElementDescriptor = elementDescriptor as ImageElementDescriptor) != null)
+                        {
+                            if (imageElementDescriptor.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
+                            {
+                                throw new TemplateInconsistentException(
+                                          templateId,
+                                          $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
+                            }
 
-                if ((imageElementDescriptor = elementDescriptor as ImageElementDescriptor) != null)
-                {
-                    if (imageElementDescriptor.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
-                    {
-                        throw new TemplateInconsistentException(
-                            templateId,
-                            $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
-                    }
-
-                    if (imageElementDescriptor.ImageSize == ImageSize.Empty)
-                    {
-                        throw new TemplateInconsistentException(
-                            templateId,
-                            $"Image size must be set to the value different than: {ImageSize.Empty}");
-                    }
-                }
-                else if ((articleElementDescriptor = elementDescriptor as ArticleElementDescriptor) != null)
-                {
-                    if (articleElementDescriptor.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
-                    {
-                        throw new TemplateInconsistentException(
-                            templateId,
-                            $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
-                    }
-                }
-            }
+                            if (imageElementDescriptor.ImageSize == ImageSize.Empty)
+                            {
+                                throw new TemplateInconsistentException(
+                                          templateId,
+                                          $"Image size must be set to the value different than: {ImageSize.Empty}");
+                            }
+                        }
+                        else if ((articleElementDescriptor = elementDescriptor as ArticleElementDescriptor) != null)
+                        {
+                            if (articleElementDescriptor.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
+                            {
+                                throw new TemplateInconsistentException(
+                                          templateId,
+                                          $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
+                            }
+                        }
+                    });
         }
 
-        private async Task PutTemplate(Guid id, string name, bool isMandatory, IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        private async Task PutTemplate(long id, ITemplateDescriptor templateDescriptor)
         {
-            var templateId = id.ToString();
+            VerifyElementDescriptorsConsistency(id, templateDescriptor.Elements);
 
-            VerifyDescriptorsConsistency(templateId, elementDescriptors);
-
-            var content = JsonConvert.SerializeObject(elementDescriptors, SerializerSettings.Default);
             var putRequest = new PutObjectRequest
                 {
-                    Key = templateId,
+                    Key = id.ToString(),
                     BucketName = _bucketName,
                     ContentType = ContentType.Json,
-                    ContentBody = content,
+                    ContentBody = JsonConvert.SerializeObject(templateDescriptor, SerializerSettings.Default),
                     CannedACL = S3CannedACL.PublicRead,
                 };
-
-            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            metadataWrapper.Write(MetadataElement.Name, name);
-            metadataWrapper.Write(MetadataElement.IsMandatory, isMandatory);
-
             await _amazonS3.PutObjectAsync(putRequest);
         }
     }

@@ -11,11 +11,11 @@ using Microsoft.Extensions.Options;
 
 using Newtonsoft.Json.Converters;
 
-using NuClear.VStore.Content;
 using NuClear.VStore.Host.Convensions;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.Templates;
 
@@ -44,7 +44,7 @@ namespace NuClear.VStore.Host
                     .AddJsonOptions(options =>
                                         {
                                             options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter());
-                                            options.SerializerSettings.Converters.Insert(1, new StringEnumConverter());
+                                            options.SerializerSettings.Converters.Insert(1, new StringEnumConverter { CamelCaseText = true });
                                         });
 
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());

@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 
-using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
@@ -31,15 +32,16 @@ namespace NuClear.VStore.Host.Controllers
         [HttpGet]
         public async Task<JsonResult> List()
         {
-            return Json(await _templateStorageReader.GetAllTemplateDescriptors());
+            return Json(await _templateStorageReader.GetTemplateMetadatas());
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(Guid id)
+        public async Task<IActionResult> Get(long id)
         {
             try
             {
-                return Json(await _templateStorageReader.GetTemplateDescriptor(id, null));
+                var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(id, null);
+                return Json(new { Template = templateDescriptor, templateDescriptor.VersionId });
             }
             catch (ObjectNotFoundException)
             {
@@ -48,26 +50,25 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/{versionId}")]
-        public async Task<IActionResult> Get(Guid id, string versionId)
+        public async Task<IActionResult> Get(long id, string versionId)
         {
             try
             {
-                return Json(await _templateStorageReader.GetTemplateDescriptor(id, versionId));
+                var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(id, versionId);
+                return Json(new { Template = templateDescriptor, templateDescriptor.VersionId });
             }
             catch (ObjectNotFoundException)
             {
                 return NotFound(new { id, versionId });
             }
         }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateTemplate([FromBody] ITemplateDescriptor templateDescriptor)
+        [HttpPost("validate-elements")]
+        public IActionResult CreateTemplate([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
-                var versionId = await _templateManagementService.CreateTemplate(templateDescriptor);
-                var url = Url.AbsoluteAction("Get", "Template", new { templateDescriptor.Id, versionId });
-                return Created(url, null);
+                _templateManagementService.VerifyElementDescriptorsConsistency(null, elementDescriptors);
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -75,13 +76,42 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPut]
-        public async Task<IActionResult> ModifyTemplate([FromBody] IVersionedTemplateDescriptor templateDescriptor)
+        [HttpPost("validate-elements/{id}")]
+        public IActionResult CreateTemplate(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
-                var versionId = await _templateManagementService.ModifyTemplate(templateDescriptor);
-                return Ok(versionId);
+                _templateManagementService.VerifyElementDescriptorsConsistency(id, elementDescriptors);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { ex.Message });
+            }
+        }
+
+        [HttpPost("{id}")]
+        public async Task<IActionResult> CreateTemplate(long id, [FromBody] ITemplateDescriptor templateDescriptor)
+        {
+            try
+            {
+                var versionId = await _templateManagementService.CreateTemplate(id, templateDescriptor);
+                var url = Url.AbsoluteAction("Get", "Template", new { id, versionId });
+                return Created(url, versionId);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { ex.Message });
+            }
+        }
+
+        [HttpPut("{id}/{versionId}")]
+        public async Task<IActionResult> ModifyTemplate(long id, string versionId, [FromBody] ITemplateDescriptor templateDescriptor)
+        {
+            try
+            {
+                var latestVersionId = await _templateManagementService.ModifyTemplate(id, versionId, templateDescriptor);
+                return Ok(latestVersionId);
             }
             catch (Exception ex)
             {

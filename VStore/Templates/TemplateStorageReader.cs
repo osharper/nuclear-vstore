@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,6 +11,7 @@ using Amazon.S3.Model;
 using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
@@ -29,30 +29,19 @@ namespace NuClear.VStore.Templates
             _bucketName = cephOptions.TemplatesBucketName;
         }
 
-        public async Task<IReadOnlyCollection<TemplateDescriptor>> GetAllTemplateDescriptors()
+        public async Task<IReadOnlyCollection<ImmutableDescriptor>> GetTemplateMetadatas()
         {
             var listVersionsResponse = await _amazonS3.ListVersionsAsync(_bucketName);
 
-            var descriptors = new ConcurrentBag<TemplateDescriptor>();
+            var descriptors = new ConcurrentBag<ImmutableDescriptor>();
             Parallel.ForEach(
                 listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker),
-                obj =>
-                    {
-                        var response = _amazonS3.GetObjectMetadataAsync(_bucketName, obj.Key, obj.VersionId);
-                        var metadata = response.Result.Metadata;
-
-                        var descriptor = DescriptorBuilder.For(obj.Key)
-                                                          .WithVersion(obj.VersionId)
-                                                          .WithLastModified(obj.LastModified)
-                                                          .WithMetadata(metadata)
-                                                          .Build<TemplateDescriptor>();
-                        descriptors.Add(descriptor);
-                    });
+                obj => descriptors.Add(new ImmutableDescriptor(obj.Key, obj.VersionId, obj.LastModified)));
 
             return descriptors.OrderBy(x => x.LastModified).ToArray();
         }
 
-        public async Task<TemplateDescriptor> GetTemplateDescriptor(Guid id, string versionId)
+        public async Task<TemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetTemplateLatestVersion(id) : versionId;
 
@@ -62,34 +51,25 @@ namespace NuClear.VStore.Templates
                 throw new ObjectNotFoundException($"Template '{id}' not found");
             }
 
-            var descriptor = DescriptorBuilder.For(id)
-                                              .WithVersion(objectVersionId)
-                                              .WithLastModified(response.LastModified)
-                                              .WithMetadata(response.Metadata)
-                                              .Build<TemplateDescriptor>();
-
-            string content;
+            string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
             {
-                content = reader.ReadToEnd();
+                json = reader.ReadToEnd();
             }
 
-            var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<IElementDescriptor>>(content, new TemplateDescriptorJsonConverter());
-            foreach (var elementDescriptor in descriptors)
-            {
-                descriptor.AddElementDescriptor(elementDescriptor);
-            }
+            var descriptor = new TemplateDescriptor { Id = id, VersionId = objectVersionId, LastModified = response.LastModified };
+            JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
 
             return descriptor;
         }
 
-        public async Task<string> GetTemplateLatestVersion(Guid id)
+        public async Task<string> GetTemplateLatestVersion(long id)
         {
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString());
             return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
         }
 
-        public async Task<bool> IsTemplateExists(Guid id)
+        public async Task<bool> IsTemplateExists(long id)
         {
             var listResponse = await _amazonS3.ListObjectsV2Async(
                                    new ListObjectsV2Request

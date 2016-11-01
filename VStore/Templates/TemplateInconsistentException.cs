@@ -4,8 +4,8 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplateInconsistentException : Exception
     {
-        public TemplateInconsistentException(string templateId, string details)
-            : base($"Template '{templateId}' is inconsistent. Details: {details}")
+        public TemplateInconsistentException(long? templateId, string details)
+            : base(templateId.HasValue ? $"Template '{templateId}' is inconsistent. Details: {details}" : details)
         {
         }
     }
