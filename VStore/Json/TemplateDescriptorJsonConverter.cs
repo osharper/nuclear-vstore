@@ -12,8 +12,10 @@ namespace NuClear.VStore.Json
     public class TemplateDescriptorJsonConverter : JsonConverter
     {
         private const string PropertiesToken = "properties";
-        private const string ElementDescriptorsToken = "elements";
-        private const string ElementDescriptorTypeToken = "type";
+        private const string ElementsToken = "elements";
+        private const string TypeToken = "type";
+        private const string TemplateCodeToken = "templateCode";
+        private const string ConstraintsToken = "constraints";
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
@@ -22,7 +24,7 @@ namespace NuClear.VStore.Json
             var json = new JObject
                            {
                                [PropertiesToken] = templateDescriptor.Properties,
-                               [ElementDescriptorsToken] = JArray.FromObject(templateDescriptor.Elements, serializer)
+                               [ElementsToken] = JArray.FromObject(templateDescriptor.Elements, serializer)
                            };
             json.WriteTo(writer);
         }
@@ -32,10 +34,10 @@ namespace NuClear.VStore.Json
             if (typeof(ITemplateDescriptor).IsAssignableFrom(objectType))
             {
                 var obj = JObject.Load(reader);
-                var descriptors = obj[ElementDescriptorsToken];
+                var descriptors = obj[ElementsToken];
                 var elementDescriptors = DeserializeElementDescriptors(descriptors);
 
-                obj.Remove(ElementDescriptorsToken);
+                obj.Remove(ElementsToken);
                 var templateDescriptor = obj.ToObject<TemplateDescriptor>();
                 templateDescriptor.Elements = elementDescriptors;
 
@@ -58,7 +60,7 @@ namespace NuClear.VStore.Json
             var elementDescriptors = new List<IElementDescriptor>();
             foreach (var descriptor in token)
             {
-                var type = descriptor[ElementDescriptorTypeToken].ToString();
+                var type = descriptor[TypeToken].ToString();
                 var descriptorType = (ElementDescriptorType)Enum.Parse(typeof(ElementDescriptorType), type, true);
 
                 var elementDescriptor = Deserialize(descriptor, descriptorType);
@@ -75,20 +77,23 @@ namespace NuClear.VStore.Json
 
         private static IElementDescriptor Deserialize(JToken token, ElementDescriptorType descriptorType)
         {
+            var templateCode = token[TemplateCodeToken].ToObject<int>();
+            var properties = (JObject)token[PropertiesToken];
+            var constraints = token[ConstraintsToken];
             switch (descriptorType)
             {
                 case ElementDescriptorType.Text:
-                    return token.ToObject<TextElementDescriptor>();
+                    return new TextElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
                 case ElementDescriptorType.Image:
-                    return token.ToObject<ImageElementDescriptor>();
+                    return new ImageElementDescriptor(templateCode, properties, constraints.ToObject<ImageElementConstraints>());
                 case ElementDescriptorType.Article:
-                    return token.ToObject<ArticleElementDescriptor>();
+                    return new ArticleElementDescriptor(templateCode, properties, constraints.ToObject<ArticleElementConstraints>());
                 case ElementDescriptorType.FasComment:
-                    return token.ToObject<FasCommantElementDescriptor>();
+                    return new FasCommantElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
                 case ElementDescriptorType.Date:
-                    return token.ToObject<DateElementDescriptor>();
+                    return new DateElementDescriptor(templateCode, properties);
                 case ElementDescriptorType.Link:
-                    return token.ToObject<LinkElementDescriptor>();
+                    return new LinkElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
                 default:
                     return null;
             }

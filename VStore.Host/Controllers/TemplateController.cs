@@ -41,7 +41,15 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(id, null);
-                return Json(new { Template = templateDescriptor, templateDescriptor.VersionId });
+                return Json(
+                    new
+                        {
+                            id,
+                            templateDescriptor.VersionId,
+                            templateDescriptor.LastModified,
+                            templateDescriptor.Properties,
+                            templateDescriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {
@@ -55,7 +63,15 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(id, versionId);
-                return Json(new { Template = templateDescriptor, templateDescriptor.VersionId });
+                return Json(
+                    new
+                    {
+                        id,
+                        templateDescriptor.VersionId,
+                        templateDescriptor.LastModified,
+                        templateDescriptor.Properties,
+                        templateDescriptor.Elements
+                    });
             }
             catch (ObjectNotFoundException)
             {
@@ -63,7 +79,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
         [HttpPost("validate-elements")]
-        public IActionResult CreateTemplate([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
@@ -77,7 +93,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPost("validate-elements/{id}")]
-        public IActionResult CreateTemplate(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        public IActionResult ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
@@ -91,7 +107,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPost("{id}")]
-        public async Task<IActionResult> CreateTemplate(long id, [FromBody] ITemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> Create(long id, [FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
             {
@@ -106,7 +122,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPut("{id}/{versionId}")]
-        public async Task<IActionResult> ModifyTemplate(long id, string versionId, [FromBody] ITemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> Modify(long id, string versionId, [FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
             {

@@ -17,10 +17,8 @@ namespace NuClear.VStore.Host.Controllers
     [Route("content")]
     public sealed class ContentController : Controller
     {
-        private readonly IAmazonS3 _amazonS3;
         private readonly ContentStorageReader _contentStorageReader;
         private readonly ContentManagementService _contentManagementService;
-        private readonly string _bucketName;
 
         public ContentController(
             IAmazonS3 amazonS3,
@@ -28,10 +26,8 @@ namespace NuClear.VStore.Host.Controllers
             ContentStorageReader contentStorageReader,
             ContentManagementService contentManagementService)
         {
-            _amazonS3 = amazonS3;
             _contentStorageReader = contentStorageReader;
             _contentManagementService = contentManagementService;
-            _bucketName = cephOptions.Value.ContentBucketName;
         }
 
         [HttpGet("template/{id}/{versionId}")]
@@ -77,32 +73,12 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        //[HttpPost("{id}")]
-        //public async Task<IActionResult> Initialize(long id, [FromBody]IVersionedTemplateDescriptor templateDescriptor)
-        //{
-        //    var versionId = await _contentManagementService.Initialize(id, templateDescriptor);
-        //    var url = Url.AbsoluteAction("Get", "Content", new { id, versionId });
-        //    return Created(url, versionId);
-        //}
-
-        //[HttpPut("title/{id}/{versionId}")]
-        //public async Task<IActionResult> SetTitle(long id, string versionId, [FromBody]string title)
-        //{
-        //    try
-        //    {
-        //        var currentVersionId = await _contentManagementService.SetTitle(id, versionId, title);
-        //        return Json(new { versionId = currentVersionId });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return BadRequest(ex.Message);
-        //    }
-        //}
-
-        //[HttpPut("text/{id}/{versionId}/{elementId}")]
-        //public async Task<string> SetTextElement(long id, string versionId, long elementId, [FromBody]string content)
-        //{
-        //    return await _contentManagementService.ModifyElement(id, versionId, elementId, content);
-        //}
+        [HttpPost("{id}/{templateId}")]
+        public async Task<IActionResult> Create(long id, long templateId, [FromBody]IVersionedTemplateDescriptor templateDescriptor)
+        {
+            var versionId = await _contentManagementService.Create(id, templateId, templateDescriptor);
+            var url = Url.AbsoluteAction("Get", "Content", new { id, versionId });
+            return Created(url, versionId);
+        }
     }
 }

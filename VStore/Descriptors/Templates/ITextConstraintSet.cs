@@ -1,6 +1,6 @@
 ﻿namespace NuClear.VStore.Descriptors.Templates
 {
-    public interface ITextElementDescriptor : IElementDescriptor
+    public interface ITextConstraintSet : IConstraintSet
     {
         int? MaxSymbols { get; set; }
     }

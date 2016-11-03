@@ -1,11 +1,23 @@
-﻿namespace NuClear.VStore.Descriptors.Templates
+﻿using Newtonsoft.Json.Linq;
+
+namespace NuClear.VStore.Descriptors.Templates
 {
-    public sealed class TextElementDescriptor : ITextElementDescriptor
+    public sealed class TextElementDescriptor : IElementDescriptor
     {
+        // ReSharper disable once SuggestBaseTypeForParameter
+        public TextElementDescriptor(int templateCode, JObject properties, TextElementConstraints constraints)
+        {
+            TemplateCode = templateCode;
+            Properties = properties;
+            Constraints = constraints;
+        }
+
         public ElementDescriptorType Type => ElementDescriptorType.Text;
-        public int? MaxSymbols { get; set; }
-        public int? MaxSymbolsPerWord { get; set; }
-        public int? MaxLines { get; set; }
-        public bool IsFormatted { get; set; }
+
+        public int TemplateCode { get; }
+
+        public JObject Properties { get; }
+
+        public IConstraintSet Constraints { get; }
     }
 }

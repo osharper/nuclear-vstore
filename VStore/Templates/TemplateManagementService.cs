@@ -7,6 +7,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
@@ -46,12 +47,12 @@ namespace NuClear.VStore.Templates
         {
             return new IElementDescriptor[]
                 {
-                    new TextElementDescriptor(),
-                    new ImageElementDescriptor(),
-                    new ArticleElementDescriptor(),
-                    new FasCommantElementDescriptor(),
-                    new DateElementDescriptor(),
-                    new LinkElementDescriptor()
+                    new TextElementDescriptor(1, new JObject(),  new TextElementConstraints()),
+                    new ImageElementDescriptor(2, new JObject(),  new ImageElementConstraints()),
+                    new ArticleElementDescriptor(3, new JObject(),  new ArticleElementConstraints()),
+                    new FasCommantElementDescriptor(4, new JObject(),  new TextElementConstraints()),
+                    new DateElementDescriptor(5, new JObject()),
+                    new LinkElementDescriptor(6, new JObject(),  new TextElementConstraints())
                 };
         }
 
@@ -116,37 +117,37 @@ namespace NuClear.VStore.Templates
                 elementDescriptors,
                 elementDescriptor =>
                     {
-                        TextElementDescriptor textElementDescriptor;
-                        ImageElementDescriptor imageElementDescriptor;
-                        ArticleElementDescriptor articleElementDescriptor;
-                        if ((textElementDescriptor = elementDescriptor as TextElementDescriptor) != null)
+                        TextElementConstraints textElementConstraints;
+                        ImageElementConstraints imageElementConstraints;
+                        ArticleElementConstraints articleElementConstraints;
+                        if ((textElementConstraints = elementDescriptor.Constraints as TextElementConstraints) != null)
                         {
-                            if (textElementDescriptor.MaxSymbols < textElementDescriptor.MaxSymbolsPerWord)
+                            if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
                             {
                                 throw new TemplateInconsistentException(
                                           templateId,
                                           $"MaxSymbols must be equal or greater than MaxSymbolsPerWord");
                             }
                         }
-                        else if ((imageElementDescriptor = elementDescriptor as ImageElementDescriptor) != null)
+                        else if ((imageElementConstraints = elementDescriptor.Constraints as ImageElementConstraints) != null)
                         {
-                            if (imageElementDescriptor.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
+                            if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
                             {
                                 throw new TemplateInconsistentException(
                                           templateId,
                                           $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
                             }
 
-                            if (imageElementDescriptor.ImageSize == ImageSize.Empty)
+                            if (imageElementConstraints.ImageSize == ImageSize.Empty)
                             {
                                 throw new TemplateInconsistentException(
                                           templateId,
                                           $"Image size must be set to the value different than: {ImageSize.Empty}");
                             }
                         }
-                        else if ((articleElementDescriptor = elementDescriptor as ArticleElementDescriptor) != null)
+                        else if ((articleElementConstraints = elementDescriptor.Constraints as ArticleElementConstraints) != null)
                         {
-                            if (articleElementDescriptor.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
+                            if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
                             {
                                 throw new TemplateInconsistentException(
                                           templateId,

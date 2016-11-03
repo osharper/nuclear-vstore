@@ -2,7 +2,7 @@
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public interface IBinaryElementDescriptor : IElementDescriptor
+    public interface IBinaryConstraintSet : IConstraintSet
     {
         int? MaxSize { get; set; }
         int? MaxFilenameLenght { get; set; }
