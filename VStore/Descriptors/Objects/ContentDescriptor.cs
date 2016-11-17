@@ -5,7 +5,7 @@ using NuClear.VStore.Descriptors.Templates;
 
 namespace NuClear.VStore.Descriptors.Objects
 {
-    public sealed class ContentDescriptor : IDescriptor, IIdentityable, IVersioned
+    public sealed class ContentDescriptor : IDescriptor, IIdentifyable<long>, IVersioned
     {
         public long Id { get; set; }
         public string VersionId { get; set; }

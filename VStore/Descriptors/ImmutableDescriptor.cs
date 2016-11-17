@@ -2,7 +2,7 @@
 
 namespace NuClear.VStore.Descriptors
 {
-    public sealed class ImmutableDescriptor : IIdentityable, IVersioned, IEquatable<ImmutableDescriptor>
+    public sealed class ImmutableDescriptor : IIdentifyable<long>, IVersioned, IEquatable<ImmutableDescriptor>
     {
         public ImmutableDescriptor(long id, string versionId, DateTime lastModified)
         {

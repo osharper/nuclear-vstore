@@ -5,7 +5,9 @@
         Name = 1,
         Id,
         VersionId,
+        TemplateId,
         TemplateVersionId,
+        ExpiresAt,
         Title
     }
 }

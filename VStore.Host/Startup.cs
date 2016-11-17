@@ -17,6 +17,7 @@ using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
+using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Host
@@ -41,11 +42,12 @@ namespace NuClear.VStore.Host
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
 
             services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
-                    .AddJsonOptions(options =>
-                                        {
-                                            options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter());
-                                            options.SerializerSettings.Converters.Insert(1, new StringEnumConverter { CamelCaseText = true });
-                                        });
+                    .AddJsonOptions(
+                        options =>
+                            {
+                                options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter());
+                                options.SerializerSettings.Converters.Insert(1, new StringEnumConverter { CamelCaseText = true });
+                            });
 
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
 
@@ -53,25 +55,35 @@ namespace NuClear.VStore.Host
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
             services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
             services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
+            services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
 
             services.AddAWSService<IAmazonS3>();
             services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new TemplateStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
-            services.AddScoped(x => new TemplateManagementService(
-                                   x.GetService<IOptions<CephOptions>>().Value,
-                                   x.GetService<IAmazonS3>(),
-                                   x.GetService<TemplateStorageReader>(),
-                                   x.GetService<LockSessionFactory>()));
-            services.AddScoped(x => new ContentStorageReader(
-                                   x.GetService<IOptions<CephOptions>>().Value,
-                                   x.GetService<IAmazonS3>(),
-                                   x.GetService<TemplateStorageReader>()));
-            services.AddScoped(x => new ContentManagementService(
-                                   x.GetService<IOptions<CephOptions>>().Value,
-                                   x.GetService<IAmazonS3>(),
-                                   x.GetService<TemplateStorageReader>(),
-                                   x.GetService<LockSessionFactory>()));
+            services.AddScoped(
+                x => new TemplateManagementService(
+                         x.GetService<IOptions<CephOptions>>().Value,
+                         x.GetService<IAmazonS3>(),
+                         x.GetService<TemplateStorageReader>(),
+                         x.GetService<LockSessionFactory>()));
+            services.AddScoped(
+                x => new ObjectStorageReader(
+                         x.GetService<IOptions<CephOptions>>().Value,
+                         x.GetService<IAmazonS3>(),
+                         x.GetService<TemplateStorageReader>()));
+            services.AddScoped(
+                x => new ObjectManagementService(
+                         x.GetService<IOptions<CephOptions>>().Value,
+                         x.GetService<IAmazonS3>(),
+                         x.GetService<TemplateStorageReader>(),
+                         x.GetService<LockSessionFactory>()));
+            services.AddScoped(
+                x => new SessionManagementService(
+                         x.GetService<IOptions<VStoreOptions>>().Value.Endpoint,
+                         x.GetService<IOptions<CephOptions>>().Value,
+                         x.GetService<IAmazonS3>(),
+                         x.GetService<TemplateStorageReader>()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

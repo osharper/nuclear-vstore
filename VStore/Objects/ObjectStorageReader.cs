@@ -17,20 +17,20 @@ using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ContentStorageReader
+    public sealed class ObjectStorageReader
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
         private readonly string _bucketName;
 
-        public ContentStorageReader(
+        public ObjectStorageReader(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
             TemplateStorageReader templateStorageReader)
         {
             _amazonS3 = amazonS3;
             _templateStorageReader = templateStorageReader;
-            _bucketName = cephOptions.ContentBucketName;
+            _bucketName = cephOptions.ObjectsBucketName;
         }
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)

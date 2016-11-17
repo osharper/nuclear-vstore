@@ -15,14 +15,14 @@ using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ContentManagementService
+    public sealed class ObjectManagementService
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
-        public ContentManagementService(
+        public ObjectManagementService(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
             TemplateStorageReader templateStorageReader,
@@ -31,7 +31,7 @@ namespace NuClear.VStore.Objects
             _amazonS3 = amazonS3;
             _templateStorageReader = templateStorageReader;
             _lockSessionFactory = lockSessionFactory;
-            _bucketName = cephOptions.ContentBucketName;
+            _bucketName = cephOptions.ObjectsBucketName;
         }
 
         public async Task<string> Create(long id, long templateId, IVersionedTemplateDescriptor templateDescriptor)

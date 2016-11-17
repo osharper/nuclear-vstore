@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public sealed class TemplateDescriptor : IIdentityable, IVersionedTemplateDescriptor
+    public sealed class TemplateDescriptor : IIdentifyable<long>, IVersionedTemplateDescriptor
     {
         public long Id { get; set; }
 

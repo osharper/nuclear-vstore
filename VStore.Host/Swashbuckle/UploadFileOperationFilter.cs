@@ -1,4 +1,9 @@
-﻿using Swashbuckle.Swagger.Model;
+﻿using System.Collections.Generic;
+using System.Linq;
+
+using NuClear.VStore.Host.Filters;
+
+using Swashbuckle.Swagger.Model;
 using Swashbuckle.SwaggerGen.Generator;
 
 namespace NuClear.VStore.Host.Swashbuckle
@@ -7,27 +12,24 @@ namespace NuClear.VStore.Host.Swashbuckle
     {
         public void Apply(Operation operation, OperationFilterContext context)
         {
-            // controller and action name
-            if (operation.OperationId == "Api1.0DevContentByIdPut")
-            {
-                if (operation.Parameters.Count > 0)
-                {
-                    var firstParam = operation.Parameters[0];
-                    operation.Parameters.Clear();
-                    operation.Parameters.Add(firstParam);
-                }
+            var multipartBodyFilters = context.ApiDescription.ActionDescriptor.FilterDescriptors
+                                              .Select(x => x.Filter)
+                                              .OfType<MultipartBodyLengthLimitAttribute>()
+                                              .ToArray();
 
-                operation.Parameters.Add(
-                             new NonBodyParameter
-                                 {
-                                     Name = "File",
-                                     In = "formData",
-                                     Description = "Upload Image",
-                                     Required = true,
-                                     Type = "file"
-                                 });
-                operation.Consumes.Add("application/form-data");
+            if (multipartBodyFilters.Length == 0)
+            {
+                return;
             }
+
+            var fileParam = new NonBodyParameter
+                                {
+                                    Type = "file",
+                                    Name = "file",
+                                    In = "formData"
+                                };
+            operation.Parameters.Add(fileParam);
+            operation.Consumes = new List<string> { "multipart/form-data" };
         }
     }
 }

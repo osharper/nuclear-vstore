@@ -37,14 +37,14 @@ namespace NuClear.VStore.Host.Controllers
         [HttpGet("content")]
         public async Task<JsonResult> List()
         {
-            var response = await _amazonS3.ListVersionsAsync(_cephOptions.Value.ContentBucketName);
+            var response = await _amazonS3.ListVersionsAsync(_cephOptions.Value.ObjectsBucketName);
             return Json(response.Versions.Where(x => !x.IsDeleteMarker).Select(x => new { x.Key, x.VersionId, x.IsLatest }));
         }
 
         [HttpGet("content/binary/{id}/{versionId}")]
         public async Task<FileStreamResult> GetBinary(string id, string versionId)
         {
-            var response = await _amazonS3.GetObjectAsync(_cephOptions.Value.ContentBucketName, id, versionId);
+            var response = await _amazonS3.GetObjectAsync(_cephOptions.Value.ObjectsBucketName, id, versionId);
             return File(response.ResponseStream, response.Headers.ContentType);
         }
 
@@ -55,7 +55,7 @@ namespace NuClear.VStore.Host.Controllers
                                new PutObjectRequest
                                    {
                                        Key = id,
-                                       BucketName = _cephOptions.Value.ContentBucketName,
+                                       BucketName = _cephOptions.Value.ObjectsBucketName,
                                        ContentType = file.ContentType,
                                        InputStream = file.OpenReadStream(),
                                        CannedACL = S3CannedACL.PublicRead
