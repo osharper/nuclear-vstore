@@ -103,9 +103,11 @@ namespace NuClear.VStore.Host
             ILoggerFactory loggerFactory,
             IApplicationLifetime appLifetime)
         {
-            loggerFactory
-                .AddDebug()
-                .AddSerilog();
+            loggerFactory.AddSerilog();
+
+#if DEBUG
+            loggerFactory.AddDebug(LogLevel.Debug);
+#endif
 
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
