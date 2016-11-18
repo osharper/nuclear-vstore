@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -60,6 +61,12 @@ namespace NuClear.VStore.Host.Controllers
                                        CannedACL = S3CannedACL.PublicRead
                                    });
             return response.VersionId;
+        }
+
+        [HttpGet("throw")]
+        public void Throw()
+        {
+            throw new Exception("Test exception");
         }
     }
 }
