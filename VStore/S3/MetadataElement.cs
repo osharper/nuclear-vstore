@@ -8,6 +8,7 @@
         TemplateId,
         TemplateVersionId,
         ExpiresAt,
+        Filename,
         Title
     }
 }

@@ -81,11 +81,15 @@ namespace NuClear.VStore.Sessions
                                   Key = key,
                                   ContentType = contentType
                               };
+            var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
+            metadataWrapper.Write(MetadataElement.Filename, fileName);
+
             var response = await _amazonS3.InitiateMultipartUploadAsync(request);
+
             return new MultipartUploadSession(sessionId, fileName, response.UploadId);
         }
 
-        public async Task UploadFilePart(Guid sessionId, MultipartUploadSession uploadSession, Stream inputStream)
+        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream)
         {
             try
             {
@@ -94,7 +98,7 @@ namespace NuClear.VStore.Sessions
                     await inputStream.CopyToAsync(memoryStream);
                     memoryStream.Position = 0;
 
-                    var key = BuildKey(sessionId, uploadSession.FileName);
+                    var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
                     var response = await _amazonS3.UploadPartAsync(
                                        new UploadPartRequest
                                            {
@@ -122,18 +126,18 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        public async Task<Uri> CompleteMultipartUpload(MultipartUploadSession uploadSession, long templateId, string templateVersionId, int templateCode)
+        public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, long templateId, string templateVersionId, int templateCode)
         {
             var uploadKey = BuildKey(uploadSession.SessionId, uploadSession.FileName);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
-            var response = await _amazonS3.CompleteMultipartUploadAsync(
-                               new CompleteMultipartUploadRequest
-                                   {
-                                       BucketName = _filesBucketName,
-                                       Key = uploadKey,
-                                       UploadId = uploadSession.UploadId,
-                                       PartETags = partETags
-                                   });
+            var uploadResponse = await _amazonS3.CompleteMultipartUploadAsync(
+                                     new CompleteMultipartUploadRequest
+                                         {
+                                             BucketName = _filesBucketName,
+                                             Key = uploadKey,
+                                             UploadId = uploadSession.UploadId,
+                                             PartETags = partETags
+                                         });
             uploadSession.Complete();
 
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
@@ -144,11 +148,18 @@ namespace NuClear.VStore.Sessions
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
                 EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
 
-                var fileKey = BuildKey(uploadSession.SessionId, response.ETag);
-                await _amazonS3.CopyObjectAsync(_filesBucketName, uploadKey, _filesBucketName, fileKey);
-                await _amazonS3.MakeObjectPublicAsync(_filesBucketName, fileKey, true);
+                var fileKey = string.Concat(BuildKey(uploadSession.SessionId, uploadResponse.ETag), Path.GetExtension(uploadSession.FileName));
+                var copyRequest = new CopyObjectRequest
+                                      {
+                                          SourceBucket = _filesBucketName,
+                                          SourceKey = uploadKey,
+                                          DestinationBucket = _filesBucketName,
+                                          DestinationKey = fileKey,
+                                          CannedACL = S3CannedACL.PublicRead
+                                      };
+                await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new Uri(_fileStorageEndpointUri, fileKey);
+                return new UploadedFileInfo(uploadResponse.ETag, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {
