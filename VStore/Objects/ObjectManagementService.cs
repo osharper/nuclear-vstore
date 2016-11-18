@@ -96,7 +96,6 @@ namespace NuClear.VStore.Objects
             {
                 var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
                 await EnsureObjectState(descriptorKey, rootObjectVersionId);
-
             }
 
             return string.Empty;

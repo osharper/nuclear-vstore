@@ -124,7 +124,6 @@ namespace NuClear.VStore.Sessions
                                        PartETags = etags
                                    });
 
-
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             var elementDescriptor = templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
 

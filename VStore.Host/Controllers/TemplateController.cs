@@ -78,6 +78,7 @@ namespace NuClear.VStore.Host.Controllers
                 return NotFound(new { id, versionId });
             }
         }
+
         [HttpPost("validate-elements")]
         public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
