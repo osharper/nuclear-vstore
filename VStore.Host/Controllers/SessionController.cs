@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-
-using Amazon.S3.Model;
 
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
@@ -55,7 +52,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpPost("{sessionId}/{templateId}/{templateVersionId}/{templateCode}")]
         [DisableFormValueModelBinding]
-        [MultipartBodyLengthLimit(int.MaxValue)]
+        [MultipartBodyLengthLimit(1024)]
         public async Task<IActionResult> UploadFile(Guid sessionId, long templateId, string templateVersionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -64,66 +61,50 @@ namespace NuClear.VStore.Host.Controllers
                 return BadRequest($"Expected a multipart request, but got '{Request.ContentType}'.");
             }
 
-            var filesToUpload = new Dictionary<string, Tuple<string, List<PartETag>>>();
-
+            MultipartUploadSession uploadSession = null;
             var reader = new MultipartReader(multipartBoundary, HttpContext.Request.Body);
-            MultipartSection section;
-            var partNumber = 0;
-            do
+            var section = await reader.ReadNextSectionAsync();
+            if (section == null)
             {
-                section = await reader.ReadNextSectionAsync();
-                var fileSection = section?.AsFileSection();
-
-                if (fileSection != null)
+                return BadRequest("Request body doesn't contain sections.");
+            }
+            try
+            {
+                for (; section != null; section = await reader.ReadNextSectionAsync())
                 {
-                    string uploadId;
-
-                    var fileName = fileSection.FileName;
-                    if (!filesToUpload.ContainsKey(fileName))
+                    var fileSection = section.AsFileSection();
+                    if (fileSection == null)
                     {
-                        uploadId = await _sessionManagementService.InitiateMultipartUpload(
-                                       sessionId,
-                                       templateId,
-                                       templateVersionId,
-                                       templateCode,
-                                       fileName,
-                                       section.ContentType);
-                        filesToUpload.Add(fileName, Tuple.Create(uploadId, new List<PartETag>()));
+                        if (uploadSession != null)
+                        {
+                            await _sessionManagementService.AbortMultipartUpload(uploadSession);
+                        }
 
-                        _logger.LogInformation($"Multipart upload for file '{fileName}' initiated.");
-                    }
-                    else
-                    {
-                        uploadId = filesToUpload[fileName].Item1;
+                        return BadRequest("File upload supported only during single request.");
                     }
 
-                    var etag = await _sessionManagementService.UploadFilePart(
-                                  sessionId,
-                                  fileName,
-                                  uploadId,
-                                  ++partNumber,
-                                  section.BaseStreamOffset,
-                                  fileSection.FileStream);
-                    filesToUpload[fileName].Item2.Add(new PartETag(partNumber, etag));
+                    if (uploadSession == null)
+                    {
+                        uploadSession = await _sessionManagementService.InitiateMultipartUpload(sessionId, fileSection.FileName, section.ContentType);
+                        _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' initiated.");
+                    }
+
+                    await _sessionManagementService.UploadFilePart(sessionId, uploadSession, fileSection.FileStream);
                 }
-            }
-            while (section != null);
 
-            var etags = new List<string>();
-            foreach (var fileInfo in filesToUpload)
+                var previewUri = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateId, templateVersionId, templateCode);
+                return Ok(previewUri);
+            }
+            catch (Exception ex)
             {
-                var etag = await _sessionManagementService.CompleteMultipartUpload(
-                    sessionId,
-                    templateId,
-                    templateVersionId,
-                    templateCode,
-                    fileInfo.Key,
-                    fileInfo.Value.Item1,
-                    fileInfo.Value.Item2);
-                etags.Add(etag);
-            }
+                _logger.LogError(new EventId(0), ex, "Error occured while file uploading.");
+                if (uploadSession != null)
+                {
+                    await _sessionManagementService.AbortMultipartUpload(uploadSession);
+                }
 
-            return Ok(etags);
+                return StatusCode(422, ex.Message);
+            }
         }
     }
 }

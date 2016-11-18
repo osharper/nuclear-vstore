@@ -81,7 +81,8 @@ namespace NuClear.VStore.Host
             services.AddScoped(
                 x => new SessionManagementService(
                          x.GetService<IOptions<VStoreOptions>>().Value.Endpoint,
-                         x.GetService<IOptions<CephOptions>>().Value,
+                         x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
+                         x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplateStorageReader>()));
         }
