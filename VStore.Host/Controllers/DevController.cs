@@ -62,5 +62,11 @@ namespace NuClear.VStore.Host.Controllers
                                    });
             return response.VersionId;
         }
+
+        [HttpGet("throw")]
+        public void Throw()
+        {
+            throw new Exception("Test exception");
+        }
     }
 }

@@ -68,6 +68,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return BadRequest("Request body doesn't contain sections.");
             }
+
             try
             {
                 for (; section != null; section = await reader.ReadNextSectionAsync())
