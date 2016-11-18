@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -12,7 +10,6 @@ using ImageSharp;
 
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
-using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -23,14 +20,21 @@ namespace NuClear.VStore.Sessions
         private const string SessionToken = "session";
 
         private readonly Uri _endpointUri;
+        private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
 
-        public SessionManagementService(Uri endpointUri, CephOptions cephOptions, IAmazonS3 amazonS3, TemplateStorageReader templateStorageReader)
+        public SessionManagementService(
+            Uri endpointUri,
+            Uri fileStorageEndpointUri,
+            string filesBucketName,
+            IAmazonS3 amazonS3,
+            TemplateStorageReader templateStorageReader)
         {
             _endpointUri = endpointUri;
-            _filesBucketName = cephOptions.FilesBucketName;
+            _fileStorageEndpointUri = fileStorageEndpointUri;
+            _filesBucketName = filesBucketName;
             _amazonS3 = amazonS3;
             _templateStorageReader = templateStorageReader;
         }
@@ -42,7 +46,9 @@ namespace NuClear.VStore.Sessions
 
             if (sessionDescriptor.UploadUris.Count == 0)
             {
-                throw new SessionCannotBeCreatedException($"Nothing to upload for template '{templateDescriptor.Id}'");
+                throw new SessionCannotBeCreatedException(
+                          $"There is no binary content can be uploaded for template '{templateDescriptor.Id}' " +
+                          $"with version '{templateDescriptor.VersionId}'");
             }
 
             var request = new PutObjectRequest
@@ -61,112 +67,148 @@ namespace NuClear.VStore.Sessions
             return sessionDescriptor;
         }
 
-        public async Task<string> InitiateMultipartUpload(
-            Guid sessionId,
-            long templateId,
-            string templateVersionId,
-            int templateCode,
-            string fileName,
-            string contentType)
+        public async Task<MultipartUploadSession> InitiateMultipartUpload(Guid sessionId, string fileName, string contentType)
         {
+            if (!await IsSessionExists(sessionId))
+            {
+                throw new InvalidOperationException($"Session {sessionId} does not exist");
+            }
+
             var key = BuildKey(sessionId, fileName);
             var request = new InitiateMultipartUploadRequest
                               {
                                   BucketName = _filesBucketName,
                                   Key = key,
-                                  ContentType = contentType,
-                                  CannedACL = S3CannedACL.PublicRead,
+                                  ContentType = contentType
                               };
             var response = await _amazonS3.InitiateMultipartUploadAsync(request);
-            await _amazonS3.AbortMultipartUploadAsync(_filesBucketName, key, response.UploadId);
-
-            return response.UploadId;
+            return new MultipartUploadSession(sessionId, fileName, response.UploadId);
         }
 
-        public async Task<string> UploadFilePart(
-            Guid sessionId,
-            string fileName,
-            string uploadId,
-            int partNumber,
-            long? filePosition,
-            Stream inputStream)
+        public async Task UploadFilePart(Guid sessionId, MultipartUploadSession uploadSession, Stream inputStream)
         {
-            var key = BuildKey(sessionId, fileName);
-            var response = await _amazonS3.UploadPartAsync(
-                               new UploadPartRequest
-                                   {
-                                       BucketName = _filesBucketName,
-                                       Key = key,
-                                       UploadId = uploadId,
-                                       InputStream = inputStream,
-                                       PartNumber = partNumber,
-                                       FilePosition = filePosition.Value
-                                   });
+            try
+            {
+                using (var memoryStream = new MemoryStream())
+                {
+                    await inputStream.CopyToAsync(memoryStream);
+                    memoryStream.Position = 0;
 
-            return response.ETag;
+                    var key = BuildKey(sessionId, uploadSession.FileName);
+                    var response = await _amazonS3.UploadPartAsync(
+                                       new UploadPartRequest
+                                           {
+                                               BucketName = _filesBucketName,
+                                               Key = key,
+                                               UploadId = uploadSession.UploadId,
+                                               InputStream = memoryStream,
+                                               PartNumber = uploadSession.NextPartNumber
+                                           });
+                    uploadSession.AddPart(response.ETag);
+                }
+            }
+            finally
+            {
+                inputStream.Dispose();
+            }
         }
 
-        public async Task<string> CompleteMultipartUpload(
-            Guid sessionId,
-            long templateId,
-            string templateVersionId,
-            int templateCode,
-            string fileName,
-            string uploadId,
-            List<PartETag> etags)
+        public async Task AbortMultipartUpload(MultipartUploadSession uploadSession)
         {
+            if (!uploadSession.IsCompleted)
+            {
+                var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+                await _amazonS3.AbortMultipartUploadAsync(_filesBucketName, key, uploadSession.UploadId);
+            }
+        }
+
+        public async Task<Uri> CompleteMultipartUpload(MultipartUploadSession uploadSession, long templateId, string templateVersionId, int templateCode)
+        {
+            var uploadKey = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+            var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
             var response = await _amazonS3.CompleteMultipartUploadAsync(
                                new CompleteMultipartUploadRequest
                                    {
                                        BucketName = _filesBucketName,
-                                       Key = BuildKey(sessionId, fileName),
-                                       UploadId = uploadId,
-                                       PartETags = etags
+                                       Key = uploadKey,
+                                       UploadId = uploadSession.UploadId,
+                                       PartETags = partETags
                                    });
+            uploadSession.Complete();
 
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             var elementDescriptor = templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
 
-            // var stream = ValidateFile(elementDescriptor.Type, elementDescriptor.Constraints, null);
+            try
+            {
+                var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
+                EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
 
-            return response.ETag;
+                var fileKey = BuildKey(uploadSession.SessionId, response.ETag);
+                await _amazonS3.CopyObjectAsync(_filesBucketName, uploadKey, _filesBucketName, fileKey);
+                await _amazonS3.MakeObjectPublicAsync(_filesBucketName, fileKey, true);
+
+                return new Uri(_fileStorageEndpointUri, fileKey);
+            }
+            finally
+            {
+                await _amazonS3.DeleteObjectAsync(_filesBucketName, uploadKey);
+            }
         }
 
         private static string BuildKey(Guid sessionId, string fileName) => $"{sessionId}/{fileName}";
 
-        private static Stream ValidateFile(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream)
+        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream)
         {
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.Image:
-                    return ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream);
+                    break;
                 case ElementDescriptorType.Article:
-                    return ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType));
             }
         }
 
-        private static Stream ValidateImage(ImageElementConstraints constraints, Stream inputStream)
+        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream)
         {
-            var image = new Image(inputStream);
-
-            // validation logic here
-
-            inputStream.Position = 0;
-            using (var sha = SHA256.Create())
+            Image image;
+            try
             {
-                var hash = sha.ComputeHash(inputStream);
-                BitConverter.ToString(hash);
+                image = new Image(inputStream);
+            }
+            catch (Exception ex)
+            {
+                throw new ImageIncorrectException("Image cannot be loaded.", ex);
             }
 
-            inputStream.Position = 0;
-            return inputStream;
+            if (constraints.SupportedFileFormats.Any(x => image.CurrentImageFormat.Encoder.MimeType.IndexOf(x.ToString(), StringComparison.OrdinalIgnoreCase) < 0))
+            {
+                throw new ImageIncorrectException("Image has an incorrect format");
+            }
+
+            if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
+            {
+                throw new ImageIncorrectException("Image has an incorrect size");
+            }
         }
 
-        private static Stream ValidateArticle(ArticleElementConstraints constraints, Stream inputStream)
+        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream)
         {
-            return inputStream;
+        }
+
+        private async Task<bool> IsSessionExists(Guid sessionId)
+        {
+            var response = await _amazonS3.ListObjectsAsync(
+                               new ListObjectsRequest
+                                   {
+                                       BucketName = _filesBucketName,
+                                       Prefix = sessionId.ToString()
+                                   });
+            return response.S3Objects.Count > 0;
         }
     }
 }
