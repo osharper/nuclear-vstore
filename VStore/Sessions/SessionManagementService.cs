@@ -1,13 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 using Amazon.S3;
 using Amazon.S3.Model;
 
-using ImageSharp;
-
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.S3;
@@ -18,6 +21,27 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionManagementService
     {
         private const string SessionToken = "session";
+        private const int ImageHeaderLenght = 4;
+
+        private static readonly byte[][] ImageFileHeaders =
+            new[]
+                {
+                    Encoding.ASCII.GetBytes("BM"),      // BMP
+                    Encoding.ASCII.GetBytes("GIF"),     // GIF
+                    new byte[] { 255, 216, 255, 224 },  // JPEG
+                    new byte[] { 255, 216, 255, 225 },  // JPEG
+                    new byte[] { 137, 80, 78, 71 }      // PNG
+                };
+
+        private static readonly Dictionary<FileFormat, ImageFormat> ImageFormatMap =
+            new Dictionary<FileFormat, ImageFormat>
+                {
+                        { FileFormat.Bmp, ImageFormat.Bmp },
+                        { FileFormat.Gif, ImageFormat.Gif },
+                        { FileFormat.Jpeg, ImageFormat.Jpeg },
+                        { FileFormat.Jpg, ImageFormat.Jpeg },
+                        { FileFormat.Png, ImageFormat.Png }
+                };
 
         private readonly Uri _endpointUri;
         private readonly Uri _fileStorageEndpointUri;
@@ -89,31 +113,30 @@ namespace NuClear.VStore.Sessions
             return new MultipartUploadSession(sessionId, fileName, response.UploadId);
         }
 
-        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream)
+        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, long templateId, string templateVersionId, int templateCode)
         {
-            try
+            using (var memory = new MemoryStream())
             {
-                using (var memoryStream = new MemoryStream())
-                {
-                    await inputStream.CopyToAsync(memoryStream);
-                    memoryStream.Position = 0;
+                await inputStream.CopyToAsync(memory);
+                memory.Position = 0;
 
-                    var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
-                    var response = await _amazonS3.UploadPartAsync(
-                                       new UploadPartRequest
-                                           {
-                                               BucketName = _filesBucketName,
-                                               Key = key,
-                                               UploadId = uploadSession.UploadId,
-                                               InputStream = memoryStream,
-                                               PartNumber = uploadSession.NextPartNumber
-                                           });
-                    uploadSession.AddPart(response.ETag);
+                if (uploadSession.NextPartNumber == 1)
+                {
+                    var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
+                    EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
-            }
-            finally
-            {
-                inputStream.Dispose();
+
+                var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+                var response = await _amazonS3.UploadPartAsync(
+                                   new UploadPartRequest
+                                       {
+                                           BucketName = _filesBucketName,
+                                           Key = key,
+                                           UploadId = uploadSession.UploadId,
+                                           InputStream = memory,
+                                           PartNumber = uploadSession.NextPartNumber
+                                       });
+                uploadSession.AddPart(response.ETag);
             }
         }
 
@@ -140,13 +163,14 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
-            var elementDescriptor = templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
-
+            var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
             try
             {
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
-                EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
+                using (getResponse.ResponseStream)
+                {
+                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
+                }
 
                 var fileKey = string.Concat(BuildKey(uploadSession.SessionId, uploadResponse.ETag), Path.GetExtension(uploadSession.FileName));
                 var copyRequest = new CopyObjectRequest
@@ -169,6 +193,23 @@ namespace NuClear.VStore.Sessions
 
         private static string BuildKey(Guid sessionId, string fileName) => $"{sessionId}/{fileName}";
 
+        private static void EnsureFileHeaderIsValid(IElementDescriptor elementDescriptor, Stream inputStream)
+        {
+            if (elementDescriptor.Type == ElementDescriptorType.Image)
+            {
+                var header = new byte[ImageHeaderLenght];
+
+                var position = inputStream.Position;
+                inputStream.Read(header, 0, header.Length);
+                inputStream.Position = position;
+
+                if (!ImageFileHeaders.Any(x => x.SequenceEqual(header.Take(x.Length))))
+                {
+                    throw new ImageIncorrectException("Input stream cannot be recognized as image.");
+                }
+            }
+        }
+
         private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream)
         {
             switch (elementDescriptorType)
@@ -189,21 +230,38 @@ namespace NuClear.VStore.Sessions
             Image image;
             try
             {
-                image = new Image(inputStream);
+                image = Image.FromStream(inputStream);
             }
             catch (Exception ex)
             {
                 throw new ImageIncorrectException("Image cannot be loaded.", ex);
             }
 
-            if (constraints.SupportedFileFormats.Any(x => image.CurrentImageFormat.Encoder.MimeType.IndexOf(x.ToString(), StringComparison.OrdinalIgnoreCase) < 0))
+            using (image)
             {
-                throw new ImageIncorrectException("Image has an incorrect format");
-            }
+                var supportedFormats = constraints.SupportedFileFormats
+                                                  .Aggregate(
+                                                      new List<ImageFormat>(),
+                                                      (result, next) =>
+                                                          {
+                                                              ImageFormat imageFormat;
+                                                              if (ImageFormatMap.TryGetValue(next, out imageFormat))
+                                                              {
+                                                                  result.Add(imageFormat);
+                                                              }
 
-            if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
-            {
-                throw new ImageIncorrectException("Image has an incorrect size");
+                                                              return result;
+                                                          });
+
+                if (!supportedFormats.Exists(x => image.RawFormat.Equals(x)))
+                {
+                    throw new ImageIncorrectException("Image has an incorrect format");
+                }
+
+                if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
+                {
+                    throw new ImageIncorrectException("Image has an incorrect size");
+                }
             }
         }
 
@@ -220,6 +278,12 @@ namespace NuClear.VStore.Sessions
                                        Prefix = sessionId.ToString()
                                    });
             return response.S3Objects.Count > 0;
+        }
+
+        private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)
+        {
+            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            return templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
         }
     }
 }
