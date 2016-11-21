@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 
 using Amazon;
 using Amazon.S3;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Converters;
 
 using NuClear.VStore.Host.Convensions;
+using NuClear.VStore.Host.Diagnostics;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
@@ -49,7 +51,12 @@ namespace NuClear.VStore.Host
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
+            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.SystemDiagnostics;
+            AWSConfigs.LoggingConfig.LogMetrics = true;
+            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.JSON;
+            AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.OnError;
+
+            Trace.Listeners.Add(new SerilogTraceListener());
 
             services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
                     .AddJsonOptions(
