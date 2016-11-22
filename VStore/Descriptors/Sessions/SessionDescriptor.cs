@@ -20,12 +20,19 @@ namespace NuClear.VStore.Descriptors.Sessions
                                                   .Select(x => x.TemplateCode)
                                                   .ToArray();
             UploadUris = templateCodes.Select(x => new Uri(endpointUri, $"{RouteToken}/{Id}/{templateDescriptor.Id}/{templateDescriptor.VersionId}/{x}")).ToArray();
-            ExpiresAt = DateTime.UtcNow.AddDays(1);
+            ExpiresAt = CurrentTime().AddDays(1);
         }
 
         public Guid Id { get; }
         public TemplateDescriptor TemplateDescriptor { get; }
         public IReadOnlyCollection<Uri> UploadUris { get; }
         public DateTime ExpiresAt { get; }
+
+        public static bool IsSessionExpired(DateTime expiresAt)
+        {
+            return expiresAt <= CurrentTime();
+        }
+
+        private static DateTime CurrentTime() => DateTime.UtcNow;
     }
 }

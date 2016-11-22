@@ -86,7 +86,13 @@ namespace NuClear.VStore.Host.Controllers
 
                     if (uploadSession == null)
                     {
-                        uploadSession = await _sessionManagementService.InitiateMultipartUpload(sessionId, fileSection.FileName, section.ContentType);
+                        uploadSession = await _sessionManagementService.InitiateMultipartUpload(
+                                            sessionId,
+                                            fileSection.FileName,
+                                            section.ContentType,
+                                            templateId,
+                                            templateVersionId,
+                                            templateCode);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
 

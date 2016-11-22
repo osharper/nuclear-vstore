@@ -68,7 +68,7 @@ namespace NuClear.VStore.Sessions
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
-                                  Key = $"{sessionDescriptor.Id}/{SessionToken}",
+                                  Key = BuildKey(sessionDescriptor.Id, SessionToken),
                                   CannedACL = S3CannedACL.PublicRead
                               };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
@@ -81,11 +81,38 @@ namespace NuClear.VStore.Sessions
             return sessionDescriptor;
         }
 
-        public async Task<MultipartUploadSession> InitiateMultipartUpload(Guid sessionId, string fileName, string contentType)
+        public async Task<MultipartUploadSession> InitiateMultipartUpload(
+            Guid sessionId,
+            string fileName,
+            string contentType,
+            long templateId,
+            string templateVersionId,
+            int templateCode)
         {
             if (!await IsSessionExists(sessionId))
             {
-                throw new InvalidOperationException($"Session {sessionId} does not exist");
+                throw new InvalidOperationException($"Session '{sessionId}' does not exist");
+            }
+
+            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, BuildKey(sessionId, SessionToken));
+            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+
+            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (SessionDescriptor.IsSessionExpired(expiresAt))
+            {
+                throw new SessionExpiredException(sessionId);
+            }
+
+            var sessionTemplateId = metadataWrapper.Read<long>(MetadataElement.TemplateId);
+            if (sessionTemplateId != templateId)
+            {
+                throw new InvalidTemplateException($"Template '{sessionTemplateId}' is expected for session '{sessionId}'");
+            }
+
+            var sessionTemplateVersionId = metadataWrapper.Read<string>(MetadataElement.TemplateVersionId);
+            if (!sessionTemplateVersionId.Equals(templateVersionId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidTemplateException($"Template version Id '{sessionTemplateVersionId}' is expected for session '{sessionId}'");
             }
 
             var key = BuildKey(sessionId, fileName);
@@ -95,12 +122,12 @@ namespace NuClear.VStore.Sessions
                                   Key = key,
                                   ContentType = contentType
                               };
-            var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
+            metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.Filename, fileName);
 
-            var response = await _amazonS3.InitiateMultipartUploadAsync(request);
+            var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
 
-            return new MultipartUploadSession(sessionId, fileName, response.UploadId);
+            return new MultipartUploadSession(sessionId, fileName, uploadResponse.UploadId);
         }
 
         public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, long templateId, string templateVersionId, int templateCode)
@@ -159,7 +186,7 @@ namespace NuClear.VStore.Sessions
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
                 using (getResponse.ResponseStream)
                 {
-                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
+                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream, getResponse.ContentLength);
                 }
 
                 var fileKey = string.Concat(BuildKey(uploadSession.SessionId, uploadResponse.ETag), Path.GetExtension(uploadSession.FileName));
@@ -201,23 +228,28 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream)
+        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream, long inputStreamLength)
         {
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.Image:
-                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 case ElementDescriptorType.Article:
-                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType));
             }
         }
 
-        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream)
+        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
+            if (inputStreamLength > constraints.MaxSize)
+            {
+                throw new FilesizeMismatchException("Image exceeds the size limit.");
+            }
+
             Image image;
             try
             {
@@ -225,7 +257,7 @@ namespace NuClear.VStore.Sessions
             }
             catch (Exception ex)
             {
-                throw new ImageIncorrectException("Image cannot be loaded.", ex);
+                throw new ImageIncorrectException("Image cannot be loaded from the stream.", ex);
             }
 
             var supportedDecoders = constraints.SupportedFileFormats
@@ -253,8 +285,12 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream)
+        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
+            if (inputStreamLength > constraints.MaxSize)
+            {
+                throw new FilesizeMismatchException("Article exceeds the size limit.");
+            }
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)
