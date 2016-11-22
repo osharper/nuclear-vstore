@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
+
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 using Amazon.S3;
 using Amazon.S3.Model;
+
+using ImageSharp;
+using ImageSharp.Formats;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
@@ -21,26 +22,15 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionManagementService
     {
         private const string SessionToken = "session";
-        private const int ImageHeaderLenght = 4;
 
-        private static readonly byte[][] ImageFileHeaders =
-            new[]
+        private static readonly Dictionary<FileFormat, IImageDecoder> ImageDecodersMap =
+            new Dictionary<FileFormat, IImageDecoder>
                 {
-                    Encoding.ASCII.GetBytes("BM"),      // BMP
-                    Encoding.ASCII.GetBytes("GIF"),     // GIF
-                    new byte[] { 255, 216, 255, 224 },  // JPEG
-                    new byte[] { 255, 216, 255, 225 },  // JPEG
-                    new byte[] { 137, 80, 78, 71 }      // PNG
-                };
-
-        private static readonly Dictionary<FileFormat, ImageFormat> ImageFormatMap =
-            new Dictionary<FileFormat, ImageFormat>
-                {
-                        { FileFormat.Bmp, ImageFormat.Bmp },
-                        { FileFormat.Gif, ImageFormat.Gif },
-                        { FileFormat.Jpeg, ImageFormat.Jpeg },
-                        { FileFormat.Jpg, ImageFormat.Jpeg },
-                        { FileFormat.Png, ImageFormat.Png }
+                        { FileFormat.Bmp, new BmpDecoder() },
+                        { FileFormat.Gif, new GifDecoder() },
+                        { FileFormat.Jpeg, new JpegDecoder() },
+                        { FileFormat.Jpg, new JpegDecoder() },
+                        { FileFormat.Png, new PngDecoder() }
                 };
 
         private readonly Uri _endpointUri;
@@ -197,13 +187,14 @@ namespace NuClear.VStore.Sessions
         {
             if (elementDescriptor.Type == ElementDescriptorType.Image)
             {
-                var header = new byte[ImageHeaderLenght];
+                var maxHeaderSize = ImageDecodersMap.Values.Max(x => x.HeaderSize);
+                var header = new byte[maxHeaderSize];
 
                 var position = inputStream.Position;
                 inputStream.Read(header, 0, header.Length);
                 inputStream.Position = position;
 
-                if (!ImageFileHeaders.Any(x => x.SequenceEqual(header.Take(x.Length))))
+                if (!ImageDecodersMap.Values.Any(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray())))
                 {
                     throw new ImageIncorrectException("Input stream cannot be recognized as image.");
                 }
@@ -230,38 +221,35 @@ namespace NuClear.VStore.Sessions
             Image image;
             try
             {
-                image = Image.FromStream(inputStream);
+                image = new Image(inputStream);
             }
             catch (Exception ex)
             {
                 throw new ImageIncorrectException("Image cannot be loaded.", ex);
             }
 
-            using (image)
+            var supportedDecoders = constraints.SupportedFileFormats
+                                                .Aggregate(
+                                                    new List<IImageDecoder>(),
+                                                    (result, next) =>
+                                                        {
+                                                            IImageDecoder imageDecoder;
+                                                            if (ImageDecodersMap.TryGetValue(next, out imageDecoder))
+                                                            {
+                                                                result.Add(imageDecoder);
+                                                            }
+
+                                                            return result;
+                                                        });
+
+            if (!supportedDecoders.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
             {
-                var supportedFormats = constraints.SupportedFileFormats
-                                                  .Aggregate(
-                                                      new List<ImageFormat>(),
-                                                      (result, next) =>
-                                                          {
-                                                              ImageFormat imageFormat;
-                                                              if (ImageFormatMap.TryGetValue(next, out imageFormat))
-                                                              {
-                                                                  result.Add(imageFormat);
-                                                              }
+                throw new ImageIncorrectException("Image has an incorrect format");
+            }
 
-                                                              return result;
-                                                          });
-
-                if (!supportedFormats.Exists(x => image.RawFormat.Equals(x)))
-                {
-                    throw new ImageIncorrectException("Image has an incorrect format");
-                }
-
-                if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
-                {
-                    throw new ImageIncorrectException("Image has an incorrect size");
-                }
+            if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
+            {
+                throw new ImageIncorrectException("Image has an incorrect size");
             }
         }
 
