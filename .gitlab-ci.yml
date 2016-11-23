@@ -21,7 +21,7 @@ build:app:
   script:
     - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
     - mkdir .aws
-    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --symmetric $INPUT
+    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
     - chmod +x build.sh
     - ./build.sh
   tags:
@@ -32,7 +32,6 @@ build:app:
     expire_in: '1 week'
     paths:
       - publish/vstore/
-      - .aws/credentials
 
 build:image:
   image: $REGISTRY/2gis/docker:1.11.2
@@ -43,6 +42,8 @@ build:image:
   only:
     - master
   script:
+    - pwd
+    - ls -al
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DOCKER_FILE=Dockerfile make docker-build
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master make docker-push
   tags:
