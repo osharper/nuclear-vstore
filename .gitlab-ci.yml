@@ -20,6 +20,7 @@ build:app:
   environment: test
   script:
     - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
+    - mkdir .aws
     - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --symmetric $INPUT
     - build.sh
   tags:
