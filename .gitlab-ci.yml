@@ -19,12 +19,11 @@ build:app:
   stage: build:app
   environment: test
   script:
-    - >
-      PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
-      mkdir .aws
-      echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
-      chmod +x build.sh
-      ./build.sh
+    - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
+    - mkdir .aws
+    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
+    - chmod +x build.sh
+    - ./build.sh
   tags:
     - 2gis
     - docker
@@ -59,10 +58,9 @@ deploy:staging:
   only:
     - master
   script:
-    - >
-      echo "Deploy staging"
-      DEIS_CLIENT_CONFIG=dev.json DEIS_CONTROLLER=$DEIS_CONTROLLER_STAGING DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config
-      DEIS_PROFILE=dev SCALE=$DEIS_SCALE_STAGING REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
+    - echo "Deploy staging"
+    - DEIS_CLIENT_CONFIG=staging.json DEIS_CONTROLLER=$DEIS_CONTROLLER_STAGING DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config
+    - DEIS_PROFILE=staging SCALE=$DEIS_SCALE_STAGING REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
   tags:
     - 2gis
     - docker
