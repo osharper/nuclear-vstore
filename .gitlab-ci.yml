@@ -42,8 +42,7 @@ build:image:
   only:
     - master
   script:
-    - cd publish/vstore/
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DOCKER_FILE=Dockerfile make docker-build
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DOCKER_FILE=publish/vstore/Dockerfile make docker-build
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master make docker-push
   tags:
     - 2gis
