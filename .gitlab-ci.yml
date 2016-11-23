@@ -41,6 +41,8 @@ build:image:
   environment: test
   only:
     - master
+  variables:
+    GIT_STRATEGY: none
   script:
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DOCKER_FILE=publish/vstore/Dockerfile make docker-build source=publish/vstore/
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master make docker-push
