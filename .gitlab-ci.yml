@@ -2,10 +2,10 @@ variables:
   APPLICATION: "ams-vstore"
   REGISTRY: "docker-hub.2gis.ru"
   IMAGE: "ams/vstore"
-  DEIS_CONTROLLER_STAGE: "http://deis.web.2gis.local"
+  DEIS_CONTROLLER_STAGING: "http://deis.web.2gis.local"
   DEIS_CONTROLLER_PROD_N3: "http://deis.n3.nato/"
-  DEIS_SCALE_STAGE: "web=1"
-  DEIS_SCALE_PROD_N3: "web=1"
+  DEIS_SCALE_STAGING: "cmd=1"
+  DEIS_SCALE_PROD_N3: "cmd=1"
 
 stages:
   - build:app
@@ -19,11 +19,12 @@ build:app:
   stage: build:app
   environment: test
   script:
-    - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
-    - mkdir .aws
-    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
-    - chmod +x build.sh
-    - ./build.sh
+    - >
+      PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
+      mkdir .aws
+      echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
+      chmod +x build.sh
+      ./build.sh
   tags:
     - 2gis
     - docker
@@ -58,9 +59,10 @@ deploy:staging:
   only:
     - master
   script:
-    - echo "Deploy staging"
-    - DEIS_CLIENT_CONFIG=dev.json DEIS_CONTROLLER=$DEIS_CONTROLLER_STAGE DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config
-    - DEIS_PROFILE=dev SCALE=$DEIS_SCALE_STAGE REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
+    - >
+      echo "Deploy staging"
+      DEIS_CLIENT_CONFIG=dev.json DEIS_CONTROLLER=$DEIS_CONTROLLER_STAGING DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config
+      DEIS_PROFILE=dev SCALE=$DEIS_SCALE_STAGING REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
   tags:
     - 2gis
     - docker
@@ -75,7 +77,7 @@ deploy:production-n3:
   script:
     - echo "Deploy production"
     - DEIS_CLIENT_CONFIG=production-n3.json DEIS_CONTROLLER=$DEIS_CONTROLLER_PROD_N3 DEIS_USERNAME=$DEIS_PROD_N3_USERNAME DEIS_TOKEN=$DEIS_PROD_N3_TOKEN make deis-config
-    - DEIS_PROFILE=production-n3 SCALE=$DEIS_SCALE_PROD_N3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/credentials make deis-pull
+    - DEIS_PROFILE=production-n3 SCALE=$DEIS_SCALE_PROD_N3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/prod_n3.ini make deis-pull
   tags:
     - 2gis
     - docker
