@@ -39,7 +39,6 @@ docker-clean-images:
 
 .PHONY: docker-push
 docker-push:
-	docker tag "$(IMAGE):$(TAG)" "$(REGISTRY)/$(IMAGE):$(TAG)"
 	docker push "$(REGISTRY)/$(IMAGE):$(TAG)"
 
 
