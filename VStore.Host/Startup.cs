@@ -1,5 +1,5 @@
-﻿using System.Diagnostics;
-using System.Net;
+﻿using System.Net;
+using System.Reflection;
 
 using Amazon;
 using Amazon.S3;
@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Converters;
 
 using NuClear.VStore.Host.Convensions;
-using NuClear.VStore.Host.Diagnostics;
+using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
@@ -26,9 +26,11 @@ using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
 
 using Serilog;
+using Serilog.Events;
 
 namespace NuClear.VStore.Host
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
         private readonly IConfigurationRoot _configuration;
@@ -43,20 +45,17 @@ namespace NuClear.VStore.Host
 
             _configuration = builder.Build();
 
-            Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(_configuration)
-                .CreateLogger();
+            ConfigureLogger();
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
+        // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.SystemDiagnostics;
+            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
             AWSConfigs.LoggingConfig.LogMetrics = true;
-            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.JSON;
+            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
             AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.OnError;
-
-            Trace.Listeners.Add(new SerilogTraceListener());
 
             services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
                     .AddJsonOptions(
@@ -105,6 +104,7 @@ namespace NuClear.VStore.Host
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app,
             IHostingEnvironment env,
             ILoggerFactory loggerFactory,
@@ -141,6 +141,35 @@ namespace NuClear.VStore.Host
             app.UseMvc();
             app.UseSwagger();
             app.UseSwaggerUi();
+        }
+
+        private static void ConfigurSerilogAppender(string loggerName, string level)
+        {
+            var serilogAppender = new SerilogAppender(Log.Logger);
+            serilogAppender.ActivateOptions();
+            var log = log4net.LogManager.GetLogger(Assembly.GetEntryAssembly(), loggerName);
+            var wrapper = (log4net.Repository.Hierarchy.Logger)log.Logger;
+            wrapper.Level = wrapper.Hierarchy.LevelMap[level];
+            wrapper.AddAppender(serilogAppender);
+            wrapper.Repository.Configured = true;
+        }
+
+        private void ConfigureLogger()
+        {
+            var loggerConfiguration = new LoggerConfiguration()
+                .ReadFrom.Configuration(_configuration);
+
+            Log.Logger = loggerConfiguration
+                .CreateLogger();
+
+            var serilogLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
+                                   : Log.IsEnabled(LogEventLevel.Debug) ? "DEBUG"
+                                       : Log.IsEnabled(LogEventLevel.Information) ? "INFO"
+                                           : Log.IsEnabled(LogEventLevel.Warning) ? "WARN"
+                                               : Log.IsEnabled(LogEventLevel.Error) ? "ERROR"
+                                                   : Log.IsEnabled(LogEventLevel.Fatal) ? "FATAL" : "OFF";
+
+            ConfigurSerilogAppender("Amazon", serilogLevel);
         }
     }
 }
