@@ -1,6 +1,7 @@
 FROM docker-hub.2gis.ru/microsoft/aspnetcore:1.1.0
 ARG source
 RUN pwd
+RUN ls -al
 RUN printenv
 WORKDIR /app
 RUN pwd
