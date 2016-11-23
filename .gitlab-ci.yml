@@ -32,6 +32,7 @@ build:app:
     expire_in: '1 week'
     paths:
       - publish/vstore/
+      - .aws/credentials
 
 build:image:
   image: $REGISTRY/2gis/docker:1.11.2

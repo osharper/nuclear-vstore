@@ -1,4 +1,4 @@
-FROM microsoft/aspnetcore:1.1.0
+FROM docker-hub.2gis.ru/microsoft/aspnetcore:1.1.0
 ARG source=.
 WORKDIR /app
 ENV ASPNETCORE_URLS http://*:5000
