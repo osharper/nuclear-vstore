@@ -19,7 +19,8 @@ build:app:
   stage: build:app
   environment: test
   script:
-    - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials make gpg-decrypt
+    - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
+    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --symmetric $INPUT
     - build.sh
   tags:
     - 2gis
