@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,7 +9,9 @@ using Amazon.S3;
 using Amazon.S3.Model;
 
 using ImageSharp;
+using ImageSharp.Formats;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.S3;
@@ -18,6 +22,16 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionManagementService
     {
         private const string SessionToken = "session";
+
+        private static readonly Dictionary<FileFormat, IImageDecoder> ImageDecodersMap =
+            new Dictionary<FileFormat, IImageDecoder>
+                {
+                        { FileFormat.Bmp, new BmpDecoder() },
+                        { FileFormat.Gif, new GifDecoder() },
+                        { FileFormat.Jpeg, new JpegDecoder() },
+                        { FileFormat.Jpg, new JpegDecoder() },
+                        { FileFormat.Png, new PngDecoder() }
+                };
 
         private readonly Uri _endpointUri;
         private readonly Uri _fileStorageEndpointUri;
@@ -54,7 +68,7 @@ namespace NuClear.VStore.Sessions
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
-                                  Key = $"{sessionDescriptor.Id}/{SessionToken}",
+                                  Key = BuildKey(sessionDescriptor.Id, SessionToken),
                                   CannedACL = S3CannedACL.PublicRead
                               };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
@@ -67,11 +81,38 @@ namespace NuClear.VStore.Sessions
             return sessionDescriptor;
         }
 
-        public async Task<MultipartUploadSession> InitiateMultipartUpload(Guid sessionId, string fileName, string contentType)
+        public async Task<MultipartUploadSession> InitiateMultipartUpload(
+            Guid sessionId,
+            string fileName,
+            string contentType,
+            long templateId,
+            string templateVersionId,
+            int templateCode)
         {
             if (!await IsSessionExists(sessionId))
             {
-                throw new InvalidOperationException($"Session {sessionId} does not exist");
+                throw new InvalidOperationException($"Session '{sessionId}' does not exist");
+            }
+
+            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, BuildKey(sessionId, SessionToken));
+            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+
+            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (SessionDescriptor.IsSessionExpired(expiresAt))
+            {
+                throw new SessionExpiredException(sessionId);
+            }
+
+            var sessionTemplateId = metadataWrapper.Read<long>(MetadataElement.TemplateId);
+            if (sessionTemplateId != templateId)
+            {
+                throw new InvalidTemplateException($"Template '{sessionTemplateId}' is expected for session '{sessionId}'");
+            }
+
+            var sessionTemplateVersionId = metadataWrapper.Read<string>(MetadataElement.TemplateVersionId);
+            if (!sessionTemplateVersionId.Equals(templateVersionId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidTemplateException($"Template version Id '{sessionTemplateVersionId}' is expected for session '{sessionId}'");
             }
 
             var key = BuildKey(sessionId, fileName);
@@ -81,39 +122,38 @@ namespace NuClear.VStore.Sessions
                                   Key = key,
                                   ContentType = contentType
                               };
-            var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
+            metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.Filename, fileName);
 
-            var response = await _amazonS3.InitiateMultipartUploadAsync(request);
+            var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
 
-            return new MultipartUploadSession(sessionId, fileName, response.UploadId);
+            return new MultipartUploadSession(sessionId, fileName, uploadResponse.UploadId);
         }
 
-        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream)
+        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, long templateId, string templateVersionId, int templateCode)
         {
-            try
+            using (var memory = new MemoryStream())
             {
-                using (var memoryStream = new MemoryStream())
-                {
-                    await inputStream.CopyToAsync(memoryStream);
-                    memoryStream.Position = 0;
+                await inputStream.CopyToAsync(memory);
+                memory.Position = 0;
 
-                    var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
-                    var response = await _amazonS3.UploadPartAsync(
-                                       new UploadPartRequest
-                                           {
-                                               BucketName = _filesBucketName,
-                                               Key = key,
-                                               UploadId = uploadSession.UploadId,
-                                               InputStream = memoryStream,
-                                               PartNumber = uploadSession.NextPartNumber
-                                           });
-                    uploadSession.AddPart(response.ETag);
+                if (uploadSession.NextPartNumber == 1)
+                {
+                    var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
+                    EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
-            }
-            finally
-            {
-                inputStream.Dispose();
+
+                var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+                var response = await _amazonS3.UploadPartAsync(
+                                   new UploadPartRequest
+                                       {
+                                           BucketName = _filesBucketName,
+                                           Key = key,
+                                           UploadId = uploadSession.UploadId,
+                                           InputStream = memory,
+                                           PartNumber = uploadSession.NextPartNumber
+                                       });
+                uploadSession.AddPart(response.ETag);
             }
         }
 
@@ -140,13 +180,14 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
-            var elementDescriptor = templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
-
+            var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
             try
             {
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
-                EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream);
+                using (getResponse.ResponseStream)
+                {
+                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream, getResponse.ContentLength);
+                }
 
                 var fileKey = string.Concat(BuildKey(uploadSession.SessionId, uploadResponse.ETag), Path.GetExtension(uploadSession.FileName));
                 var copyRequest = new CopyObjectRequest
@@ -169,23 +210,46 @@ namespace NuClear.VStore.Sessions
 
         private static string BuildKey(Guid sessionId, string fileName) => $"{sessionId}/{fileName}";
 
-        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream)
+        private static void EnsureFileHeaderIsValid(IElementDescriptor elementDescriptor, Stream inputStream)
+        {
+            if (elementDescriptor.Type == ElementDescriptorType.Image)
+            {
+                var maxHeaderSize = ImageDecodersMap.Values.Max(x => x.HeaderSize);
+                var header = new byte[maxHeaderSize];
+
+                var position = inputStream.Position;
+                inputStream.Read(header, 0, header.Length);
+                inputStream.Position = position;
+
+                if (!ImageDecodersMap.Values.Any(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray())))
+                {
+                    throw new ImageIncorrectException("Input stream cannot be recognized as image.");
+                }
+            }
+        }
+
+        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream, long inputStreamLength)
         {
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.Image:
-                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 case ElementDescriptorType.Article:
-                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream);
+                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType));
             }
         }
 
-        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream)
+        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
+            if (inputStreamLength > constraints.MaxSize)
+            {
+                throw new FilesizeMismatchException("Image exceeds the size limit.");
+            }
+
             Image image;
             try
             {
@@ -193,10 +257,24 @@ namespace NuClear.VStore.Sessions
             }
             catch (Exception ex)
             {
-                throw new ImageIncorrectException("Image cannot be loaded.", ex);
+                throw new ImageIncorrectException("Image cannot be loaded from the stream.", ex);
             }
 
-            if (constraints.SupportedFileFormats.Any(x => image.CurrentImageFormat.Encoder.MimeType.IndexOf(x.ToString(), StringComparison.OrdinalIgnoreCase) < 0))
+            var supportedDecoders = constraints.SupportedFileFormats
+                                                .Aggregate(
+                                                    new List<IImageDecoder>(),
+                                                    (result, next) =>
+                                                        {
+                                                            IImageDecoder imageDecoder;
+                                                            if (ImageDecodersMap.TryGetValue(next, out imageDecoder))
+                                                            {
+                                                                result.Add(imageDecoder);
+                                                            }
+
+                                                            return result;
+                                                        });
+
+            if (!supportedDecoders.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
             {
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
@@ -207,8 +285,12 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream)
+        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
+            if (inputStreamLength > constraints.MaxSize)
+            {
+                throw new FilesizeMismatchException("Article exceeds the size limit.");
+            }
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)
@@ -220,6 +302,12 @@ namespace NuClear.VStore.Sessions
                                        Prefix = sessionId.ToString()
                                    });
             return response.S3Objects.Count > 0;
+        }
+
+        private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)
+        {
+            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            return templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
         }
     }
 }
