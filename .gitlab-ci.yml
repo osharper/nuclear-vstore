@@ -66,14 +66,13 @@ deploy:staging-01:
   environment: staging
   when: manual
   script:
-    - DEIS_APPLICATION="${APPLICATION}-01"
-    - DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
-    - DEIS_PROFILE=staging make deis-create
-    - DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
-    - DEIS_PROFILE=staging make deis-scale
-    - DEIS_PROFILE=staging make deis-info
-    - DEIS_PROFILE=staging make deis-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-create
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-scale
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-info
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-apps-check
   tags:
     - 2gis
     - docker
@@ -84,14 +83,13 @@ deploy:staging-02:
   environment: staging
   when: manual
   script:
-    - DEIS_APPLICATION="${APPLICATION}-02"
-    - DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
-    - DEIS_PROFILE=staging make deis-create
-    - DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
-    - DEIS_PROFILE=staging make deis-scale
-    - DEIS_PROFILE=staging make deis-info
-    - DEIS_PROFILE=staging make deis-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-create
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-scale
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-info
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-apps-check
   tags:
     - 2gis
     - docker
@@ -102,14 +100,13 @@ deploy:staging-03:
   environment: staging
   when: manual
   script:
-    - DEIS_APPLICATION="${APPLICATION}-03"
-    - DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
-    - DEIS_PROFILE=staging make deis-create
-    - DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
-    - DEIS_PROFILE=staging make deis-scale
-    - DEIS_PROFILE=staging make deis-info
-    - DEIS_PROFILE=staging make deis-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-create
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-scale
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-info
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-apps-check
   tags:
     - 2gis
     - docker
