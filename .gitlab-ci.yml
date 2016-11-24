@@ -66,6 +66,9 @@ deploy:staging-01:
   environment: staging
   when: manual
   script:
+    - sed -i -e 's/EnvIndex/01/g' env/staging.ini
+    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
+    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
@@ -83,6 +86,9 @@ deploy:staging-02:
   environment: staging
   when: manual
   script:
+    - sed -i -e 's/EnvIndex/02/g' env/staging.ini
+    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
+    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
@@ -100,6 +106,9 @@ deploy:staging-03:
   environment: staging
   when: manual
   script:
+    - sed -i -e 's/EnvIndex/03/g' env/staging.ini
+    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
+    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push

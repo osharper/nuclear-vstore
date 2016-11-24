@@ -41,7 +41,7 @@ namespace NuClear.VStore.Host
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
+                .AddEnvironmentVariables("VSTORE_");
 
             _configuration = builder.Build();
 
