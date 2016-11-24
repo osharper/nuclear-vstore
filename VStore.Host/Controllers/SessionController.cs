@@ -64,9 +64,10 @@ namespace NuClear.VStore.Host.Controllers
             MultipartUploadSession uploadSession = null;
             var reader = new MultipartReader(multipartBoundary, HttpContext.Request.Body);
             var section = await reader.ReadNextSectionAsync();
-            if (section == null)
+            var contentLength = HttpContext.Request.ContentLength;
+            if (section == null || contentLength == null)
             {
-                return BadRequest("Request body doesn't contain sections.");
+                return BadRequest("Request body is empty or doesn't contain sections.");
             }
 
             try
@@ -90,9 +91,9 @@ namespace NuClear.VStore.Host.Controllers
                                             sessionId,
                                             fileSection.FileName,
                                             section.ContentType,
+                                            contentLength.Value,
                                             templateId,
-                                            templateVersionId,
-                                            templateCode);
+                                            templateVersionId);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
 

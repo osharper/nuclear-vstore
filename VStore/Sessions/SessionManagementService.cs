@@ -53,10 +53,10 @@ namespace NuClear.VStore.Sessions
             _templateStorageReader = templateStorageReader;
         }
 
-        public async Task<SessionDescriptor> Setup(long templateId)
+        public async Task<SessionSetupContext> Setup(long templateId)
         {
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
-            var sessionDescriptor = new SessionDescriptor(_endpointUri, templateDescriptor);
+            var sessionDescriptor = new SessionSetupContext(_endpointUri, templateDescriptor);
 
             if (sessionDescriptor.UploadUris.Count == 0)
             {
@@ -85,9 +85,9 @@ namespace NuClear.VStore.Sessions
             Guid sessionId,
             string fileName,
             string contentType,
+            long contentLength,
             long templateId,
-            string templateVersionId,
-            int templateCode)
+            string templateVersionId)
         {
             if (!await IsSessionExists(sessionId))
             {
@@ -98,7 +98,7 @@ namespace NuClear.VStore.Sessions
             var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
 
             var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (SessionDescriptor.IsSessionExpired(expiresAt))
+            if (SessionSetupContext.IsSessionExpired(expiresAt))
             {
                 throw new SessionExpiredException(sessionId);
             }
