@@ -67,12 +67,12 @@ deploy:staging:
   when: manual
   script:
     - DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
-    - make deis-create
-    - make deis-config-push
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DEIS_ENV_FILE=env/staging.ini make deis-pull
-    - make deis-scale
-    - make deis-info
-    - make deis-apps-check
+    - DEIS_PROFILE=staging make deis-create
+    - DEIS_PROFILE=staging make deis-config-push
+    - DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DEIS_ENV_FILE=env/staging.ini make deis-pull
+    - DEIS_PROFILE=staging make deis-scale
+    - DEIS_PROFILE=staging make deis-info
+    - DEIS_PROFILE=staging make deis-apps-check
   tags:
     - 2gis
     - docker
