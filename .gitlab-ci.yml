@@ -2,6 +2,7 @@ variables:
   APPLICATION: "ams-vstore"
   REGISTRY: "docker-hub.2gis.ru"
   IMAGE: "ams/vstore"
+  GIT_STRATEGY: none
   DEIS_CONTROLLER_STAGING: "http://deis.web.2gis.local"
   DEIS_CONTROLLER_PROD_N3: "http://deis.n3.nato/"
   DEIS_SCALE_STAGING: "cmd=1"
@@ -15,20 +16,22 @@ stages:
 # ================= Build =================
 
 build:app:
+  variables:
+    GIT_STRATEGY: clone
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
   script:
-    - PASSPHRASE=$GPG_PASSWORD INPUT=env/credentials.gpg OUTPUT=.aws/credentials
-    - mkdir .aws
-    - echo $PASSPHRASE | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
-    - chmod +x build.sh
-    - ./build.sh
+    - dotnet restore
+    - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
+    - mkdir publish/vstore/.aws
+    - INPUT=env/credentials.gpg OUTPUT=publish/vstore/.aws/credentials
+    - echo $GPG_PASSWORD | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
   tags:
     - 2gis
     - docker
   artifacts:
-    name: $APPLICATION
+    name: "${APPLICATION}_${CI_BUILD_REF_NAME}"
     expire_in: '1 week'
     paths:
       - publish/vstore/
@@ -41,12 +44,14 @@ build:image:
   environment: test
   only:
     - master
+    - /^release\/.*$/
   script:
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master make docker-push
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make docker-push
   tags:
     - 2gis
     - docker
+  when: on_success
 
 # ================ Deploy =================
 
@@ -55,12 +60,10 @@ deploy:staging:
   stage: deploy
   environment: staging
   when: manual
-  only:
-    - master
   script:
-    - echo "Deploy staging"
+    - echo "Deploy staging..."
     - DEIS_CLIENT_CONFIG=staging.json DEIS_CONTROLLER=$DEIS_CONTROLLER_STAGING DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config
-    - DEIS_PROFILE=staging SCALE=$DEIS_SCALE_STAGING REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
+    - DEIS_PROFILE=staging SCALE=$DEIS_SCALE_STAGING REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/staging.ini make deis-pull
   tags:
     - 2gis
     - docker
@@ -73,9 +76,9 @@ deploy:production-n3:
   only:
     - master
   script:
-    - echo "Deploy production"
+    - echo "Deploy production..."
     - DEIS_CLIENT_CONFIG=production-n3.json DEIS_CONTROLLER=$DEIS_CONTROLLER_PROD_N3 DEIS_USERNAME=$DEIS_PROD_N3_USERNAME DEIS_TOKEN=$DEIS_PROD_N3_TOKEN make deis-config
-    - DEIS_PROFILE=production-n3 SCALE=$DEIS_SCALE_PROD_N3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=master DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/prod_n3.ini make deis-pull
+    - DEIS_PROFILE=production-n3 SCALE=$DEIS_SCALE_PROD_N3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DEIS_APPLICATION=$APPLICATION DEIS_ENV_FILE=env/prod_n3.ini make deis-pull
   tags:
     - 2gis
     - docker

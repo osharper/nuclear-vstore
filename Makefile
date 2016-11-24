@@ -3,7 +3,7 @@ DOCKER_FILE ?= Dockerfile
 DOCKER_BUILD_CONTEXT ?= .
 DOCKER_BUILD_ARG ?=
 EDITOR ?= vim
-SCALE ?= web=1 cmd=0 worker=3
+SCALE ?= cmd=1 worker=3
 
 REGISTRY ?= docker-hub.2gis.ru
 VENDOR ?= ams
