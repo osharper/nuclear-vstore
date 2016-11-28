@@ -29,9 +29,6 @@ build:app:
   script:
     - dotnet restore
     - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
-    - mkdir publish/vstore/.aws
-    - INPUT=env/credentials.gpg OUTPUT=publish/vstore/.aws/credentials
-    - echo $GPG_PASSWORD | gpg --output $OUTPUT --batch --no-tty --yes --passphrase-fd 0 --decrypt $INPUT
   tags:
     - 2gis
     - docker
