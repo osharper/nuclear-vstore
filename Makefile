@@ -107,7 +107,7 @@ deis-config-push:
 	OLD_CONFIG=`cd /tmp && $(DEIS) config:pull -o -a $(DEIS_APPLICATION_FILTER) && cat .env | sort | md5sum - && rm -f .env` ; \
 	if [ "$${NEW_CONFIG}" != "$${OLD_CONFIG}" ]; then \
 		echo "Push config..." ; \
-		$(DEIS) config:push -a $(DEIS_APPLICATION_FILTER) -p $(DEIS_ENV_FILE) || exit 1; \
+		$(DEIS) config:push -a $(DEIS_APPLICATION_FILTER) -p $(DEIS_ENV_FILE) > /dev/null || exit 1; \
 	else \
 		echo "Config not changed!" ; \
 	fi;
@@ -177,4 +177,3 @@ endif
 	$(EDITOR) $(TMPFILE) && \
 	INPUT=$(TMPFILE) OUTPUT=$(TARGET) $(MAKE) gpg-encrypt
 	rm -f $(TMPFILE)
-
