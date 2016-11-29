@@ -213,7 +213,7 @@ namespace NuClear.VStore.Sessions
                     EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream, getResponse.ContentLength);
                 }
 
-                var fileKey = string.Concat(BuildKey(uploadSession.SessionId, uploadResponse.ETag), Path.GetExtension(uploadSession.FileName));
+                var fileKey = BuildKey(uploadSession.SessionId, uploadResponse.ETag);
                 var copyRequest = new CopyObjectRequest
                                       {
                                           SourceBucket = _filesBucketName,
@@ -224,7 +224,7 @@ namespace NuClear.VStore.Sessions
                                       };
                 await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new UploadedFileInfo(uploadResponse.ETag, new Uri(_fileStorageEndpointUri, fileKey));
+                return new UploadedFileInfo(uploadResponse.ETag, uploadSession.FileName, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {

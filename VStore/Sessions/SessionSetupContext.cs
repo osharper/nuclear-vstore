@@ -17,14 +17,14 @@ namespace NuClear.VStore.Sessions
             Id = Guid.NewGuid();
             TemplateDescriptor = templateDescriptor;
             UploadUris = templateDescriptor.GetBinaryElementTemplateCodes()
-                                           .Select(x => new Uri(endpointUri, $"{RouteToken}/{Id}/{templateDescriptor.Id}/{templateDescriptor.VersionId}/{x}"))
+                                           .Select(x => new UploadUri(x, new Uri(endpointUri, $"{RouteToken}/{Id}/{templateDescriptor.Id}/{templateDescriptor.VersionId}/{x}")))
                                            .ToArray();
             ExpiresAt = CurrentTime().AddDays(1);
         }
 
         public Guid Id { get; }
         public TemplateDescriptor TemplateDescriptor { get; }
-        public IReadOnlyCollection<Uri> UploadUris { get; }
+        public IReadOnlyCollection<UploadUri> UploadUris { get; }
         public DateTime ExpiresAt { get; }
 
         public static bool IsSessionExpired(DateTime expiresAt)
@@ -33,5 +33,17 @@ namespace NuClear.VStore.Sessions
         }
 
         private static DateTime CurrentTime() => DateTime.UtcNow;
+
+        public sealed class UploadUri
+        {
+            public UploadUri(int templateCode, Uri uri)
+            {
+                TemplateCode = templateCode;
+                Uri = uri;
+            }
+
+            public int TemplateCode { get; }
+            public Uri Uri { get; }
+        }
     }
 }
