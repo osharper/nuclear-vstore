@@ -41,7 +41,7 @@ namespace NuClear.VStore.Host
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
+                .AddEnvironmentVariables("VSTORE_");
 
             _configuration = builder.Build();
 
@@ -53,9 +53,7 @@ namespace NuClear.VStore.Host
         public void ConfigureServices(IServiceCollection services)
         {
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
-            AWSConfigs.LoggingConfig.LogMetrics = true;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
-            AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.OnError;
 
             services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
                     .AddJsonOptions(

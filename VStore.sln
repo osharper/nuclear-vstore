@@ -20,6 +20,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{420BAC
 		NuGet.Config = NuGet.Config
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "env", "env", "{B7FE5732-B860-4EA9-8D0B-6C00004B825B}"
+	ProjectSection(SolutionItems) = preProject
+		env\prod_n3.ini = env\prod_n3.ini
+		env\staging.ini = env\staging.ini
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
