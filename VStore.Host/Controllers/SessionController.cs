@@ -93,7 +93,8 @@ namespace NuClear.VStore.Host.Controllers
                                             section.ContentType,
                                             contentLength.Value,
                                             templateId,
-                                            templateVersionId);
+                                            templateVersionId,
+                                            templateCode);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
 

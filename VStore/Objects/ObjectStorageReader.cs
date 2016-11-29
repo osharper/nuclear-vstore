@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Json;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
@@ -92,7 +93,7 @@ namespace NuClear.VStore.Objects
                 content = reader.ReadToEnd();
             }
 
-            descriptor.ContentElementDescriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<IContentElementDescriptor>>(content);
+            descriptor.ContentElementDescriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<IContentElementDescriptor>>(content, SerializerSettings.Default);
             descriptor.TemplateDescriptor = await GetTemplateDescriptor(id, objectVersionId);
 
             return descriptor;

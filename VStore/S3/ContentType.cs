@@ -2,6 +2,6 @@
 {
     public static class ContentType
     {
-        public const string Json = "application/javascript";
+        public const string Json = "application/json";
     }
 }

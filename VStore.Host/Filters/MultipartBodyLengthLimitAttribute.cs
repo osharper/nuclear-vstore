@@ -14,7 +14,7 @@ namespace NuClear.VStore.Host.Filters
         {
             _formOptions = new FormOptions
                                {
-                                   MultipartBodyLengthLimit = multipartBodyLengthLimit
+                                   MultipartBodyLengthLimit = multipartBodyLengthLimit,
                                };
         }
 

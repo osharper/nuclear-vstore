@@ -8,7 +8,7 @@ using NuClear.VStore.Descriptors.Templates;
 
 namespace NuClear.VStore.Sessions
 {
-    public sealed class SessionSetupContext : IDescriptor, IIdentifyable<Guid>
+    public sealed class SessionSetupContext : IIdentifyable<Guid>
     {
         private const string RouteToken = "session";
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -11,9 +12,12 @@ using Amazon.S3.Model;
 using ImageSharp;
 using ImageSharp.Formats;
 
+using Newtonsoft.Json;
+
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -56,29 +60,35 @@ namespace NuClear.VStore.Sessions
         public async Task<SessionSetupContext> Setup(long templateId)
         {
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
-            var sessionDescriptor = new SessionSetupContext(_endpointUri, templateDescriptor);
+            var setupContext = new SessionSetupContext(_endpointUri, templateDescriptor);
 
-            if (sessionDescriptor.UploadUris.Count == 0)
+            if (setupContext.UploadUris.Count == 0)
             {
                 throw new SessionCannotBeCreatedException(
                           $"There is no binary content can be uploaded for template '{templateDescriptor.Id}' " +
                           $"with version '{templateDescriptor.VersionId}'");
             }
 
+            var sessionDescriptor = new SessionDescriptor
+                                        {
+                                            TemplateId = templateDescriptor.Id,
+                                            TemplateVersionId = templateDescriptor.VersionId,
+                                            BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
+                                        };
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
-                                  Key = BuildKey(sessionDescriptor.Id, SessionToken),
-                                  CannedACL = S3CannedACL.PublicRead
+                                  Key = BuildKey(setupContext.Id, SessionToken),
+                                  CannedACL = S3CannedACL.PublicRead,
+                                  ContentType = ContentType.Json,
+                                  ContentBody = JsonConvert.SerializeObject(sessionDescriptor, SerializerSettings.Default)
                               };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
-            metadataWrapper.Write(MetadataElement.TemplateId, templateDescriptor.Id);
-            metadataWrapper.Write(MetadataElement.TemplateVersionId, templateDescriptor.VersionId);
-            metadataWrapper.Write(MetadataElement.ExpiresAt, sessionDescriptor.ExpiresAt);
+            metadataWrapper.Write(MetadataElement.ExpiresAt, setupContext.ExpiresAt);
 
             await _amazonS3.PutObjectAsync(request);
 
-            return sessionDescriptor;
+            return setupContext;
         }
 
         public async Task<MultipartUploadSession> InitiateMultipartUpload(
@@ -87,15 +97,16 @@ namespace NuClear.VStore.Sessions
             string contentType,
             long contentLength,
             long templateId,
-            string templateVersionId)
+            string templateVersionId,
+            int templateCode)
         {
             if (!await IsSessionExists(sessionId))
             {
                 throw new InvalidOperationException($"Session '{sessionId}' does not exist");
             }
 
-            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, BuildKey(sessionId, SessionToken));
-            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, BuildKey(sessionId, SessionToken));
+            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
 
             var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
             if (SessionSetupContext.IsSessionExpired(expiresAt))
@@ -103,16 +114,29 @@ namespace NuClear.VStore.Sessions
                 throw new SessionExpiredException(sessionId);
             }
 
-            var sessionTemplateId = metadataWrapper.Read<long>(MetadataElement.TemplateId);
-            if (sessionTemplateId != templateId)
+            string json;
+            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
             {
-                throw new InvalidTemplateException($"Template '{sessionTemplateId}' is expected for session '{sessionId}'");
+                json = reader.ReadToEnd();
             }
 
-            var sessionTemplateVersionId = metadataWrapper.Read<string>(MetadataElement.TemplateVersionId);
-            if (!sessionTemplateVersionId.Equals(templateVersionId, StringComparison.OrdinalIgnoreCase))
+            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+
+            if (sessionDescriptor.TemplateId != templateId)
             {
-                throw new InvalidTemplateException($"Template version Id '{sessionTemplateVersionId}' is expected for session '{sessionId}'");
+                throw new InvalidTemplateException($"Template '{sessionDescriptor.TemplateId}' is expected for session '{sessionId}'");
+            }
+
+            if (!sessionDescriptor.TemplateVersionId.Equals(templateVersionId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidTemplateException($"Template version Id '{sessionDescriptor.TemplateVersionId}' is expected for session '{sessionId}'");
+            }
+
+            if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
+            {
+                throw new InvalidTemplateException(
+                          $"Binary content is not expected for the item '{templateCode}' within template '{sessionDescriptor.TemplateId}' " +
+                          $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
             }
 
             var key = BuildKey(sessionId, fileName);
