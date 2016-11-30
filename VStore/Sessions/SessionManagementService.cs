@@ -37,20 +37,17 @@ namespace NuClear.VStore.Sessions
                         { FileFormat.Png, new PngDecoder() }
                 };
 
-        private readonly Uri _endpointUri;
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
 
         public SessionManagementService(
-            Uri endpointUri,
             Uri fileStorageEndpointUri,
             string filesBucketName,
             IAmazonS3 amazonS3,
             TemplateStorageReader templateStorageReader)
         {
-            _endpointUri = endpointUri;
             _fileStorageEndpointUri = fileStorageEndpointUri;
             _filesBucketName = filesBucketName;
             _amazonS3 = amazonS3;
@@ -60,20 +57,20 @@ namespace NuClear.VStore.Sessions
         public async Task<SessionSetupContext> Setup(long templateId)
         {
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
-            var setupContext = new SessionSetupContext(_endpointUri, templateDescriptor);
-
-            if (setupContext.UploadUris.Count == 0)
+            var binaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes();
+            if (binaryElementTemplateCodes.Count == 0)
             {
                 throw new SessionCannotBeCreatedException(
                           $"There is no binary content can be uploaded for template '{templateDescriptor.Id}' " +
                           $"with version '{templateDescriptor.VersionId}'");
             }
 
+            var setupContext = new SessionSetupContext(templateDescriptor);
             var sessionDescriptor = new SessionDescriptor
                                         {
                                             TemplateId = templateDescriptor.Id,
                                             TemplateVersionId = templateDescriptor.VersionId,
-                                            BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
+                                            BinaryElementTemplateCodes = binaryElementTemplateCodes
                                         };
             var request = new PutObjectRequest
                               {

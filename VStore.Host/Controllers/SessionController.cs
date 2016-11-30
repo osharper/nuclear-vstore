@@ -28,20 +28,33 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var sessionDescriptor = await _sessionManagementService.Setup(templateId);
+                var sessionSetupContext = await _sessionManagementService.Setup(templateId);
+                var templateDescriptor = sessionSetupContext.TemplateDescriptor;
+
+                var uploadUrls = UploadUrl.Generate(
+                    templateDescriptor,
+                    templateCode => Url.Action(
+                        "UploadFile",
+                        new
+                            {
+                                sessionId = sessionSetupContext.Id,
+                                templateId,
+                                templateVersionId = templateDescriptor.VersionId,
+                                templateCode
+                            }));
+
                 return Json(
                     new
                         {
                             Template = new
                                            {
-                                               sessionDescriptor.TemplateDescriptor.Id,
-                                               sessionDescriptor.TemplateDescriptor.VersionId,
-                                               sessionDescriptor.TemplateDescriptor.LastModified,
-                                               sessionDescriptor.TemplateDescriptor.Properties,
-                                               sessionDescriptor.TemplateDescriptor.Elements
+                                               Id = templateId,
+                                               templateDescriptor.VersionId,
+                                               templateDescriptor.Properties,
+                                               templateDescriptor.Elements
                                            },
-                            sessionDescriptor.UploadUris,
-                            sessionDescriptor.ExpiresAt
+                            uploadUrls,
+                            sessionSetupContext.ExpiresAt
                         });
             }
             catch (SessionCannotBeCreatedException ex)
