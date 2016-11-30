@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 
-using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
@@ -34,7 +34,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var descriptor = await _objectStorageReader.GetContentDescriptor(id, null);
+                var descriptor = await _objectStorageReader.GetObjectDescriptor(id, null);
                 return Json(descriptor);
             }
             catch (ObjectNotFoundException)
@@ -52,7 +52,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var descriptor = await _objectStorageReader.GetContentDescriptor(id, versionId);
+                var descriptor = await _objectStorageReader.GetObjectDescriptor(id, versionId);
                 return Json(descriptor);
             }
             catch (ObjectNotFoundException)
@@ -65,10 +65,10 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{id}/{templateId}")]
-        public async Task<IActionResult> Create(long id, long templateId, [FromBody]IVersionedTemplateDescriptor templateDescriptor)
+        [HttpPost("{id}")]
+        public async Task<IActionResult> Create(long id,  [FromBody]IObjectDescriptor objectDescriptor)
         {
-            var versionId = await _objectManagementService.Create(id, templateId, templateDescriptor);
+            var versionId = ""; //await _objectManagementService.Create(id, objectDescriptor);
             var url = Url.AbsoluteAction("Get", "Object", new { id, versionId });
             return Created(url, versionId);
         }

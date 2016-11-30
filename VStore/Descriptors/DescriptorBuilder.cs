@@ -61,9 +61,9 @@ namespace NuClear.VStore.Descriptors
                         Properties = _properties
                     };
             }
-            else if (typeof(TDescriptor) == typeof(ContentDescriptor))
+            else if (typeof(TDescriptor) == typeof(ObjectDescriptor))
             {
-                descriptor = new ContentDescriptor
+                descriptor = new ObjectDescriptor
                     {
                         Id = long.Parse(_id),
                         VersionId = _version,

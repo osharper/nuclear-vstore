@@ -6,6 +6,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
@@ -34,24 +35,26 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        public async Task<string> Create(long id, long templateId, IVersionedTemplateDescriptor templateDescriptor)
+        public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
-            if (!await _templateStorageReader.IsTemplateExists(templateId))
+            if (!await _templateStorageReader.IsTemplateExists(objectDescriptor.TemplateId))
             {
-                throw new InvalidOperationException($"Template '{templateId}' does not exist");
+                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' does not exist");
             }
 
-            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(templateId);
-            if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.Ordinal))
+            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+            if (!objectDescriptor.TemplateVersionId.Equals(latestTemplateVersionId, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException($"Provided template descriptor has an outdated version. " +
-                                                    $"Latest versionId for template '{templateId}' is '{latestTemplateVersionId}'");
+                throw new InvalidOperationException("Provided template descriptor has an outdated version. " +
+                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'");
             }
 
             using (_lockSessionFactory.CreateLockSession(id))
             {
-                await SaveTemplate(id, templateId, templateDescriptor);
-                return await InitializeDescriptor(id, templateDescriptor.VersionId);
+                // await SaveTemplate(id, templateId, templateDescriptor);
+                // return await InitializeDescriptor(id, templateDescriptor.VersionId);
+
+                return null;
             }
         }
 

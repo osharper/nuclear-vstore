@@ -5,6 +5,7 @@ using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 
 namespace NuClear.VStore.Json
@@ -16,6 +17,9 @@ namespace NuClear.VStore.Json
         private const string TypeToken = "type";
         private const string TemplateCodeToken = "templateCode";
         private const string ConstraintsToken = "constraints";
+        private const string IdToken = "id";
+        private const string VersionIdToken = "versionId";
+        private const string ValueToken = "value";
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
@@ -44,6 +48,20 @@ namespace NuClear.VStore.Json
                 return templateDescriptor;
             }
 
+            if (typeof(IObjectDescriptor).IsAssignableFrom(objectType))
+            {
+                var obj = JObject.Load(reader);
+                var descriptors = obj[ElementsToken];
+                var elementDescriptors = DeserializeObjectElementDescriptors(descriptors);
+
+                obj.Remove(ElementsToken);
+
+                var objectDescriptor = obj.ToObject<ObjectDescriptor>();
+                objectDescriptor.Elements = elementDescriptors;
+
+                return objectDescriptor;
+            }
+
             if (objectType == typeof(IReadOnlyCollection<IElementDescriptor>))
             {
                 var array = JArray.Load(reader);
@@ -53,7 +71,10 @@ namespace NuClear.VStore.Json
             throw new ArgumentOutOfRangeException(nameof(objectType));
         }
 
-        public override bool CanConvert(Type objectType) => typeof(ITemplateDescriptor).IsAssignableFrom(objectType) || objectType == typeof(IReadOnlyCollection<IElementDescriptor>);
+        public override bool CanConvert(Type objectType) =>
+            typeof(ITemplateDescriptor).IsAssignableFrom(objectType) ||
+            typeof(IObjectDescriptor).IsAssignableFrom(objectType) ||
+            objectType == typeof(IReadOnlyCollection<IElementDescriptor>);
 
         private static IReadOnlyCollection<IElementDescriptor> DeserializeElementDescriptors(JToken token)
         {
@@ -63,7 +84,7 @@ namespace NuClear.VStore.Json
                 var type = descriptor[TypeToken].ToString();
                 var descriptorType = (ElementDescriptorType)Enum.Parse(typeof(ElementDescriptorType), type, true);
 
-                var elementDescriptor = Deserialize(descriptor, descriptorType);
+                var elementDescriptor = DeserializeElementDescriptor(descriptor, descriptorType);
                 if (elementDescriptor == null)
                 {
                     return Array.Empty<IElementDescriptor>();
@@ -75,7 +96,42 @@ namespace NuClear.VStore.Json
             return elementDescriptors;
         }
 
-        private static IElementDescriptor Deserialize(JToken token, ElementDescriptorType descriptorType)
+        private static IReadOnlyCollection<IObjectElementDescriptor> DeserializeObjectElementDescriptors(JToken token)
+        {
+            var elementDescriptors = new List<IObjectElementDescriptor>();
+            foreach (var descriptor in token)
+            {
+                var type = descriptor[TypeToken].ToString();
+                var descriptorType = (ElementDescriptorType)Enum.Parse(typeof(ElementDescriptorType), type, true);
+
+                var elementDescriptor = DeserializeElementDescriptor(descriptor, descriptorType);
+                if (elementDescriptor == null)
+                {
+                    return Array.Empty<IObjectElementDescriptor>();
+                }
+
+                var id = descriptor[IdToken].ToObject<long>();
+
+                var versionId = string.Empty;
+                var versionIdToken = descriptor.SelectToken(VersionIdToken);
+                if (versionIdToken != null)
+                {
+                    versionId = versionIdToken.ToObject<string>();
+                }
+
+                var value = DeserializeObjectElementValue(descriptor, descriptorType);
+                if (value == null)
+                {
+                    return Array.Empty<IObjectElementDescriptor>();
+                }
+
+                elementDescriptors.Add(new ObjectElementDescriptor(id, versionId, elementDescriptor, value));
+            }
+
+            return elementDescriptors;
+        }
+
+        private static IElementDescriptor DeserializeElementDescriptor(JToken token, ElementDescriptorType descriptorType)
         {
             var templateCode = token[TemplateCodeToken].ToObject<int>();
             var properties = (JObject)token[PropertiesToken];
@@ -94,6 +150,28 @@ namespace NuClear.VStore.Json
                     return new DateElementDescriptor(templateCode, properties);
                 case ElementDescriptorType.Link:
                     return new LinkElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
+                default:
+                    return null;
+            }
+        }
+
+        private static IObjectElementValue DeserializeObjectElementValue(JToken token, ElementDescriptorType descriptorType)
+        {
+            var value = token[ValueToken];
+            switch (descriptorType)
+            {
+                case ElementDescriptorType.Text:
+                    return value.ToObject<TextElementValue>();
+                case ElementDescriptorType.Image:
+                    return value.ToObject<ImageElementValue>();
+                case ElementDescriptorType.Article:
+                    return value.ToObject<ArticleElementValue>();
+                case ElementDescriptorType.FasComment:
+                    return value.ToObject<FasElementValue>();
+                case ElementDescriptorType.Date:
+                    return value.ToObject<TextElementValue>();
+                case ElementDescriptorType.Link:
+                    return value.ToObject<TextElementValue>();
                 default:
                     return null;
             }

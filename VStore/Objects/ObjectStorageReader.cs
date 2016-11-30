@@ -72,7 +72,7 @@ namespace NuClear.VStore.Objects
             return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
         }
 
-        public async Task<ContentDescriptor> GetContentDescriptor(long id, string versionId)
+        public async Task<ObjectDescriptor> GetObjectDescriptor(long id, string versionId)
         {
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetObjectLatestVersion(id) : versionId;
 
@@ -85,7 +85,7 @@ namespace NuClear.VStore.Objects
             var descriptor = DescriptorBuilder.For(id)
                                               .WithVersion(objectVersionId)
                                               .WithLastModified(response.LastModified)
-                                              .Build<ContentDescriptor>();
+                                              .Build<ObjectDescriptor>();
 
             string content;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
@@ -93,8 +93,8 @@ namespace NuClear.VStore.Objects
                 content = reader.ReadToEnd();
             }
 
-            descriptor.ContentElementDescriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<IContentElementDescriptor>>(content, SerializerSettings.Default);
-            descriptor.TemplateDescriptor = await GetTemplateDescriptor(id, objectVersionId);
+            // descriptor.ContentElementDescriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<IObjectElementDescriptor>>(content, SerializerSettings.Default);
+            // descriptor.TemplateDescriptor = await GetTemplateDescriptor(id, objectVersionId);
 
             return descriptor;
         }
