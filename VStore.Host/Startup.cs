@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using Amazon;
 using Amazon.S3;
@@ -31,8 +32,10 @@ using Serilog.Events;
 namespace NuClear.VStore.Host
 {
     // ReSharper disable once ClassNeverInstantiated.Global
-    public class Startup
+    public sealed class Startup
     {
+        private const string ApiVersion = "/api/1.0";
+
         private readonly IConfigurationRoot _configuration;
 
         public Startup(IHostingEnvironment env)
@@ -55,7 +58,7 @@ namespace NuClear.VStore.Host
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
 
-            services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute("api/1.0")))
+            services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute(ApiVersion)))
                     .AddJsonOptions(
                         options =>
                             {
@@ -134,13 +137,14 @@ namespace NuClear.VStore.Host
                     });
             }
 
+            app.UseStatusCodePages(x => Task.Run(() => RedirectToCurrentApiVersion(x.HttpContext)));
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
             app.UseMvc();
             app.UseSwagger();
             app.UseSwaggerUi();
         }
 
-        private static void ConfigurSerilogAppender(string loggerName, string level)
+        private static void ConfigureSerilogAppender(string loggerName, string level)
         {
             var serilogAppender = new SerilogAppender(Log.Logger);
             serilogAppender.ActivateOptions();
@@ -149,6 +153,14 @@ namespace NuClear.VStore.Host
             wrapper.Level = wrapper.Hierarchy.LevelMap[level];
             wrapper.AddAppender(serilogAppender);
             wrapper.Repository.Configured = true;
+        }
+
+        private static void RedirectToCurrentApiVersion(HttpContext httpContext)
+        {
+            if (httpContext.Response.StatusCode == (int)HttpStatusCode.NotFound && !httpContext.Request.Path.StartsWithSegments(ApiVersion))
+            {
+                httpContext.Response.Redirect($"{ApiVersion}{httpContext.Request.Path}");
+            }
         }
 
         private void ConfigureLogger()
@@ -166,7 +178,7 @@ namespace NuClear.VStore.Host
                                                : Log.IsEnabled(LogEventLevel.Error) ? "ERROR"
                                                    : Log.IsEnabled(LogEventLevel.Fatal) ? "FATAL" : "OFF";
 
-            ConfigurSerilogAppender("Amazon", serilogLevel);
+            ConfigureSerilogAppender("Amazon", serilogLevel);
         }
     }
 }
