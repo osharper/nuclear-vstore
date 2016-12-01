@@ -18,6 +18,7 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
+using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -25,8 +26,6 @@ namespace NuClear.VStore.Sessions
 {
     public sealed class SessionManagementService
     {
-        private const string SessionToken = "session";
-
         private static readonly Dictionary<FileFormat, IImageDecoder> ImageDecodersMap =
             new Dictionary<FileFormat, IImageDecoder>
                 {
@@ -75,7 +74,7 @@ namespace NuClear.VStore.Sessions
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
-                                  Key = BuildKey(setupContext.Id, SessionToken),
+                                  Key = setupContext.Id.AsS3ObjectKey(Tokens.SessionPostfix),
                                   CannedACL = S3CannedACL.PublicRead,
                                   ContentType = ContentType.Json,
                                   ContentBody = JsonConvert.SerializeObject(sessionDescriptor, SerializerSettings.Default)
@@ -102,7 +101,7 @@ namespace NuClear.VStore.Sessions
                 throw new InvalidOperationException($"Session '{sessionId}' does not exist");
             }
 
-            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, BuildKey(sessionId, SessionToken));
+            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
             var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
 
             var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
@@ -136,7 +135,7 @@ namespace NuClear.VStore.Sessions
                           $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
             }
 
-            var key = BuildKey(sessionId, fileName);
+            var key = sessionId.AsS3ObjectKey(fileName);
             var request = new InitiateMultipartUploadRequest
                               {
                                   BucketName = _filesBucketName,
@@ -164,7 +163,7 @@ namespace NuClear.VStore.Sessions
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
 
-                var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
                 var response = await _amazonS3.UploadPartAsync(
                                    new UploadPartRequest
                                        {
@@ -182,14 +181,14 @@ namespace NuClear.VStore.Sessions
         {
             if (!uploadSession.IsCompleted)
             {
-                var key = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
                 await _amazonS3.AbortMultipartUploadAsync(_filesBucketName, key, uploadSession.UploadId);
             }
         }
 
         public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, long templateId, string templateVersionId, int templateCode)
         {
-            var uploadKey = BuildKey(uploadSession.SessionId, uploadSession.FileName);
+            var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
             var uploadResponse = await _amazonS3.CompleteMultipartUploadAsync(
                                      new CompleteMultipartUploadRequest
@@ -210,7 +209,7 @@ namespace NuClear.VStore.Sessions
                     EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream, getResponse.ContentLength);
                 }
 
-                var fileKey = BuildKey(uploadSession.SessionId, uploadResponse.ETag);
+                var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
                 var copyRequest = new CopyObjectRequest
                                       {
                                           SourceBucket = _filesBucketName,
@@ -221,15 +220,13 @@ namespace NuClear.VStore.Sessions
                                       };
                 await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new UploadedFileInfo(uploadResponse.ETag, uploadSession.FileName, new Uri(_fileStorageEndpointUri, fileKey));
+                return new UploadedFileInfo(fileKey, uploadSession.FileName, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {
                 await _amazonS3.DeleteObjectAsync(_filesBucketName, uploadKey);
             }
         }
-
-        private static string BuildKey(Guid sessionId, string fileName) => $"{sessionId}/{fileName}";
 
         private static void EnsureFileHeaderIsValid(IElementDescriptor elementDescriptor, Stream inputStream)
         {
@@ -300,7 +297,7 @@ namespace NuClear.VStore.Sessions
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
 
-            if (image.Width > constraints.ImageSize.Width || image.Height > constraints.ImageSize.Height)
+            if (image.Width == constraints.ImageSize.Width || image.Height == constraints.ImageSize.Height)
             {
                 throw new ImageIncorrectException("Image has an incorrect size");
             }

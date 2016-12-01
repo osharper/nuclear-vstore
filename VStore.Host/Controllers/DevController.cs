@@ -3,9 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Amazon.S3;
-using Amazon.S3.Model;
 
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -34,33 +32,11 @@ namespace NuClear.VStore.Host.Controllers
             _lockSessionFactory.CreateLockSession(0);
         }
 
-        [HttpGet("content")]
+        [HttpGet("object")]
         public async Task<JsonResult> List()
         {
             var response = await _amazonS3.ListVersionsAsync(_cephOptions.Value.ObjectsBucketName);
             return Json(response.Versions.Where(x => !x.IsDeleteMarker).Select(x => new { x.Key, x.VersionId, x.IsLatest }));
-        }
-
-        [HttpGet("content/binary/{id}/{versionId}")]
-        public async Task<FileStreamResult> GetBinary(string id, string versionId)
-        {
-            var response = await _amazonS3.GetObjectAsync(_cephOptions.Value.ObjectsBucketName, id, versionId);
-            return File(response.ResponseStream, response.Headers.ContentType);
-        }
-
-        [HttpPut("content/{id}")]
-        public async Task<string> Put(string id, IFormFile file)
-        {
-            var response = await _amazonS3.PutObjectAsync(
-                               new PutObjectRequest
-                                   {
-                                       Key = id,
-                                       BucketName = _cephOptions.Value.ObjectsBucketName,
-                                       ContentType = file.ContentType,
-                                       InputStream = file.OpenReadStream(),
-                                       CannedACL = S3CannedACL.PublicRead
-                                   });
-            return response.VersionId;
         }
 
         [HttpGet("throw")]

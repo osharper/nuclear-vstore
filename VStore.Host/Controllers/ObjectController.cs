@@ -35,7 +35,17 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var descriptor = await _objectStorageReader.GetObjectDescriptor(id, null);
-                return Json(descriptor);
+                return Json(
+                    new
+                        {
+                            descriptor.Id,
+                            descriptor.VersionId,
+                            descriptor.LastModified,
+                            descriptor.TemplateId,
+                            descriptor.TemplateVersionId,
+                            descriptor.Properties,
+                            descriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {
@@ -53,7 +63,17 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var descriptor = await _objectStorageReader.GetObjectDescriptor(id, versionId);
-                return Json(descriptor);
+                return Json(
+                    new
+                        {
+                            descriptor.Id,
+                            descriptor.VersionId,
+                            descriptor.LastModified,
+                            descriptor.TemplateId,
+                            descriptor.TemplateVersionId,
+                            descriptor.Properties,
+                            descriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {
@@ -68,7 +88,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{id}")]
         public async Task<IActionResult> Create(long id,  [FromBody]IObjectDescriptor objectDescriptor)
         {
-            var versionId = ""; //await _objectManagementService.Create(id, objectDescriptor);
+            var versionId = await _objectManagementService.Create(id, objectDescriptor);
             var url = Url.AbsoluteAction("Get", "Object", new { id, versionId });
             return Created(url, versionId);
         }

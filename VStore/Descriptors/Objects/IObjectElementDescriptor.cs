@@ -2,9 +2,8 @@
 
 namespace NuClear.VStore.Descriptors.Objects
 {
-    public interface IObjectElementDescriptor : IElementDescriptor
+    public interface IObjectElementDescriptor : IElementDescriptor, IIdentifyable<long>
     {
-        long Id { get; }
         IObjectElementValue Value { get; }
     }
 }

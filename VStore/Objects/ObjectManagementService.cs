@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -7,7 +9,6 @@ using Amazon.S3.Model;
 using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors.Objects;
-using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
@@ -18,8 +19,11 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectManagementService
     {
+        private const string ObjectToken = "object";
+
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
+        private readonly ObjectStorageReader _objectStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
@@ -27,122 +31,93 @@ namespace NuClear.VStore.Objects
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
             TemplateStorageReader templateStorageReader,
+            ObjectStorageReader objectStorageReader,
             LockSessionFactory lockSessionFactory)
         {
             _amazonS3 = amazonS3;
             _templateStorageReader = templateStorageReader;
+            _objectStorageReader = objectStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
+            if (await _objectStorageReader.IsObjectExists(id))
+            {
+                throw new InvalidOperationException($"Object '{id}' already exists");
+            }
+
             if (!await _templateStorageReader.IsTemplateExists(objectDescriptor.TemplateId))
             {
                 throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' does not exist");
             }
 
             var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
-            if (!objectDescriptor.TemplateVersionId.Equals(latestTemplateVersionId, StringComparison.Ordinal))
+            if (!objectDescriptor.TemplateVersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Provided template descriptor has an outdated version. " +
+                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
                                                     $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'");
             }
 
-            using (_lockSessionFactory.CreateLockSession(id))
-            {
-                // await SaveTemplate(id, templateId, templateDescriptor);
-                // return await InitializeDescriptor(id, templateDescriptor.VersionId);
-
-                return null;
-            }
-        }
-
-        public async Task<string> SetTitle(long rootObjectId, string rootObjectVersionId, string title)
-        {
-            using (_lockSessionFactory.CreateLockSession(rootObjectId))
-            {
-                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
-                await EnsureObjectState(descriptorKey, rootObjectVersionId);
-
-                var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, descriptorKey, rootObjectVersionId);
-
-                var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-                metadataWrapper.Write(MetadataElement.Title, title);
-                var metadata = metadataWrapper.Unwrap();
-
-                var copyRequest = new CopyObjectRequest
-                {
-                    SourceBucket = _bucketName,
-                    DestinationBucket = _bucketName,
-                    SourceKey = descriptorKey,
-                    DestinationKey = descriptorKey,
-                    SourceVersionId = rootObjectVersionId,
-                    MetadataDirective = S3MetadataDirective.REPLACE,
-                    CannedACL = S3CannedACL.PublicRead
-                };
-                foreach (var metadataKey in metadata.Keys)
-                {
-                    copyRequest.Metadata[metadataKey] = metadata[metadataKey];
-                }
-
-                await _amazonS3.CopyObjectAsync(copyRequest);
-
-                var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, descriptorKey);
-                return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
-            }
+            return await PutObject(id, objectDescriptor);
         }
 
         public async Task<string> ModifyElement(long rootObjectId, string rootObjectVersionId, long elementId, string content)
         {
             using (_lockSessionFactory.CreateLockSession(rootObjectId))
             {
-                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
+                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.ObjectPostfix);
                 await EnsureObjectState(descriptorKey, rootObjectVersionId);
             }
 
             return string.Empty;
         }
 
-        private async Task SaveTemplate(long rootObjectId, long templateId, IVersionedTemplateDescriptor templateDescriptor)
+        public void VerifyObjectElementsConsistency(long? objectId, IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
-            var key = rootObjectId.AsS3ObjectKey(Tokens.TemplatePostfix, templateId);
-            var content = JsonConvert.SerializeObject(templateDescriptor.Elements, SerializerSettings.Default);
-            var putRequest = new PutObjectRequest
-            {
-                Key = key,
-                BucketName = _bucketName,
-                ContentType = ContentType.Json,
-                ContentBody = content,
-                CannedACL = S3CannedACL.PublicRead
-            };
-
-            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            metadataWrapper.Write(MetadataElement.VersionId, templateDescriptor.VersionId);
-
-            await _amazonS3.PutObjectAsync(putRequest);
         }
 
-        private async Task<string> InitializeDescriptor(long rootObjectId, string templateVersionId)
+        private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)
         {
-            var key = rootObjectId.AsS3ObjectKey(Tokens.DescriptorObjectName);
-            var putRequest = new PutObjectRequest
+            VerifyObjectElementsConsistency(id, objectDescriptor.Elements);
+
+            PutObjectRequest putRequest;
+            foreach (var elementDescriptor in objectDescriptor.Elements)
             {
-                Key = key,
-                BucketName = _bucketName,
-                ContentType = ContentType.Json,
-                ContentBody = string.Empty,
-                CannedACL = S3CannedACL.PublicRead
-            };
+                putRequest = new PutObjectRequest
+                                 {
+                                     Key = id.AsS3ObjectKey(elementDescriptor.Id),
+                                     BucketName = _bucketName,
+                                     ContentType = ContentType.Json,
+                                     ContentBody = JsonConvert.SerializeObject(elementDescriptor, SerializerSettings.Default),
+                                     CannedACL = S3CannedACL.PublicRead
+                                 };
+                await _amazonS3.PutObjectAsync(putRequest);
+            }
 
-            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            metadataWrapper.Write(MetadataElement.TemplateVersionId, templateVersionId);
+            var objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
+            var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
+                                                  {
+                                                      TemplateId = objectDescriptor.TemplateId,
+                                                      TemplateVersionId = objectDescriptor.TemplateVersionId,
+                                                      Properties = objectDescriptor.Properties,
+                                                      Elements = objectVersions
+                                                  };
 
+            var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
+            putRequest = new PutObjectRequest
+                             {
+                                 Key = objectKey,
+                                 BucketName = _bucketName,
+                                 ContentType = ContentType.Json,
+                                 ContentBody = JsonConvert.SerializeObject(objectPersistenceDescriptor, SerializerSettings.Default),
+                                 CannedACL = S3CannedACL.PublicRead
+                             };
             await _amazonS3.PutObjectAsync(putRequest);
 
-            // ceph does not return version-id response header, so we need to do another request to get version
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, key);
-            return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
+            objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
+            return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase)).Select(x => x.VersionId).Single();
         }
 
         private async Task EnsureObjectState(string key, string versionId)

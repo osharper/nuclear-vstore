@@ -94,6 +94,7 @@ namespace NuClear.VStore.Host
                          x.GetService<IOptions<CephOptions>>().Value,
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplateStorageReader>(),
+                         x.GetService<ObjectStorageReader>(),
                          x.GetService<LockSessionFactory>()));
             services.AddScoped(
                 x => new SessionManagementService(

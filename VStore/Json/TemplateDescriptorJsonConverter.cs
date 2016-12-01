@@ -23,14 +23,29 @@ namespace NuClear.VStore.Json
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
-            var templateDescriptor = (ITemplateDescriptor)value;
-
-            var json = new JObject
-                           {
-                               [PropertiesToken] = templateDescriptor.Properties,
-                               [ElementsToken] = JArray.FromObject(templateDescriptor.Elements, serializer)
-                           };
-            json.WriteTo(writer);
+            var templateDescriptor = value as ITemplateDescriptor;
+            if (templateDescriptor != null)
+            {
+                var json = new JObject
+                               {
+                                   [PropertiesToken] = templateDescriptor.Properties,
+                                   [ElementsToken] = JArray.FromObject(templateDescriptor.Elements, serializer)
+                               };
+                json.WriteTo(writer);
+            }
+            else
+            {
+                var objectDescriptor = value as IObjectDescriptor;
+                if (objectDescriptor != null)
+                {
+                    var json = new JObject
+                                   {
+                                       [PropertiesToken] = objectDescriptor.Properties,
+                                       [ElementsToken] = JArray.FromObject(objectDescriptor.Elements, serializer)
+                                   };
+                    json.WriteTo(writer);
+                }
+            }
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -68,12 +83,21 @@ namespace NuClear.VStore.Json
                 return DeserializeElementDescriptors(array);
             }
 
+            if (objectType == typeof(IElementDescriptor))
+            {
+                var obj = JObject.Load(reader);
+                var type = obj[TypeToken].ToString();
+                var descriptorType = (ElementDescriptorType)Enum.Parse(typeof(ElementDescriptorType), type, true);
+                return DeserializeElementDescriptor(obj, descriptorType);
+            }
+
             throw new ArgumentOutOfRangeException(nameof(objectType));
         }
 
         public override bool CanConvert(Type objectType) =>
             typeof(ITemplateDescriptor).IsAssignableFrom(objectType) ||
             typeof(IObjectDescriptor).IsAssignableFrom(objectType) ||
+            objectType == typeof(IElementDescriptor) ||
             objectType == typeof(IReadOnlyCollection<IElementDescriptor>);
 
         private static IReadOnlyCollection<IElementDescriptor> DeserializeElementDescriptors(JToken token)
@@ -119,13 +143,13 @@ namespace NuClear.VStore.Json
                     versionId = versionIdToken.ToObject<string>();
                 }
 
-                var value = DeserializeObjectElementValue(descriptor, descriptorType);
+                var value = descriptor[ValueToken].AsObjectElementValue(descriptorType);
                 if (value == null)
                 {
                     return Array.Empty<IObjectElementDescriptor>();
                 }
 
-                elementDescriptors.Add(new ObjectElementDescriptor(id, versionId, elementDescriptor, value));
+                elementDescriptors.Add(new ObjectElementDescriptor(elementDescriptor, value) { Id = id, VersionId = versionId });
             }
 
             return elementDescriptors;
@@ -150,28 +174,6 @@ namespace NuClear.VStore.Json
                     return new DateElementDescriptor(templateCode, properties);
                 case ElementDescriptorType.Link:
                     return new LinkElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
-                default:
-                    return null;
-            }
-        }
-
-        private static IObjectElementValue DeserializeObjectElementValue(JToken token, ElementDescriptorType descriptorType)
-        {
-            var value = token[ValueToken];
-            switch (descriptorType)
-            {
-                case ElementDescriptorType.Text:
-                    return value.ToObject<TextElementValue>();
-                case ElementDescriptorType.Image:
-                    return value.ToObject<ImageElementValue>();
-                case ElementDescriptorType.Article:
-                    return value.ToObject<ArticleElementValue>();
-                case ElementDescriptorType.FasComment:
-                    return value.ToObject<FasElementValue>();
-                case ElementDescriptorType.Date:
-                    return value.ToObject<TextElementValue>();
-                case ElementDescriptorType.Link:
-                    return value.ToObject<TextElementValue>();
                 default:
                     return null;
             }

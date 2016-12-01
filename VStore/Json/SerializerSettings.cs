@@ -16,7 +16,8 @@ namespace NuClear.VStore.Json
                     ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 };
             Default.Converters.Insert(0, new TemplateDescriptorJsonConverter());
-            Default.Converters.Insert(1, new StringEnumConverter { CamelCaseText = true });
+            Default.Converters.Insert(1, new ObjectElementDescriptorJsonConverter());
+            Default.Converters.Insert(2, new StringEnumConverter { CamelCaseText = true });
         }
 
         public static JsonSerializerSettings Default { get; }
