@@ -2,7 +2,6 @@ variables:
   APPLICATION: "ams-vstore"
   REGISTRY: "docker-hub.2gis.ru"
   IMAGE: "ams/vstore"
-  GIT_STRATEGY: none
   DEIS_CONTROLLER_PROD_N3: "http://deis.n3.nato/"
   DEIS_CONTROLLER_PROD_M1: "http://deis.m1.nato/"
   DEIS_CONTROLLER_PROD_D1: "http://deis.d1.nato/"
@@ -21,8 +20,6 @@ stages:
 # ================= Build =================
 
 build:app:
-  variables:
-    GIT_STRATEGY: clone
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
@@ -39,6 +36,8 @@ build:app:
       - publish/vstore/
 
 build:image:
+  variables:
+    GIT_STRATEGY: none
   image: $REGISTRY/2gis/docker:1.11.2
   services:
     - docker:dind
