@@ -47,12 +47,12 @@ namespace NuClear.VStore.Templates
         {
             return new IElementDescriptor[]
                 {
-                    new TextElementDescriptor(1, new JObject(),  new TextElementConstraints()),
-                    new ImageElementDescriptor(2, new JObject(),  new ImageElementConstraints()),
-                    new ArticleElementDescriptor(3, new JObject(),  new ArticleElementConstraints()),
-                    new FasCommantElementDescriptor(4, new JObject(),  new TextElementConstraints()),
+                    new TextElementDescriptor(1, new JObject(), new TextElementConstraints()),
+                    new ImageElementDescriptor(2, new JObject(), new ImageElementConstraints()),
+                    new ArticleElementDescriptor(3, new JObject(), new ArticleElementConstraints()),
+                    new FasCommantElementDescriptor(4, new JObject(), new TextElementConstraints()),
                     new DateElementDescriptor(5, new JObject()),
-                    new LinkElementDescriptor(6, new JObject(),  new TextElementConstraints())
+                    new LinkElementDescriptor(6, new JObject(), new TextElementConstraints())
                 };
         }
 
@@ -60,7 +60,7 @@ namespace NuClear.VStore.Templates
         {
             if (id == 0)
             {
-                throw new ArgumentException($"Template Id must be set", nameof(id));
+                throw new ArgumentException("Template Id must be set", nameof(id));
             }
 
             using (_lockSessionFactory.CreateLockSession(id))
@@ -126,7 +126,28 @@ namespace NuClear.VStore.Templates
                             {
                                 throw new TemplateInconsistentException(
                                           templateId,
-                                          $"MaxSymbols must be equal or greater than MaxSymbolsPerWord");
+                                          "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
+                            }
+
+                            if (elementDescriptor.Type == ElementDescriptorType.FasComment &&
+                                textElementConstraints.IsFormatted)
+                            {
+                                throw new TemplateInconsistentException(templateId, "FasComment cannot be formatted");
+                            }
+
+                            if (textElementConstraints.MaxSymbols <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxSymbols must be positive");
+                            }
+
+                            if (textElementConstraints.MaxSymbolsPerWord <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxSymbolsPerWord must be positive");
+                            }
+
+                            if (textElementConstraints.MaxLines <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxLines must be positive");
                             }
                         }
                         else if ((imageElementConstraints = elementDescriptor.Constraints as ImageElementConstraints) != null)
@@ -144,6 +165,16 @@ namespace NuClear.VStore.Templates
                                           templateId,
                                           $"Image size must be set to the value different than: {ImageSize.Empty}");
                             }
+
+                            if (imageElementConstraints.MaxFilenameLength <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
+                            }
+
+                            if (imageElementConstraints.MaxSize <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
+                            }
                         }
                         else if ((articleElementConstraints = elementDescriptor.Constraints as ArticleElementConstraints) != null)
                         {
@@ -152,6 +183,16 @@ namespace NuClear.VStore.Templates
                                 throw new TemplateInconsistentException(
                                           templateId,
                                           $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
+                            }
+
+                            if (articleElementConstraints.MaxFilenameLength <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
+                            }
+
+                            if (articleElementConstraints.MaxSize <= 0)
+                            {
+                                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
                             }
                         }
                     });
