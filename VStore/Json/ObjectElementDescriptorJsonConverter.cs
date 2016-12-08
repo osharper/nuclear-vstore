@@ -11,8 +11,6 @@ namespace NuClear.VStore.Json
 {
     public sealed class ObjectElementDescriptorJsonConverter : JsonConverter
     {
-        private const string ValueToken = "value";
-
         public override bool CanConvert(Type objectType) => typeof(IObjectElementDescriptor).IsAssignableFrom(objectType);
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
@@ -25,7 +23,7 @@ namespace NuClear.VStore.Json
                                         objectElementDescriptor.Constraints);
 
             var json = JObject.FromObject(elementDescriptor, serializer);
-            json[ValueToken] = JToken.FromObject(objectElementDescriptor.Value, serializer);
+            json[Tokens.ValueToken] = JToken.FromObject(objectElementDescriptor.Value, serializer);
 
             json.WriteTo(writer);
         }
@@ -34,7 +32,7 @@ namespace NuClear.VStore.Json
         {
             var json = JObject.Load(reader);
 
-            var valueToken = json[ValueToken];
+            var valueToken = json[Tokens.ValueToken];
             var elementDescriptor = json.ToObject<IElementDescriptor>(serializer);
 
             var value = valueToken.AsObjectElementValue(elementDescriptor.Type);
