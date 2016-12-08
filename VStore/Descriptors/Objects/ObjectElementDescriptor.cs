@@ -22,7 +22,7 @@ namespace NuClear.VStore.Descriptors.Objects
         public ElementDescriptorType Type => _elementDescriptor.Type;
         public int TemplateCode => _elementDescriptor.TemplateCode;
         public JObject Properties => _elementDescriptor.Properties;
-        public IConstraintSet Constraints => _elementDescriptor.Constraints;
+        public ConstraintSet Constraints => _elementDescriptor.Constraints;
         public IObjectElementValue Value { get; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Globalization;
+using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Convensions;
 using NuClear.VStore.Host.Logging;
@@ -62,8 +64,12 @@ namespace NuClear.VStore.Host
                     .AddJsonOptions(
                         options =>
                             {
-                                options.SerializerSettings.Converters.Insert(0, new TemplateDescriptorJsonConverter());
-                                options.SerializerSettings.Converters.Insert(1, new StringEnumConverter { CamelCaseText = true });
+                                var settings = options.SerializerSettings;
+
+                                settings.Culture = CultureInfo.InvariantCulture;
+                                settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+                                settings.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
+                                settings.Converters.Insert(1, new TemplateDescriptorJsonConverter());
                             });
 
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());

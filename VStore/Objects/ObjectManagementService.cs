@@ -19,8 +19,6 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectManagementService
     {
-        private const string ObjectToken = "object";
-
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
         private readonly ObjectStorageReader _objectStorageReader;

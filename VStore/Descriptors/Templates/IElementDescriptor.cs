@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using System.Collections.Generic;
+
+using Newtonsoft.Json.Linq;
 
 namespace NuClear.VStore.Descriptors.Templates
 {
@@ -7,6 +9,6 @@ namespace NuClear.VStore.Descriptors.Templates
         ElementDescriptorType Type { get; }
         int TemplateCode { get; }
         JObject Properties { get; }
-        IConstraintSet Constraints { get; }
+        ConstraintSet Constraints { get; }
     }
 }

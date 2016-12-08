@@ -5,6 +5,7 @@ using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 
@@ -159,24 +160,51 @@ namespace NuClear.VStore.Json
         {
             var templateCode = token[TemplateCodeToken].ToObject<int>();
             var properties = (JObject)token[PropertiesToken];
-            var constraints = token[ConstraintsToken];
-            switch (descriptorType)
+            var constraintSet = token[ConstraintsToken];
+            return new ElementDescriptor(descriptorType, templateCode, properties, DeserializeConstraintSet(constraintSet, descriptorType));
+        }
+
+        private static ConstraintSet DeserializeConstraintSet(JToken token, ElementDescriptorType descriptorType)
+        {
+            var constraintSetItems = new List<ConstraintSetItem>();
+            foreach (var item in token)
             {
-                case ElementDescriptorType.Text:
-                    return new TextElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
-                case ElementDescriptorType.Image:
-                    return new ImageElementDescriptor(templateCode, properties, constraints.ToObject<ImageElementConstraints>());
-                case ElementDescriptorType.Article:
-                    return new ArticleElementDescriptor(templateCode, properties, constraints.ToObject<ArticleElementConstraints>());
-                case ElementDescriptorType.FasComment:
-                    return new FasCommantElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
-                case ElementDescriptorType.Date:
-                    return new DateElementDescriptor(templateCode, properties);
-                case ElementDescriptorType.Link:
-                    return new LinkElementDescriptor(templateCode, properties, constraints.ToObject<TextElementConstraints>());
-                default:
-                    return null;
+                if (item.Type != JTokenType.Property)
+                {
+                    throw new FormatException($"Template element of type {descriptorType} constraints are malformed.");
+                }
+
+                var property = (JProperty)item;
+                var language = (Language)Enum.Parse(typeof(Language), property.Name, true);
+
+                IElementConstraints constraints = null;
+                switch (descriptorType)
+                {
+                    case ElementDescriptorType.Text:
+                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        break;
+                    case ElementDescriptorType.Image:
+                        constraints = property.Value.ToObject<ImageElementConstraints>();
+                        break;
+                    case ElementDescriptorType.Article:
+                        constraints = property.Value.ToObject<ArticleElementConstraints>();
+                        break;
+                    case ElementDescriptorType.FasComment:
+                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        break;
+                    case ElementDescriptorType.Link:
+                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        break;
+                    case ElementDescriptorType.Date:
+                        break;
+                    default:
+                        return null;
+                }
+
+                constraintSetItems.Add(new ConstraintSetItem(language, constraints));
             }
+
+            return new ConstraintSet(constraintSetItems);
         }
     }
 }
