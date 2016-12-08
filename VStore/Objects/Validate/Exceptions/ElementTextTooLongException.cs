@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace NuClear.VStore.Objects.Validate.Exceptions
+﻿namespace NuClear.VStore.Objects.Validate.Exceptions
 {
-    public class ElementTextTooLongException : Exception
+    public class ElementTextTooLongException : ObjectElementValidationException
     {
         public ElementTextTooLongException(int maxLength, int actualLength) :
             base($"Text length {actualLength} exceeds the maximum {maxLength}")
@@ -11,8 +9,10 @@ namespace NuClear.VStore.Objects.Validate.Exceptions
             ActualLength = actualLength;
         }
 
-        public int MaxLength { get; set; }
+        public int MaxLength { get; }
 
-        public int ActualLength { get; set; }
+        public int ActualLength { get; }
+
+        public override ElementValidationErrors ErrorType => ElementValidationErrors.TextTooLong;
     }
 }

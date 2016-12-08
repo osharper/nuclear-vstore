@@ -1,11 +1,11 @@
-﻿using System;
-
-namespace NuClear.VStore.Objects.Validate.Exceptions
+﻿namespace NuClear.VStore.Objects.Validate.Exceptions
 {
-    public sealed class IncorrectLinkException : Exception
+    public sealed class IncorrectLinkException : ObjectElementValidationException
     {
         public IncorrectLinkException() : base("Link is incorrect")
         {
         }
+
+        public override ElementValidationErrors ErrorType => ElementValidationErrors.IncorrectLink;
     }
 }

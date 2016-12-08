@@ -84,7 +84,15 @@ namespace NuClear.VStore.Objects
             if (string.IsNullOrEmpty(versionId))
             {
                 var objectVersions = await GetObjectLatestVersions(id);
-                objectVersionId = objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix)).Select(x => x.VersionId).Single();
+                objectVersionId = objectVersions
+                    .Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                    .Select(x => x.VersionId)
+                    .SingleOrDefault();
+
+                if (objectVersionId == null)
+                {
+                    throw new ObjectNotFoundException($"Object {id} not found");
+                }
             }
             else
             {

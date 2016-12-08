@@ -8,6 +8,12 @@ namespace NuClear.VStore.Objects.Validate.Exceptions
         public InvalidObjectElementException(long objectId, long elementId, IEnumerable<Exception> exceptions) :
             base($"Invalid object {objectId} element {elementId}", exceptions)
         {
+            ObjectId = objectId;
+            ElementId = elementId;
         }
+
+        public long ObjectId { get; }
+
+        public long ElementId { get; }
     }
 }

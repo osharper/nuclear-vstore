@@ -1,11 +1,11 @@
-﻿using System;
-
-namespace NuClear.VStore.Objects.Validate.Exceptions
+﻿namespace NuClear.VStore.Objects.Validate.Exceptions
 {
-    public class EmptyListException : Exception
+    public class EmptyListException : ObjectElementValidationException
     {
         public EmptyListException() : base("Empty list found")
         {
         }
+
+        public override ElementValidationErrors ErrorType => ElementValidationErrors.EmptyList;
     }
 }

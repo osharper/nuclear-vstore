@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace NuClear.VStore.Objects.Validate.Exceptions
 {
-    public class UnsupportedTagsException : Exception
+    public class UnsupportedTagsException : ObjectElementValidationException
     {
         public UnsupportedTagsException(IReadOnlyCollection<string> supportedTags, IReadOnlyCollection<string> unsupportedTags) :
             base($"Found unsupported tags: {string.Join(", ", unsupportedTags)}")
@@ -15,5 +14,7 @@ namespace NuClear.VStore.Objects.Validate.Exceptions
         public IReadOnlyCollection<string> SupportedTags { get; }
 
         public IReadOnlyCollection<string> UnsupportedTags { get; }
+
+        public override ElementValidationErrors ErrorType => ElementValidationErrors.UnsupportedTags;
     }
 }

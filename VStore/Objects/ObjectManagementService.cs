@@ -135,7 +135,7 @@ namespace NuClear.VStore.Objects
                         errors.AddRange(validationRule(elementDescriptor));
                     }
 
-                    if (errors.Any())
+                    if (errors.Count > 0)
                     {
                         throw new InvalidObjectElementException(objectId, elementDescriptor.Id, errors);
                     }

@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace NuClear.VStore.Objects.Validate.Exceptions
 {
-    public class UnsupportedAttributesException : Exception
+    public class UnsupportedAttributesException : ObjectElementValidationException
     {
         public UnsupportedAttributesException(IReadOnlyCollection<string> attributes) :
             base($"Next unsupported attributes found: {string.Join(", ", attributes)}")
@@ -12,5 +11,7 @@ namespace NuClear.VStore.Objects.Validate.Exceptions
         }
 
         public IReadOnlyCollection<string> UnsupportedAttributes { get; }
+
+        public override ElementValidationErrors ErrorType => ElementValidationErrors.UnsupportedAttributes;
     }
 }
