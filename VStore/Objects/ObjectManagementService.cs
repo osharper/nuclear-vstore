@@ -13,6 +13,7 @@ using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects.Validate;
+using NuClear.VStore.Objects.Validate.Exceptions;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;

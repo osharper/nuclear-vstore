@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace NuClear.VStore.Objects.Validate
+namespace NuClear.VStore.Objects.Validate.Exceptions
 {
     public sealed class InvalidObjectElementException : AggregateException
     {

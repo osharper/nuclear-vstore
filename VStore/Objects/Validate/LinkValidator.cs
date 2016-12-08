@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Objects.Validate.Exceptions;
 
 namespace NuClear.VStore.Objects.Validate
 {
@@ -20,7 +21,7 @@ namespace NuClear.VStore.Objects.Validate
                 || (uri.Scheme != "http" && uri.Scheme != "https")
                 || uri.HostNameType != UriHostNameType.Dns)
             {
-                return new[] { new IncorrectLinkException(descriptor.Id) };
+                return new[] { new IncorrectLinkException() };
             }
 
             return Array.Empty<Exception>();
