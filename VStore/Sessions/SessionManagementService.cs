@@ -206,7 +206,7 @@ namespace NuClear.VStore.Sessions
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
                 using (getResponse.ResponseStream)
                 {
-                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints, getResponse.ResponseStream, getResponse.ContentLength);
+                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints.For(Language.Unspecified), getResponse.ResponseStream, getResponse.ContentLength);
                 }
 
                 var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
@@ -246,7 +246,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IConstraintSet elementDescriptorConstraints, Stream inputStream, long inputStreamLength)
+        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IElementConstraints elementDescriptorConstraints, Stream inputStream, long inputStreamLength)
         {
             switch (elementDescriptorType)
             {

@@ -2,7 +2,7 @@
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public sealed class ImageElementConstraints : IBinaryConstraintSet
+    public sealed class ImageElementConstraints : IBinaryElementConstraints
     {
         public int? MaxSize { get; set; }
         public int? MaxFilenameLength { get; set; }

@@ -5,6 +5,7 @@ using System.Net;
 
 using HtmlAgilityPack;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.Validate.Exceptions;
@@ -14,14 +15,14 @@ namespace NuClear.VStore.Objects.Validate
 {
     public static class FormattedTextValidator
     {
-        public static IEnumerable<Exception> CheckLength(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckLength(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
                 return Array.Empty<Exception>();
             }
 
-            var constraints = (TextElementConstraints)descriptor.Constraints;
+            var constraints = (TextElementConstraints)descriptor.Constraints.For(language);
             if (!constraints.MaxSymbols.HasValue)
             {
                 return Array.Empty<Exception>();
@@ -35,14 +36,14 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckWordsLength(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckWordsLength(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
                 return Array.Empty<Exception>();
             }
 
-            var constraints = (TextElementConstraints)descriptor.Constraints;
+            var constraints = (TextElementConstraints)descriptor.Constraints.For(language);
             if (!constraints.MaxSymbolsPerWord.HasValue)
             {
                 return Array.Empty<Exception>();
@@ -56,14 +57,14 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckLinesCount(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckLinesCount(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
                 return Array.Empty<Exception>();
             }
 
-            var constraints = (TextElementConstraints)descriptor.Constraints;
+            var constraints = (TextElementConstraints)descriptor.Constraints.For(language);
             if (!constraints.MaxLines.HasValue)
             {
                 return Array.Empty<Exception>();
@@ -77,14 +78,14 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckRestrictedSymbols(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckRestrictedSymbols(IObjectElementDescriptor descriptor, Language language)
         {
             return string.IsNullOrEmpty(descriptor?.Value?.Raw)
                 ? Array.Empty<Exception>()
                 : TextValidationUtils.CheckRestrictedSymbols(WebUtility.HtmlDecode(descriptor.Value.Raw));
         }
 
-        public static IEnumerable<Exception> CheckValidHtml(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckValidHtml(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
@@ -99,7 +100,7 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckSupportedHtmlTags(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckSupportedHtmlTags(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
@@ -125,7 +126,7 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckAttributesAbsence(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckAttributesAbsence(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
@@ -140,7 +141,7 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckEmptyList(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckEmptyList(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
@@ -155,7 +156,7 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckNestedList(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckNestedList(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {
@@ -170,7 +171,7 @@ namespace NuClear.VStore.Objects.Validate
                 : Array.Empty<Exception>();
         }
 
-        public static IEnumerable<Exception> CheckUnsupportedListElements(IObjectElementDescriptor descriptor)
+        public static IEnumerable<Exception> CheckUnsupportedListElements(IObjectElementDescriptor descriptor, Language language)
         {
             if (string.IsNullOrEmpty(descriptor?.Value?.Raw))
             {

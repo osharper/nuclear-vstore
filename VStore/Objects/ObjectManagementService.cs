@@ -8,6 +8,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
@@ -22,8 +23,6 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectManagementService
     {
-        private const string ObjectToken = "object";
-
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
         private readonly ObjectStorageReader _objectStorageReader;
@@ -44,7 +43,7 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        private delegate IEnumerable<Exception> ValidationRule(IObjectElementDescriptor descriptor);
+        private delegate IEnumerable<Exception> ValidationRule(IObjectElementDescriptor descriptor, Language language);
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
@@ -79,13 +78,13 @@ namespace NuClear.VStore.Objects
             return string.Empty;
         }
 
-        private IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor)
+        private IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
         {
             switch (descriptor.Type)
             {
                 case ElementDescriptorType.Text:
                 case ElementDescriptorType.FasComment:
-                    return ((TextElementConstraints)descriptor.Constraints).IsFormatted
+                    return ((TextElementConstraints)elementConstraints).IsFormatted
                                ? new ValidationRule[]
                                      {
                                          FormattedTextValidator.CheckLength,
@@ -128,11 +127,15 @@ namespace NuClear.VStore.Objects
                 elementDescriptor =>
                 {
                     var errors = new List<Exception>();
-                    var rules = GetVerificationRules(elementDescriptor);
-
-                    foreach (var validationRule in rules)
+                    foreach (var constraint in elementDescriptor.Constraints)
                     {
-                        errors.AddRange(validationRule(elementDescriptor));
+                        var rules = GetVerificationRules(elementDescriptor, constraint.ElementConstraints);
+
+                        foreach (var validationRule in rules)
+                        {
+#warning Language is not specified yet:
+                            errors.AddRange(validationRule(elementDescriptor, Language.Unspecified));
+                        }
                     }
 
                     if (errors.Count > 0)

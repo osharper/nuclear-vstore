@@ -11,13 +11,13 @@ namespace NuClear.VStore.Json
         static SerializerSettings()
         {
             Default = new JsonSerializerSettings
-                {
-                    Culture = CultureInfo.InvariantCulture,
-                    ContractResolver = new CamelCasePropertyNamesContractResolver(),
-                };
-            Default.Converters.Insert(0, new TemplateDescriptorJsonConverter());
-            Default.Converters.Insert(1, new ObjectElementDescriptorJsonConverter());
-            Default.Converters.Insert(2, new StringEnumConverter { CamelCaseText = true });
+                          {
+                              Culture = CultureInfo.InvariantCulture,
+                              ContractResolver = new CamelCasePropertyNamesContractResolver()
+                          };
+            Default.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
+            Default.Converters.Insert(1, new TemplateDescriptorJsonConverter());
+            Default.Converters.Insert(2, new ObjectElementDescriptorJsonConverter());
         }
 
         public static JsonSerializerSettings Default { get; }
