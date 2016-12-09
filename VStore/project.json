@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1",
+    "version": "0.0.1",
 
     "dependencies": {
         "AWSSDK.S3": "3.3.5",
@@ -10,7 +10,7 @@
         "HtmlAgilityPack.NetCore": "1.5.0.1"
     },
 
-  "frameworks": {
-    "netstandard1.4": {}
-  }
+    "frameworks": {
+        "netstandard1.4": {}
+    }
 }

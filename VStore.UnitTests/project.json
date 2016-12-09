@@ -1,0 +1,22 @@
+{
+    "version": "1.0.0-*",
+    "testRunner": "mstest",
+
+    "dependencies": {
+        "dotnet-test-mstest": "1.1.2-preview",
+        "Microsoft.NETCore.App": "1.1.0",
+        "MSTest.TestFramework": "1.0.7-preview",
+        "VStore": { "target": "project" }
+    },
+
+    "frameworks": {
+        "netcoreapp1.1": {
+            "imports": "dnxcore50"
+        }
+    },
+
+    "runtimes": {
+        "win10-x64": {},
+        "ubuntu.14.04-x64": {}
+    }
+}

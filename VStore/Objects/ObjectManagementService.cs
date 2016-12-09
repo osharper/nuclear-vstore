@@ -43,7 +43,7 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        private delegate IEnumerable<Exception> ValidationRule(IObjectElementDescriptor descriptor, Language language);
+        private delegate IEnumerable<Exception> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
@@ -120,22 +120,19 @@ namespace NuClear.VStore.Objects
             return Array.Empty<ValidationRule>();
         }
 
-        private void VerifyObjectElementsConsistency(long objectId, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             Parallel.ForEach(
                 elementDescriptors,
                 elementDescriptor =>
                 {
                     var errors = new List<Exception>();
-                    foreach (var constraint in elementDescriptor.Constraints)
-                    {
-                        var rules = GetVerificationRules(elementDescriptor, constraint.ElementConstraints);
+                    var constraints = elementDescriptor.Constraints.For(language);
+                    var rules = GetVerificationRules(elementDescriptor, constraints);
 
-                        foreach (var validationRule in rules)
-                        {
-#warning Language is not specified yet
-                            errors.AddRange(validationRule(elementDescriptor, Language.Unspecified));
-                        }
+                    foreach (var validationRule in rules)
+                    {
+                        errors.AddRange(validationRule(elementDescriptor.Value, constraints));
                     }
 
                     if (errors.Count > 0)
@@ -147,7 +144,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)
         {
-            VerifyObjectElementsConsistency(id, objectDescriptor.Elements);
+            VerifyObjectElementsConsistency(id, Language.Unspecified, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             foreach (var elementDescriptor in objectDescriptor.Elements)
