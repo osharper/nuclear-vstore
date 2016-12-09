@@ -69,7 +69,10 @@ namespace NuClear.VStore.Host
                                 settings.Culture = CultureInfo.InvariantCulture;
                                 settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
                                 settings.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
-                                settings.Converters.Insert(1, new TemplateDescriptorJsonConverter());
+                                settings.Converters.Insert(1, new ElementDescriptorJsonConverter());
+                                settings.Converters.Insert(2, new ElementDescriptorCollectionJsonConverter());
+                                settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
+                                settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
                             });
 
             services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
