@@ -133,7 +133,7 @@ namespace NuClear.VStore.Objects
 
                         foreach (var validationRule in rules)
                         {
-#warning Language is not specified yet:
+#warning Language is not specified yet
                             errors.AddRange(validationRule(elementDescriptor, Language.Unspecified));
                         }
                     }
