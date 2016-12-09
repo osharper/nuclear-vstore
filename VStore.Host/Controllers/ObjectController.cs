@@ -27,10 +27,17 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("template/{id}/{versionId}")]
-        public async Task<JsonResult> GetTemplateDescriptor(long id, string versionId)
+        public async Task<IActionResult> GetTemplateDescriptor(long id, string versionId)
         {
-            var descriptor = await _objectStorageReader.GetTemplateDescriptor(id, versionId);
-            return Json(descriptor);
+            try
+            {
+                var descriptor = await _objectStorageReader.GetTemplateDescriptor(id, versionId);
+                return Json(descriptor);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(id);
+            }
         }
 
         [HttpGet("{id}")]
@@ -100,7 +107,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (AggregateException exc)
             {
-                return new ObjectResult(GenerateErrorJsonResult(exc))
+                return new JsonResult(GenerateErrorJsonResult(exc))
                 {
                     StatusCode = 422
                 };
