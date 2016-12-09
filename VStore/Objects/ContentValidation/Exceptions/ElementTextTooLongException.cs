@@ -2,8 +2,7 @@
 {
     public class ElementTextTooLongException : ObjectElementValidationException
     {
-        public ElementTextTooLongException(int maxLength, int actualLength) :
-            base($"Text length {actualLength} exceeds the maximum {maxLength}")
+        public ElementTextTooLongException(int maxLength, int actualLength)
         {
             MaxLength = maxLength;
             ActualLength = actualLength;

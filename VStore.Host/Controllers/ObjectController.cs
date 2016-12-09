@@ -100,6 +100,11 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{id}")]
         public async Task<IActionResult> Create(long id, [FromBody] IObjectDescriptor objectDescriptor)
         {
+            if (objectDescriptor == null)
+            {
+                return BadRequest("Incorrect object descriptor");
+            }
+
             try
             {
                 var versionId = await _objectManagementService.Create(id, objectDescriptor);

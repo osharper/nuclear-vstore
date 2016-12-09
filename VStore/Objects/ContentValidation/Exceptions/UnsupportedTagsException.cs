@@ -4,8 +4,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Exceptions
 {
     public class UnsupportedTagsException : ObjectElementValidationException
     {
-        public UnsupportedTagsException(IReadOnlyCollection<string> supportedTags, IReadOnlyCollection<string> unsupportedTags) :
-            base($"Found unsupported tags: {string.Join(", ", unsupportedTags)}")
+        public UnsupportedTagsException(IReadOnlyCollection<string> supportedTags, IReadOnlyCollection<string> unsupportedTags)
         {
             SupportedTags = supportedTags;
             UnsupportedTags = unsupportedTags;

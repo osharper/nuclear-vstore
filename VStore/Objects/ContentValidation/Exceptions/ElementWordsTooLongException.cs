@@ -4,8 +4,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Exceptions
 {
     public class ElementWordsTooLongException : ObjectElementValidationException
     {
-        public ElementWordsTooLongException(int maxWordLength, IReadOnlyCollection<string> tooLongWords) :
-            base($"Found words that exceed maximum length of {maxWordLength}: {string.Join(", ", tooLongWords)}")
+        public ElementWordsTooLongException(int maxWordLength, IReadOnlyCollection<string> tooLongWords)
         {
             MaxWordLength = maxWordLength;
             TooLongWords = tooLongWords;

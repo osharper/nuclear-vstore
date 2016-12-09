@@ -18,7 +18,6 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
-using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 

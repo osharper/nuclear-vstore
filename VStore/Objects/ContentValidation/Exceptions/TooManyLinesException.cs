@@ -2,8 +2,7 @@
 {
     public class TooManyLinesException : ObjectElementValidationException
     {
-        public TooManyLinesException(int maxLinesCount, int actualLinesCount) :
-            base($"Found lines count {actualLinesCount} exceeds maximum: {maxLinesCount}")
+        public TooManyLinesException(int maxLinesCount, int actualLinesCount)
         {
             MaxLinesCount = maxLinesCount;
             ActualLinesCount = actualLinesCount;

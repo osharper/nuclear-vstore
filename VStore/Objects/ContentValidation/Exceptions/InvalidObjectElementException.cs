@@ -6,7 +6,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Exceptions
     public sealed class InvalidObjectElementException : AggregateException
     {
         public InvalidObjectElementException(long objectId, long elementId, IEnumerable<Exception> exceptions) :
-            base($"Invalid object {objectId} element {elementId}", exceptions)
+            base(exceptions)
         {
             ObjectId = objectId;
             ElementId = elementId;
