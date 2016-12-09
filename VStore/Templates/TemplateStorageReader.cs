@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -45,10 +46,19 @@ namespace NuClear.VStore.Templates
         {
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetTemplateLatestVersion(id) : versionId;
 
-            var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
+            GetObjectResponse response;
+            try
+            {
+                response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
+            }
+            catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
+            }
+
             if (response.ResponseStream == null)
             {
-                throw new ObjectNotFoundException($"Template '{id}' not found");
+                throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
             }
 
             string json;
@@ -66,7 +76,13 @@ namespace NuClear.VStore.Templates
         public async Task<string> GetTemplateLatestVersion(long id)
         {
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString());
-            return versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
+            var version = versionsResponse.Versions.Find(x => x.IsLatest);
+            if (version == null)
+            {
+                throw new ObjectNotFoundException($"Template '{id}' versions not found");
+            }
+
+            return version.VersionId;
         }
 
         public async Task<bool> IsTemplateExists(long id)

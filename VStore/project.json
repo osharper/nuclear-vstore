@@ -2,7 +2,7 @@
   "version": "0.0.1",
 
     "dependencies": {
-        "AWSSDK.S3": "3.3.4.1",
+        "AWSSDK.S3": "3.3.5",
         "Newtonsoft.Json": "9.0.1",
         "ImageSharp": "1.0.0-alpha-000121",
         "NETStandard.Library": "1.6.1",
