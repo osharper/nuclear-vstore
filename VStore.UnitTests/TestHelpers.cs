@@ -28,7 +28,7 @@ namespace VStore.UnitTests
             return (TException)errors.First();
         }
 
-        internal static void InternalChecksTest(
+        internal static void InternalTextChecksTest(
             IEnumerable<Validator> allChecks,
             bool containsRestrictedSymbols,
             int expectedErrorsCount,

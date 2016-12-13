@@ -9,7 +9,7 @@ namespace NuClear.VStore.Objects.ContentValidation
 {
     public static class LinkValidator
     {
-        public static IEnumerable<ObjectElementValidationException> CorrectLink(IObjectElementValue value, IElementConstraints constraints)
+        public static IEnumerable<ObjectElementValidationException> CheckLink(IObjectElementValue value, IElementConstraints constraints)
         {
             if (string.IsNullOrEmpty(value.Raw))
             {

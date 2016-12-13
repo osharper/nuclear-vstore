@@ -222,10 +222,10 @@ namespace VStore.UnitTests
             IObjectElementValue value = new TextElementValue { Raw = text };
             var constraints = new TextElementConstraints { IsFormatted = true, MaxLines = maxLines, MaxSymbols = maxLength, MaxSymbolsPerWord = maxWordLength };
 
-            TestHelpers.InternalChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
+            TestHelpers.InternalTextChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
 
             value = new FasElementValue { Raw = "custom", Text = text };
-            TestHelpers.InternalChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
+            TestHelpers.InternalTextChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
         }
     }
 }
