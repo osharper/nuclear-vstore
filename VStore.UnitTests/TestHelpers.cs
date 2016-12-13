@@ -12,11 +12,11 @@ namespace VStore.UnitTests
 {
     internal static class TestHelpers
     {
-        internal delegate IEnumerable<Exception> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
+        internal delegate IEnumerable<ObjectElementValidationException> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
 
         internal static TException MakeCheck<TValue, TException>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
             where TValue : IObjectElementValue
-            where TException : Exception
+            where TException : ObjectElementValidationException
         {
             Assert.Empty(validator(value, constraints));
             valueChanger(value);

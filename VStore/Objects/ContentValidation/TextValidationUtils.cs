@@ -21,11 +21,11 @@ namespace NuClear.VStore.Objects.ContentValidation
                     .ToArray();
         }
 
-        public static IEnumerable<Exception> CheckRestrictedSymbols(string textToCheck)
+        public static IEnumerable<ObjectElementValidationException> CheckRestrictedSymbols(string textToCheck)
         {
             const char NonBreakingSpaceSymbol = (char)160;
 
-            var errors = new List<Exception>();
+            var errors = new List<ObjectElementValidationException>();
             if (textToCheck.Contains(NonBreakingSpaceSymbol))
             {
                 errors.Add(new NonBreakingSpaceSymbolException());

@@ -27,9 +27,13 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongException>(value, constraints, PlainTextValidator.CheckLength, val => val.Raw = new string('b', MaxSymbols + 1));
+            var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckLength,
+                val => val.Raw = new string('b', MaxSymbols + 1));
             Assert.StrictEqual(MaxSymbols, error.MaxLength);
-            Assert.StrictEqual(value.Raw.Length, error.ActualLength);
+            Assert.StrictEqual(MaxSymbols + 1, error.ActualLength);
         }
 
         [Fact]
@@ -39,7 +43,11 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongException>(value, constraints, PlainTextValidator.CheckWordsLength, val => val.Raw = new string('b', MaxSymbols + 1));
+            var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckWordsLength,
+                val => val.Raw = new string('b', MaxSymbols + 1));
             Assert.StrictEqual(MaxSymbols, error.MaxWordLength);
             Assert.StrictEqual(1, error.TooLongWords.Count);
             Assert.StrictEqual(value.Raw, error.TooLongWords.First());
@@ -52,7 +60,11 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('\n', MaxLines - 1) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesException>(value, constraints, PlainTextValidator.CheckLinesCount, val => val.Raw = new string('\n', MaxLines));
+            var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckLinesCount,
+                val => val.Raw = new string('\n', MaxLines));
             Assert.StrictEqual(MaxLines, error.MaxLinesCount);
             Assert.StrictEqual(MaxLines + 1, error.ActualLinesCount);
         }
@@ -64,10 +76,18 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = AllChars };
             var constraints = new TextElementConstraints { IsFormatted = false };
 
-            TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolException>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Raw = "\x00A0");
+            TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckRestrictedSymbols,
+                val => val.Raw = "\x00A0");
 
             value.Raw = AllChars.ToUpper();
-            TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextException>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Raw = "\r");
+            TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckRestrictedSymbols,
+                val => val.Raw = "\r");
         }
 
         [Fact]
@@ -76,7 +96,11 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = "text" };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = 5 };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongException>(value, constraints, PlainTextValidator.CheckLength, val => val.Text = "long text");
+            var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckLength,
+                val => val.Text = "long text");
             Assert.StrictEqual(constraints.MaxSymbols, error.MaxLength);
             Assert.StrictEqual(value.Text.Length, error.ActualLength);
         }
@@ -88,7 +112,11 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongException>(value, constraints, PlainTextValidator.CheckWordsLength, val => val.Text = new string('b', MaxSymbols + 1));
+            var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckWordsLength,
+                val => val.Text = new string('b', MaxSymbols + 1));
             Assert.StrictEqual(MaxSymbols, error.MaxWordLength);
             Assert.StrictEqual(1, error.TooLongWords.Count);
             Assert.StrictEqual(value.Text, error.TooLongWords.First());
@@ -101,7 +129,11 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('\n', MaxLines - 1) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesException>(value, constraints, PlainTextValidator.CheckLinesCount, val => val.Text = new string('\n', MaxLines));
+            var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesException>(
+                value,
+                constraints,
+                PlainTextValidator.CheckLinesCount,
+                val => val.Text = new string('\n', MaxLines));
             Assert.StrictEqual(MaxLines, error.MaxLinesCount);
             Assert.StrictEqual(MaxLines + 1, error.ActualLinesCount);
         }
@@ -109,7 +141,7 @@ namespace VStore.UnitTests
         [Fact]
         public void TestFasCommentCheckRestrictedSymbols()
         {
-            const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&_ []{}()<> /*-+=";
+            const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&|_ []{}()<> /*-+=";
             var value = new FasElementValue { Raw = "custom", Text = AllChars };
             var constraints = new TextElementConstraints { IsFormatted = false };
 

@@ -43,7 +43,7 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        private delegate IEnumerable<Exception> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
+        private delegate IEnumerable<ObjectElementValidationException> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {

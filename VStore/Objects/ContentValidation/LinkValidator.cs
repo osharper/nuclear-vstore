@@ -9,11 +9,11 @@ namespace NuClear.VStore.Objects.ContentValidation
 {
     public static class LinkValidator
     {
-        public static IEnumerable<Exception> CorrectLink(IObjectElementValue value, IElementConstraints constraints)
+        public static IEnumerable<ObjectElementValidationException> CorrectLink(IObjectElementValue value, IElementConstraints constraints)
         {
             if (string.IsNullOrEmpty(value.Raw))
             {
-                return Array.Empty<Exception>();
+                return Array.Empty<ObjectElementValidationException>();
             }
 
             // We can use Uri.IsWellFormedUriString() instead:
@@ -25,7 +25,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return new[] { new IncorrectLinkException() };
             }
 
-            return Array.Empty<Exception>();
+            return Array.Empty<ObjectElementValidationException>();
         }
     }
 }
