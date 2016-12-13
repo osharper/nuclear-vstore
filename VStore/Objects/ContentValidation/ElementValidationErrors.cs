@@ -13,6 +13,8 @@
         IncorrectLink,
         EmptyList,
         WordsTooLong,
-        TextTooLong
+        TextTooLong,
+        InvalidDateRange,
+        IncorrectPeriod
     }
 }

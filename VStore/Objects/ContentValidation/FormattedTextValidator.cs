@@ -15,7 +15,7 @@ namespace NuClear.VStore.Objects.ContentValidation
     public static class FormattedTextValidator
     {
         private static readonly Func<IObjectElementValue, string> TextValueExtractor =
-            value => (value as FasElementValue)?.Text ?? (value as TextElementValue)?.Raw;
+            value => value is FasElementValue ? ((FasElementValue)value).Text : ((TextElementValue)value).Raw;
 
         public static IEnumerable<ObjectElementValidationException> CheckLength(IObjectElementValue value, IElementConstraints elementConstraints)
         {

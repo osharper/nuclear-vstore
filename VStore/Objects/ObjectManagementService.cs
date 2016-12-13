@@ -110,9 +110,16 @@ namespace NuClear.VStore.Objects
                 case ElementDescriptorType.Article:
                     break;
                 case ElementDescriptorType.Date:
-                    break;
+                    return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
-                    return new ValidationRule[] { LinkValidator.CheckLink };
+                    return new ValidationRule[]
+                               {
+                                   LinkValidator.CheckLink,
+                                   PlainTextValidator.CheckLength,
+                                   PlainTextValidator.CheckWordsLength,
+                                   PlainTextValidator.CheckLinesCount,
+                                   PlainTextValidator.CheckRestrictedSymbols
+                               };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }

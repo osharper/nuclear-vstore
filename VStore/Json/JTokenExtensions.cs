@@ -20,7 +20,7 @@ namespace NuClear.VStore.Json
                 case ElementDescriptorType.FasComment:
                     return valueToken.ToObject<FasElementValue>();
                 case ElementDescriptorType.Date:
-                    return valueToken.ToObject<TextElementValue>();
+                    return valueToken.ToObject<DateElementValue>();
                 case ElementDescriptorType.Link:
                     return valueToken.ToObject<TextElementValue>();
                 default:
