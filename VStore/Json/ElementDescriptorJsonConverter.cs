@@ -68,7 +68,6 @@ namespace NuClear.VStore.Json
                         constraints = property.Value.ToObject<TextElementConstraints>();
                         break;
                     case ElementDescriptorType.Date:
-                        constraints = property.Value.ToObject<DateElementConstraints>();
                         break;
                     default:
                         return null;

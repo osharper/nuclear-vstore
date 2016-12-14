@@ -14,7 +14,6 @@
         EmptyList,
         WordsTooLong,
         TextTooLong,
-        InvalidDateRange,
-        IncorrectPeriod
+        InvalidDateRange
     }
 }

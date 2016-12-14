@@ -124,81 +124,96 @@ namespace NuClear.VStore.Templates
                             ArticleElementConstraints articleElementConstraints;
                             if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
                             {
-                                if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
-                                {
-                                    throw new TemplateInconsistentException(
-                                              templateId,
-                                              "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
-                                }
-
-                                if (elementDescriptor.Type == ElementDescriptorType.FasComment &&
-                                    textElementConstraints.IsFormatted)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "FasComment cannot be formatted");
-                                }
-
-                                if (textElementConstraints.MaxSymbols <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxSymbols must be positive");
-                                }
-
-                                if (textElementConstraints.MaxSymbolsPerWord <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxSymbolsPerWord must be positive");
-                                }
-
-                                if (textElementConstraints.MaxLines <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxLines must be positive");
-                                }
+                                VerifyTextConstraints(templateId, textElementConstraints, elementDescriptor);
                             }
                             else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
                             {
-                                if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
-                                {
-                                    throw new TemplateInconsistentException(
-                                              templateId,
-                                              $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
-                                }
-
-                                if (imageElementConstraints.ImageSize == ImageSize.Empty)
-                                {
-                                    throw new TemplateInconsistentException(
-                                              templateId,
-                                              $"Image size must be set to the value different than: {ImageSize.Empty}");
-                                }
-
-                                if (imageElementConstraints.MaxFilenameLength <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
-                                }
-
-                                if (imageElementConstraints.MaxSize <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
-                                }
+                                VerifyImageConstraints(templateId, imageElementConstraints);
                             }
                             else if ((articleElementConstraints = constraints.ElementConstraints as ArticleElementConstraints) != null)
                             {
-                                if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
-                                {
-                                    throw new TemplateInconsistentException(
-                                              templateId,
-                                              $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
-                                }
-
-                                if (articleElementConstraints.MaxFilenameLength <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
-                                }
-
-                                if (articleElementConstraints.MaxSize <= 0)
-                                {
-                                    throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
-                                }
+                                VerifyArticleConstraints(templateId, articleElementConstraints);
                             }
                         }
                     });
+        }
+
+        private static void VerifyArticleConstraints(long? templateId, ArticleElementConstraints articleElementConstraints)
+        {
+            if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
+            }
+
+            if (articleElementConstraints.MaxFilenameLength <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
+            }
+
+            if (articleElementConstraints.MaxSize <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
+            }
+        }
+
+        private static void VerifyImageConstraints(long? templateId, ImageElementConstraints imageElementConstraints)
+        {
+            if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
+            }
+
+            if (imageElementConstraints.ImageSize == ImageSize.Empty)
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          $"Image size must be set to the value different than: {ImageSize.Empty}");
+            }
+
+            if (imageElementConstraints.MaxFilenameLength <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
+            }
+
+            if (imageElementConstraints.MaxSize <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
+            }
+        }
+
+        private static void VerifyTextConstraints(long? templateId, TextElementConstraints textElementConstraints, IElementDescriptor elementDescriptor)
+        {
+            if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
+            }
+
+            if (elementDescriptor.Type != ElementDescriptorType.Text &&
+                textElementConstraints.IsFormatted)
+            {
+                throw new TemplateInconsistentException(templateId, "Only text element can be formatted");
+            }
+
+            if (textElementConstraints.MaxSymbols <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxSymbols must be positive");
+            }
+
+            if (textElementConstraints.MaxSymbolsPerWord <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxSymbolsPerWord must be positive");
+            }
+
+            if (textElementConstraints.MaxLines <= 0)
+            {
+                throw new TemplateInconsistentException(templateId, "MaxLines must be positive");
+            }
         }
 
         private async Task PutTemplate(long id, ITemplateDescriptor templateDescriptor)

@@ -204,13 +204,6 @@ namespace NuClear.VStore.Host.Controllers
                         [Tokens.ValueToken] = (validateException as TooManyLinesException)?.ActualLinesCount
                     };
 
-                case ElementValidationErrors.IncorrectPeriod:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "incorrectPeriod",
-                        [Tokens.ValueToken] = (validateException as IncorrectPeriodException)?.DatesDifference.TotalDays
-                    };
-
                 case ElementValidationErrors.UnsupportedListElements:
                 case ElementValidationErrors.InvalidHtml:
                 case ElementValidationErrors.EmptyList:
