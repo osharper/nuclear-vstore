@@ -296,7 +296,7 @@ namespace NuClear.VStore.Sessions
         {
             if (inputStreamLength > constraints.MaxSize)
             {
-                throw new FilesizeMismatchException("Article exceeds the size limit.");
+                throw new FilesizeMismatchException("Article exceeds the size limit");
             }
 
             ChmFile chmFile = null;
@@ -326,7 +326,7 @@ namespace NuClear.VStore.Sessions
 
         private static EnumerateStatus ArticleEnumeratorCallback(ChmFile file, ChmUnitInfo unitInfo, EnumeratorContext context)
         {
-            if (string.Equals(unitInfo.path.Trim('/'), "index.html", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(unitInfo.path.TrimStart('/'), "index.html", StringComparison.OrdinalIgnoreCase))
             {
                 context.IsGoalReached = true;
                 return EnumerateStatus.Success;
