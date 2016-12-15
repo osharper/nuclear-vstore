@@ -10,8 +10,11 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects.ContentValidation;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
@@ -39,6 +42,8 @@ namespace NuClear.VStore.Objects
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.ObjectsBucketName;
         }
+
+        private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
@@ -78,8 +83,79 @@ namespace NuClear.VStore.Objects
             return string.Empty;
         }
 
-        public void VerifyObjectElementsConsistency(long? objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
         {
+            switch (descriptor.Type)
+            {
+                case ElementDescriptorType.Text:
+                    return ((TextElementConstraints)elementConstraints).IsFormatted
+                               ? new ValidationRule[]
+                                     {
+                                         FormattedTextValidator.CheckLength,
+                                         FormattedTextValidator.CheckWordsLength,
+                                         FormattedTextValidator.CheckLinesCount,
+                                         FormattedTextValidator.CheckRestrictedSymbols,
+                                         FormattedTextValidator.CheckValidHtml,
+                                         FormattedTextValidator.CheckSupportedHtmlTags,
+                                         FormattedTextValidator.CheckAttributesAbsence,
+                                         FormattedTextValidator.CheckEmptyList,
+                                         FormattedTextValidator.CheckNestedList,
+                                         FormattedTextValidator.CheckUnsupportedListElements
+                                     }
+                               : new ValidationRule[]
+                                     {
+                                         PlainTextValidator.CheckLength,
+                                         PlainTextValidator.CheckWordsLength,
+                                         PlainTextValidator.CheckLinesCount,
+                                         PlainTextValidator.CheckRestrictedSymbols
+                                     };
+                case ElementDescriptorType.FasComment:
+                    return new ValidationRule[]
+                               {
+                                   PlainTextValidator.CheckLength,
+                                   PlainTextValidator.CheckWordsLength,
+                                   PlainTextValidator.CheckLinesCount,
+                                   PlainTextValidator.CheckRestrictedSymbols
+                               };
+                case ElementDescriptorType.Image:
+                case ElementDescriptorType.Article:
+                    return new ValidationRule[] { BinaryValidator.CheckFilename };
+                case ElementDescriptorType.Date:
+                    return new ValidationRule[] { DateValidator.CheckDate };
+                case ElementDescriptorType.Link:
+                    return new ValidationRule[]
+                               {
+                                   LinkValidator.CheckLink,
+                                   PlainTextValidator.CheckLength,
+                                   PlainTextValidator.CheckWordsLength,
+                                   PlainTextValidator.CheckLinesCount,
+                                   PlainTextValidator.CheckRestrictedSymbols
+                               };
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
+            }
+        }
+
+        private void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        {
+            Parallel.ForEach(
+                elementDescriptors,
+                elementDescriptor =>
+                {
+                    var errors = new List<ObjectElementValidationError>();
+                    var constraints = elementDescriptor.Constraints.For(language);
+                    var rules = GetVerificationRules(elementDescriptor, constraints);
+
+                    foreach (var validationRule in rules)
+                    {
+                        errors.AddRange(validationRule(elementDescriptor.Value, constraints));
+                    }
+
+                    if (errors.Count > 0)
+                    {
+                        throw new InvalidObjectElementException(objectId, elementDescriptor.Id, errors);
+                    }
+                });
         }
 
         private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)

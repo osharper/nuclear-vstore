@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+using CHMsharp;
+
 using ImageSharp;
 using ImageSharp.Formats;
 
@@ -185,7 +187,11 @@ namespace NuClear.VStore.Sessions
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
                 using (getResponse.ResponseStream)
                 {
-                    EnsureUploadedFileIsValid(elementDescriptor.Type, elementDescriptor.Constraints.For(sessionDescriptor.Language), getResponse.ResponseStream, getResponse.ContentLength);
+                    EnsureUploadedFileIsValid(
+                        elementDescriptor.Type,
+                        elementDescriptor.Constraints.For(sessionDescriptor.Language),
+                        getResponse.ResponseStream,
+                        getResponse.ContentLength);
                 }
 
                 var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
@@ -225,7 +231,11 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void EnsureUploadedFileIsValid(ElementDescriptorType elementDescriptorType, IElementConstraints elementDescriptorConstraints, Stream inputStream, long inputStreamLength)
+        private static void EnsureUploadedFileIsValid(
+            ElementDescriptorType elementDescriptorType,
+            IElementConstraints elementDescriptorConstraints,
+            Stream inputStream,
+            long inputStreamLength)
         {
             switch (elementDescriptorType)
             {
@@ -258,18 +268,18 @@ namespace NuClear.VStore.Sessions
             }
 
             var supportedDecoders = constraints.SupportedFileFormats
-                                                .Aggregate(
-                                                    new List<IImageDecoder>(),
-                                                    (result, next) =>
-                                                        {
-                                                            IImageDecoder imageDecoder;
-                                                            if (ImageDecodersMap.TryGetValue(next, out imageDecoder))
-                                                            {
-                                                                result.Add(imageDecoder);
-                                                            }
+                                               .Aggregate(
+                                                   new List<IImageDecoder>(),
+                                                   (result, next) =>
+                                                       {
+                                                           IImageDecoder imageDecoder;
+                                                           if (ImageDecodersMap.TryGetValue(next, out imageDecoder))
+                                                           {
+                                                               result.Add(imageDecoder);
+                                                           }
 
-                                                            return result;
-                                                        });
+                                                           return result;
+                                                       });
 
             if (!supportedDecoders.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
             {
@@ -286,8 +296,43 @@ namespace NuClear.VStore.Sessions
         {
             if (inputStreamLength > constraints.MaxSize)
             {
-                throw new FilesizeMismatchException("Article exceeds the size limit.");
+                throw new FilesizeMismatchException("Article exceeds the size limit");
             }
+
+            ChmFile chmFile = null;
+            var enumeratorContext = new EnumeratorContext { IsGoalReached = false };
+            try
+            {
+                chmFile = ChmFile.Open(inputStream);
+                chmFile.Enumerate(
+                    EnumerateLevel.Normal | EnumerateLevel.Files,
+                    ArticleEnumeratorCallback,
+                    enumeratorContext);
+            }
+            catch (Exception ex)
+            {
+                throw new ArticleIncorrectException("Article cannot be loaded from the stream", ex);
+            }
+            finally
+            {
+                chmFile?.Close();
+            }
+
+            if (!enumeratorContext.IsGoalReached)
+            {
+                throw new ArticleIncorrectException("Article must contain 'index.html'");
+            }
+        }
+
+        private static EnumerateStatus ArticleEnumeratorCallback(ChmFile file, ChmUnitInfo unitInfo, EnumeratorContext context)
+        {
+            if (string.Equals(unitInfo.path.TrimStart('/'), "index.html", StringComparison.OrdinalIgnoreCase))
+            {
+                context.IsGoalReached = true;
+                return EnumerateStatus.Success;
+            }
+
+            return EnumerateStatus.Continue;
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)

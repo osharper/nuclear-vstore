@@ -1,7 +1,7 @@
 {
     "version": "0.0.1",
     "dependencies": {
-        "AWSSDK.S3": "3.3.2",
+        "AWSSDK.S3": "3.3.5.1",
         "AWSSDK.Extensions.NETCore.Setup": "3.3.0.2",
         "Swashbuckle": "6.0.0-beta902",
         "VStore": "0.0.1",

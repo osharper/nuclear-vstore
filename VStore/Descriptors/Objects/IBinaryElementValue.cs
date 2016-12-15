@@ -1,6 +1,6 @@
 ﻿namespace NuClear.VStore.Descriptors.Objects
 {
-    public interface IBinaryElementValue : IObjectElementValue
+    public interface IBinaryElementValue : IObjectElementRawValue
     {
         string Filename { get; }
     }

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -84,7 +85,15 @@ namespace NuClear.VStore.Objects
             if (string.IsNullOrEmpty(versionId))
             {
                 var objectVersions = await GetObjectLatestVersions(id);
-                objectVersionId = objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix)).Select(x => x.VersionId).Single();
+                objectVersionId = objectVersions
+                    .Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                    .Select(x => x.VersionId)
+                    .SingleOrDefault();
+
+                if (objectVersionId == null)
+                {
+                    throw new ObjectNotFoundException($"Object '{id}' not found");
+                }
             }
             else
             {
@@ -136,8 +145,17 @@ namespace NuClear.VStore.Objects
 
         private async Task<LastModifiedWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
         {
+            GetObjectResponse getObjectResponse;
+            try
+            {
+                getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key, versionId);
+            }
+            catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new ObjectNotFoundException($"Object '{key}' version '{versionId}' not found");
+            }
+
             string content;
-            var getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key, versionId);
             using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
             {
                 content = reader.ReadToEnd();

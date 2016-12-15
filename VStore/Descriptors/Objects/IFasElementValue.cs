@@ -1,6 +1,6 @@
 ﻿namespace NuClear.VStore.Descriptors.Objects
 {
-    public interface IFasElementValue : IObjectElementValue
+    public interface IFasElementValue : IObjectElementRawValue
     {
         string Text { get; }
     }

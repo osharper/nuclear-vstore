@@ -23,6 +23,7 @@ build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
+  when: manual
   script:
     - dotnet restore
     - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
@@ -43,9 +44,7 @@ build:image:
     - docker:dind
   stage: build:image
   environment: test
-  only:
-    - master
-    - /^release\/.*$/
+  when: manual
   script:
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make docker-push
