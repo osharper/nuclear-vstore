@@ -43,6 +43,7 @@ namespace NuClear.VStore.Host.Controllers
                             descriptor.LastModified,
                             descriptor.TemplateId,
                             descriptor.TemplateVersionId,
+                            descriptor.Language,
                             descriptor.Properties,
                             descriptor.Elements
                         });
@@ -71,6 +72,7 @@ namespace NuClear.VStore.Host.Controllers
                             descriptor.LastModified,
                             descriptor.TemplateId,
                             descriptor.TemplateVersionId,
+                            descriptor.Language,
                             descriptor.Properties,
                             descriptor.Elements
                         });

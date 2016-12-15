@@ -6,6 +6,7 @@ namespace NuClear.VStore.Descriptors.Objects
     {
         long TemplateId { get; }
         string TemplateVersionId { get; }
+        Language Language { get; }
         JObject Properties { get; set; }
     }
 }

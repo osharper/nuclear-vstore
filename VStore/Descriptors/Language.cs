@@ -2,7 +2,7 @@
 {
     public enum Language
     {
-        Unspecified = 1,
+        Unspecified = 0,
         Ru,
         En,
         Uk,
