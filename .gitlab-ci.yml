@@ -26,7 +26,7 @@ build:app:
   when: manual
   script:
     - dotnet restore
-    - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
+    - dotnet publish VStore.Host/project.json -c release -o publish/vstore
   tags:
     - 2gis
     - docker
@@ -46,7 +46,7 @@ build:image:
   environment: test
   when: manual
   script:
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore/ make docker-build
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make docker-push
   tags:
     - 2gis
