@@ -4,7 +4,7 @@ using System.Linq;
 
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 
 using Xunit;
 
@@ -12,11 +12,11 @@ namespace VStore.UnitTests
 {
     internal static class TestHelpers
     {
-        internal delegate IEnumerable<ObjectElementValidationException> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
+        internal delegate IEnumerable<ObjectElementValidationError> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
 
         internal static TException MakeCheck<TValue, TException>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
             where TValue : IObjectElementValue
-            where TException : ObjectElementValidationException
+            where TException : ObjectElementValidationError
         {
             Assert.Empty(validator(value, constraints));
             valueChanger(value);
@@ -35,7 +35,7 @@ namespace VStore.UnitTests
             IObjectElementValue value,
             TextElementConstraints constraints)
         {
-            var errors = new List<Exception>();
+            var errors = new List<ObjectElementValidationError>();
             foreach (var validator in allChecks)
             {
                 errors.AddRange(validator(value, constraints));
@@ -44,23 +44,23 @@ namespace VStore.UnitTests
             Assert.StrictEqual(expectedErrorsCount, errors.Count);
             if (containsRestrictedSymbols)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(NonBreakingSpaceSymbolException));
-                Assert.Contains(errors, err => err.GetType() == typeof(ControlСharactersInTextException));
+                Assert.Contains(errors, err => err.GetType() == typeof(NonBreakingSpaceSymbolError));
+                Assert.Contains(errors, err => err.GetType() == typeof(ControlСharactersInTextError));
             }
 
             if (constraints.MaxSymbols.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(ElementTextTooLongException));
+                Assert.Contains(errors, err => err.GetType() == typeof(ElementTextTooLongError));
             }
 
             if (constraints.MaxLines.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(TooManyLinesException));
+                Assert.Contains(errors, err => err.GetType() == typeof(TooManyLinesError));
             }
 
             if (constraints.MaxSymbolsPerWord.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(ElementWordsTooLongException));
+                Assert.Contains(errors, err => err.GetType() == typeof(ElementWordsTooLongError));
             }
         }
     }

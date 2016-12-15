@@ -11,7 +11,6 @@ using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Json;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Objects.ContentValidation;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
 using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Host.Controllers
@@ -136,19 +135,19 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        private static JToken GenerateErrorJsonResult(AggregateException exc)
+        private static JToken GenerateErrorJsonResult(AggregateException ex)
         {
             var content = new JArray();
-            foreach (var exception in exc.InnerExceptions)
+            foreach (var exception in ex.InnerExceptions)
             {
                 var invalidObjectException = exception as InvalidObjectElementException;
                 if (invalidObjectException != null)
                 {
                     var errors = new JArray();
 
-                    foreach (var validateException in invalidObjectException.InnerExceptions)
+                    foreach (var validationError in invalidObjectException.Errors)
                     {
-                        errors.Add(GenerateErrorJson(validateException));
+                        errors.Add(validationError.SerializeToJson());
                     }
 
                     content.Add(
@@ -161,78 +160,6 @@ namespace NuClear.VStore.Host.Controllers
             }
 
             return content;
-        }
-
-        private static JToken GenerateErrorJson(Exception exception)
-        {
-            var validateException = exception as ObjectElementValidationException;
-            if (validateException == null)
-            {
-                return new JObject
-                {
-                    [Tokens.TypeToken] = exception.GetType().Name,
-                    [Tokens.ValueToken] = exception.Message
-                };
-            }
-
-            switch (validateException.ErrorType)
-            {
-                case ElementValidationErrors.WordsTooLong:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "maxSymbolsPerWord",
-                        [Tokens.ValueToken] = new JArray((validateException as ElementWordsTooLongException)?.TooLongWords)
-                    };
-
-                case ElementValidationErrors.TextTooLong:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "maxSymbols",
-                        [Tokens.ValueToken] = (validateException as ElementTextTooLongException)?.ActualLength
-                    };
-
-                case ElementValidationErrors.UnsupportedTags:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "unsupportedTags",
-                        [Tokens.ValueToken] = new JArray((validateException as UnsupportedTagsException)?.UnsupportedTags)
-                    };
-
-                case ElementValidationErrors.UnsupportedAttributes:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "unsupportedAttributes",
-                        [Tokens.ValueToken] = new JArray((validateException as UnsupportedAttributesException)?.UnsupportedAttributes)
-                    };
-
-                case ElementValidationErrors.TooManyLines:
-                    return new JObject
-                    {
-                        [Tokens.TypeToken] = "maxLines",
-                        [Tokens.ValueToken] = (validateException as TooManyLinesException)?.ActualLinesCount
-                    };
-
-                case ElementValidationErrors.UnsupportedListElements:
-                case ElementValidationErrors.InvalidHtml:
-                case ElementValidationErrors.EmptyList:
-                case ElementValidationErrors.IncorrectLink:
-                case ElementValidationErrors.NestedList:
-                case ElementValidationErrors.ControlСharacters:
-                case ElementValidationErrors.NonBreakingSpaceSymbol:
-                case ElementValidationErrors.InvalidDateRange:
-                case ElementValidationErrors.FilenameTooLong:
-                    {
-                        var error = validateException.ErrorType.ToString();
-                        return new JObject
-                        {
-                            [Tokens.TypeToken] = char.ToLower(error[0]) + error.Substring(1),
-                            [Tokens.ValueToken] = true
-                        };
-                    }
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(exception), validateException.ErrorType, "Unsupported validation error type");
-            }
         }
     }
 }

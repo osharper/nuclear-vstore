@@ -3,17 +3,17 @@ using System.Collections.Generic;
 
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 
 namespace NuClear.VStore.Objects.ContentValidation
 {
     public static class LinkValidator
     {
-        public static IEnumerable<ObjectElementValidationException> CheckLink(IObjectElementValue value, IElementConstraints constraints)
+        public static IEnumerable<ObjectElementValidationError> CheckLink(IObjectElementValue value, IElementConstraints constraints)
         {
             if (string.IsNullOrEmpty(value.Raw))
             {
-                return Array.Empty<ObjectElementValidationException>();
+                return Array.Empty<ObjectElementValidationError>();
             }
 
             // We can use Uri.IsWellFormedUriString() instead:
@@ -22,10 +22,10 @@ namespace NuClear.VStore.Objects.ContentValidation
                 || (uri.Scheme != "http" && uri.Scheme != "https")
                 || uri.HostNameType != UriHostNameType.Dns)
             {
-                return new[] { new IncorrectLinkException() };
+                return new[] { new IncorrectLinkError() };
             }
 
-            return Array.Empty<ObjectElementValidationException>();
+            return Array.Empty<ObjectElementValidationError>();
         }
     }
 }

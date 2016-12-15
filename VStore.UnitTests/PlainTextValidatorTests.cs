@@ -3,7 +3,7 @@
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 
 using Xunit;
 
@@ -27,7 +27,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLength,
@@ -43,7 +43,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckWordsLength,
@@ -60,7 +60,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('\n', MaxLines - 1) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLinesCount,
@@ -76,14 +76,14 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = AllChars };
             var constraints = new TextElementConstraints { IsFormatted = false };
 
-            TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolException>(
+            TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
 
             value.Raw = AllChars.ToUpper();
-            TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextException>(
+            TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
@@ -96,7 +96,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = "text" };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = 5 };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongException>(
+            var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLength,
@@ -112,7 +112,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('a', MaxSymbols) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongException>(
+            var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckWordsLength,
@@ -129,7 +129,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('\n', MaxLines - 1) };
             var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesException>(
+            var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLinesCount,
@@ -145,10 +145,10 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = AllChars };
             var constraints = new TextElementConstraints { IsFormatted = false };
 
-            TestHelpers.MakeCheck<FasElementValue, NonBreakingSpaceSymbolException>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
+            TestHelpers.MakeCheck<FasElementValue, NonBreakingSpaceSymbolError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
 
             value.Text = AllChars.ToUpper();
-            TestHelpers.MakeCheck<FasElementValue, ControlСharactersInTextException>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
+            TestHelpers.MakeCheck<FasElementValue, ControlСharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
         }
 
         [Theory]

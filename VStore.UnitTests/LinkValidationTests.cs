@@ -1,6 +1,6 @@
 ﻿using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Objects.ContentValidation;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 
 using Xunit;
 
@@ -14,7 +14,7 @@ namespace VStore.UnitTests
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(
                 value,
                 null,
                 LinkValidator.CheckLink,
@@ -27,7 +27,7 @@ namespace VStore.UnitTests
         {
             var value = new TextElementValue { Raw = "https://дубль-гис.рф" };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(
                 value,
                 null,
                 LinkValidator.CheckLink,
@@ -40,7 +40,7 @@ namespace VStore.UnitTests
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkException>(
+            var error = TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(
                 value,
                 null,
                 LinkValidator.CheckLink,
@@ -48,7 +48,7 @@ namespace VStore.UnitTests
             Assert.StrictEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
 
             value.Raw = "http://xn----9sbhbxp9bk7f.xn--p1ai";
-            TestHelpers.MakeCheck<TextElementValue, IncorrectLinkException>(
+            TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(
                 value,
                 null,
                 LinkValidator.CheckLink,

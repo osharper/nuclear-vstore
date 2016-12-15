@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 
 namespace NuClear.VStore.Objects.ContentValidation
 {
@@ -21,19 +21,19 @@ namespace NuClear.VStore.Objects.ContentValidation
                     .ToArray();
         }
 
-        public static IEnumerable<ObjectElementValidationException> CheckRestrictedSymbols(string textToCheck)
+        public static IEnumerable<ObjectElementValidationError> CheckRestrictedSymbols(string textToCheck)
         {
             const char NonBreakingSpaceSymbol = (char)160;
 
-            var errors = new List<ObjectElementValidationException>();
+            var errors = new List<ObjectElementValidationError>();
             if (textToCheck.Contains(NonBreakingSpaceSymbol))
             {
-                errors.Add(new NonBreakingSpaceSymbolException());
+                errors.Add(new NonBreakingSpaceSymbolError());
             }
 
             if (textToCheck.Any(c => char.IsControl(c) && c != '\t' && c != '\n'))
             {
-                errors.Add(new ControlСharactersInTextException());
+                errors.Add(new ControlСharactersInTextError());
             }
 
             return errors;

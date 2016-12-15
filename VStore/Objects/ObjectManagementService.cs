@@ -14,7 +14,7 @@ using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects.ContentValidation;
-using NuClear.VStore.Objects.ContentValidation.Exceptions;
+using NuClear.VStore.Objects.ContentValidation.Errors;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
@@ -43,7 +43,7 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        private delegate IEnumerable<ObjectElementValidationException> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
+        private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
@@ -88,7 +88,6 @@ namespace NuClear.VStore.Objects
             switch (descriptor.Type)
             {
                 case ElementDescriptorType.Text:
-                case ElementDescriptorType.FasComment:
                     return ((TextElementConstraints)elementConstraints).IsFormatted
                                ? new ValidationRule[]
                                      {
@@ -110,6 +109,14 @@ namespace NuClear.VStore.Objects
                                          PlainTextValidator.CheckLinesCount,
                                          PlainTextValidator.CheckRestrictedSymbols
                                      };
+                case ElementDescriptorType.FasComment:
+                    return new ValidationRule[]
+                               {
+                                   PlainTextValidator.CheckLength,
+                                   PlainTextValidator.CheckWordsLength,
+                                   PlainTextValidator.CheckLinesCount,
+                                   PlainTextValidator.CheckRestrictedSymbols
+                               };
                 case ElementDescriptorType.Image:
                 case ElementDescriptorType.Article:
                     return new ValidationRule[] { BinaryValidator.CheckFilename };
@@ -135,7 +142,7 @@ namespace NuClear.VStore.Objects
                 elementDescriptors,
                 elementDescriptor =>
                 {
-                    var errors = new List<Exception>();
+                    var errors = new List<ObjectElementValidationError>();
                     var constraints = elementDescriptor.Constraints.For(language);
                     var rules = GetVerificationRules(elementDescriptor, constraints);
 
