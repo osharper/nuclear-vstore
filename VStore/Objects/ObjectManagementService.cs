@@ -106,9 +106,8 @@ namespace NuClear.VStore.Objects
                                          PlainTextValidator.CheckRestrictedSymbols
                                      };
                 case ElementDescriptorType.Image:
-                    break;
                 case ElementDescriptorType.Article:
-                    break;
+                    return new ValidationRule[] { BinaryValidator.CheckFilename };
                 case ElementDescriptorType.Date:
                     return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
@@ -123,8 +122,6 @@ namespace NuClear.VStore.Objects
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
-
-            return Array.Empty<ValidationRule>();
         }
 
         private void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)

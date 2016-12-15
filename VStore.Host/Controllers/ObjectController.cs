@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 using Newtonsoft.Json.Linq;
 
@@ -20,9 +21,11 @@ namespace NuClear.VStore.Host.Controllers
     {
         private readonly ObjectStorageReader _objectStorageReader;
         private readonly ObjectManagementService _objectManagementService;
+        private readonly ILogger<ObjectController> _logger;
 
-        public ObjectController(ObjectStorageReader objectStorageReader, ObjectManagementService objectManagementService)
+        public ObjectController(ObjectStorageReader objectStorageReader, ObjectManagementService objectManagementService, ILogger<ObjectController> logger)
         {
+            _logger = logger;
             _objectStorageReader = objectStorageReader;
             _objectManagementService = objectManagementService;
         }
@@ -93,6 +96,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(new EventId(0), ex, "Error occured while getting an object");
                 return BadRequest(ex.Message);
             }
         }
@@ -111,19 +115,21 @@ namespace NuClear.VStore.Host.Controllers
                 var url = Url.AbsoluteAction("Get", "Object", new { id, versionId });
                 return Created(url, versionId);
             }
-            catch (AggregateException exc)
+            catch (AggregateException ex)
             {
-                return new JsonResult(GenerateErrorJsonResult(exc))
+                return new JsonResult(GenerateErrorJsonResult(ex))
                 {
                     StatusCode = 422
                 };
             }
-            catch (InvalidOperationException exc)
+            catch (InvalidOperationException ex)
             {
-                return BadRequest(exc.Message);
+                _logger.LogError(new EventId(0), ex, "Error occured while creating object");
+                return BadRequest(ex.Message);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(new EventId(0), ex, "Unknown error occured while creating object");
                 return new StatusCodeResult(500);
             }
         }
@@ -212,6 +218,7 @@ namespace NuClear.VStore.Host.Controllers
                 case ElementValidationErrors.ControlСharacters:
                 case ElementValidationErrors.NonBreakingSpaceSymbol:
                 case ElementValidationErrors.InvalidDateRange:
+                case ElementValidationErrors.FilenameTooLong:
                     {
                         var error = validateException.ErrorType.ToString();
                         return new JObject

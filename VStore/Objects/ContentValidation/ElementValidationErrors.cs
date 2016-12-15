@@ -14,6 +14,7 @@
         EmptyList,
         WordsTooLong,
         TextTooLong,
-        InvalidDateRange
+        InvalidDateRange,
+        FilenameTooLong
     }
 }
