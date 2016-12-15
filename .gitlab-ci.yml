@@ -23,10 +23,9 @@ build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
-  when: manual
   script:
     - dotnet restore
-    - dotnet publish VStore.Host/project.json -c release -o publish/vstore
+    - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
   tags:
     - 2gis
     - docker
