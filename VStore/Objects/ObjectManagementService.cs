@@ -47,21 +47,26 @@ namespace NuClear.VStore.Objects
 
         public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
         {
+            if (objectDescriptor.Language == Language.Unspecified)
+            {
+                throw new InvalidOperationException("Language must be explicitly specified.");
+            }
+
             if (await _objectStorageReader.IsObjectExists(id))
             {
-                throw new InvalidOperationException($"Object '{id}' already exists");
+                throw new InvalidOperationException($"Object '{id}' already exists.");
             }
 
             if (!await _templateStorageReader.IsTemplateExists(objectDescriptor.TemplateId))
             {
-                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' does not exist");
+                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' does not exist.");
             }
 
             var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
             if (!objectDescriptor.TemplateVersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
-                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'");
+                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
             }
 
             return await PutObject(id, objectDescriptor);
@@ -148,7 +153,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)
         {
-            VerifyObjectElementsConsistency(id, Language.Unspecified, objectDescriptor.Elements);
+            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             foreach (var elementDescriptor in objectDescriptor.Elements)
@@ -169,6 +174,7 @@ namespace NuClear.VStore.Objects
                                                   {
                                                       TemplateId = objectDescriptor.TemplateId,
                                                       TemplateVersionId = objectDescriptor.TemplateVersionId,
+                                                      Language = objectDescriptor.Language,
                                                       Properties = objectDescriptor.Properties,
                                                       Elements = objectVersions
                                                   };
@@ -193,7 +199,7 @@ namespace NuClear.VStore.Objects
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, key);
             if (versionsResponse.Versions.Count == 0)
             {
-                throw new ObjectNotFoundException($"Object '{key}' not found");
+                throw new ObjectNotFoundException($"Object '{key}' not found.");
             }
 
             var latestVersionId = versionsResponse.Versions.Find(x => x.IsLatest).VersionId;

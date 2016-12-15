@@ -49,12 +49,12 @@ namespace NuClear.VStore.Objects
                                        });
             if (listResponse.S3Objects.Count == 0)
             {
-                throw new ObjectNotFoundException($"Template for the object '{id}' not found");
+                throw new ObjectNotFoundException($"Template for the object '{id}' not found.");
             }
 
             if (listResponse.S3Objects.Count > 1)
             {
-                throw new ObjectInconsistentException(id, $"More than one template found for the object '{id}'");
+                throw new ObjectInconsistentException(id, $"More than one template found for the object '{id}'.");
             }
 
             var templateId = listResponse.S3Objects[0].Key.AsObjectId();
@@ -65,7 +65,7 @@ namespace NuClear.VStore.Objects
 
             if (string.IsNullOrEmpty(templateVersionId))
             {
-                throw new ObjectInconsistentException(id, "Template version cannot be determined");
+                throw new ObjectInconsistentException(id, "Template version cannot be determined.");
             }
 
             return await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
@@ -125,6 +125,7 @@ namespace NuClear.VStore.Objects
                                      LastModified = persistenceDescriptorWrapper.LastModified,
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
+                                     Language = persistenceDescriptor.Language,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };

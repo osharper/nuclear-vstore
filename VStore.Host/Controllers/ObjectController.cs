@@ -52,15 +52,16 @@ namespace NuClear.VStore.Host.Controllers
                 var descriptor = await _objectStorageReader.GetObjectDescriptor(id, null);
                 return Json(
                     new
-                    {
-                        descriptor.Id,
-                        descriptor.VersionId,
-                        descriptor.LastModified,
-                        descriptor.TemplateId,
-                        descriptor.TemplateVersionId,
-                        descriptor.Properties,
-                        descriptor.Elements
-                    });
+                        {
+                            descriptor.Id,
+                            descriptor.VersionId,
+                            descriptor.LastModified,
+                            descriptor.TemplateId,
+                            descriptor.TemplateVersionId,
+                            descriptor.Language,
+                            descriptor.Properties,
+                            descriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {
@@ -80,15 +81,16 @@ namespace NuClear.VStore.Host.Controllers
                 var descriptor = await _objectStorageReader.GetObjectDescriptor(id, versionId);
                 return Json(
                     new
-                    {
-                        descriptor.Id,
-                        descriptor.VersionId,
-                        descriptor.LastModified,
-                        descriptor.TemplateId,
-                        descriptor.TemplateVersionId,
-                        descriptor.Properties,
-                        descriptor.Elements
-                    });
+                        {
+                            descriptor.Id,
+                            descriptor.VersionId,
+                            descriptor.LastModified,
+                            descriptor.TemplateId,
+                            descriptor.TemplateVersionId,
+                            descriptor.Language,
+                            descriptor.Properties,
+                            descriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {

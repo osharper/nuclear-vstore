@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Host.Filters;
 using NuClear.VStore.Sessions;
 
@@ -23,12 +24,12 @@ namespace NuClear.VStore.Host.Controllers
             _logger = logger;
         }
 
-        [HttpPost("{templateId}")]
-        public async Task<IActionResult> SetupSession(long templateId)
+        [HttpPost("{templateId}/{language}")]
+        public async Task<IActionResult> SetupSession(long templateId, Language language)
         {
             try
             {
-                var sessionSetupContext = await _sessionManagementService.Setup(templateId);
+                var sessionSetupContext = await _sessionManagementService.Setup(templateId, language);
                 var templateDescriptor = sessionSetupContext.TemplateDescriptor;
 
                 var uploadUrls = UploadUrl.Generate(
@@ -38,8 +39,6 @@ namespace NuClear.VStore.Host.Controllers
                         new
                             {
                                 sessionId = sessionSetupContext.Id,
-                                templateId,
-                                templateVersionId = templateDescriptor.VersionId,
                                 templateCode
                             }));
 
@@ -63,10 +62,10 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{sessionId}/{templateId}/{templateVersionId}/{templateCode}")]
+        [HttpPost("{sessionId}/upload/{templateCode}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
-        public async Task<IActionResult> UploadFile(Guid sessionId, long templateId, string templateVersionId, int templateCode)
+        public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
             if (string.IsNullOrEmpty(multipartBoundary))
@@ -105,19 +104,17 @@ namespace NuClear.VStore.Host.Controllers
                                             fileSection.FileName,
                                             section.ContentType,
                                             contentLength.Value,
-                                            templateId,
-                                            templateVersionId,
                                             templateCode);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
 
                     using (fileSection.FileStream)
                     {
-                        await _sessionManagementService.UploadFilePart(uploadSession, fileSection.FileStream, templateId, templateVersionId, templateCode);
+                        await _sessionManagementService.UploadFilePart(uploadSession, fileSection.FileStream, templateCode);
                     }
                 }
 
-                var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateId, templateVersionId, templateCode);
+                var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
                 return Json(
                     new
                         {

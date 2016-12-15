@@ -40,6 +40,11 @@ namespace NuClear.VStore.Descriptors.Templates
                 return constraints;
             }
 
+            if (_constraints.TryGetValue(Language.Unspecified, out constraints))
+            {
+                return constraints;
+            }
+
             throw new ConstraintsNotFoundException(language);
         }
 

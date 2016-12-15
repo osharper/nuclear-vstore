@@ -54,8 +54,13 @@ namespace NuClear.VStore.Sessions
             _templateStorageReader = templateStorageReader;
         }
 
-        public async Task<SessionSetupContext> Setup(long templateId)
+        public async Task<SessionSetupContext> Setup(long templateId, Language language)
         {
+            if (language == Language.Unspecified)
+            {
+                throw new SessionCannotBeCreatedException("Language must be explicitly specified.");
+            }
+
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
             var binaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes();
             if (binaryElementTemplateCodes.Count == 0)
@@ -70,6 +75,7 @@ namespace NuClear.VStore.Sessions
                                         {
                                             TemplateId = templateDescriptor.Id,
                                             TemplateVersionId = templateDescriptor.VersionId,
+                                            Language = language,
                                             BinaryElementTemplateCodes = binaryElementTemplateCodes
                                         };
             var request = new PutObjectRequest
@@ -93,8 +99,6 @@ namespace NuClear.VStore.Sessions
             string fileName,
             string contentType,
             long contentLength,
-            long templateId,
-            string templateVersionId,
             int templateCode)
         {
             if (!await IsSessionExists(sessionId))
@@ -102,33 +106,7 @@ namespace NuClear.VStore.Sessions
                 throw new InvalidOperationException($"Session '{sessionId}' does not exist");
             }
 
-            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (SessionSetupContext.IsSessionExpired(expiresAt))
-            {
-                throw new SessionExpiredException(sessionId);
-            }
-
-            string json;
-            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-
-            if (sessionDescriptor.TemplateId != templateId)
-            {
-                throw new InvalidTemplateException($"Template '{sessionDescriptor.TemplateId}' is expected for session '{sessionId}'");
-            }
-
-            if (!sessionDescriptor.TemplateVersionId.Equals(templateVersionId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidTemplateException($"Template version Id '{sessionDescriptor.TemplateVersionId}' is expected for session '{sessionId}'");
-            }
-
+            var sessionDescriptor = await GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -143,7 +121,7 @@ namespace NuClear.VStore.Sessions
                                   Key = key,
                                   ContentType = contentType
                               };
-            metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
+            var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.Filename, fileName);
 
             var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
@@ -151,7 +129,7 @@ namespace NuClear.VStore.Sessions
             return new MultipartUploadSession(sessionId, fileName, uploadResponse.UploadId);
         }
 
-        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, long templateId, string templateVersionId, int templateCode)
+        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, int templateCode)
         {
             using (var memory = new MemoryStream())
             {
@@ -160,7 +138,8 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
+                    var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+                    var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
 
@@ -187,7 +166,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, long templateId, string templateVersionId, int templateCode)
+        public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, int templateCode)
         {
             var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
@@ -201,7 +180,8 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            var elementDescriptor = await GetElementDescriptor(templateId, templateVersionId, templateCode);
+            var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+            var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
@@ -209,7 +189,7 @@ namespace NuClear.VStore.Sessions
                 {
                     EnsureUploadedFileIsValid(
                         elementDescriptor.Type,
-                        elementDescriptor.Constraints.For(Language.Unspecified),
+                        elementDescriptor.Constraints.For(sessionDescriptor.Language),
                         getResponse.ResponseStream,
                         getResponse.ContentLength);
                 }
@@ -364,6 +344,26 @@ namespace NuClear.VStore.Sessions
                                        Prefix = sessionId.ToString()
                                    });
             return response.S3Objects.Count > 0;
+        }
+
+        private async Task<SessionDescriptor> GetSessionDescriptor(Guid sessionId)
+        {
+            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
+
+            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (SessionSetupContext.IsSessionExpired(expiresAt))
+            {
+                throw new SessionExpiredException(sessionId);
+            }
+
+            string json;
+            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
+            {
+                json = reader.ReadToEnd();
+            }
+
+            return JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)
