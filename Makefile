@@ -36,7 +36,7 @@ help:
 
 .PHONY: docker-build
 docker-build:
-	docker build --pull --rm $(DOCKER_BUILD_ARG) --tag "$(REGISTRY)/$(IMAGE):$(TAG)" -f "$(DOCKER_FILE)" $(DOCKER_BUILD_CONTEXT)
+	docker build --pull --rm $(DOCKER_BUILD_ARG) --tag "$(REGISTRY)/$(IMAGE):$(TAG)" -f "$(DOCKER_FILE)" "$(DOCKER_BUILD_CONTEXT)"
 
 .PHONY: docker-clean-containers
 docker-clean-containers:
