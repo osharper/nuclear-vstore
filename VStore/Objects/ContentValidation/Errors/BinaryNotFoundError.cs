@@ -20,7 +20,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
             return new JObject
                 {
                     [Tokens.TypeToken] = "binaryNotFound",
-                    [Tokens.ValueToken] = new JArray(RawValue)
+                    [Tokens.ValueToken] = RawValue
                 };
         }
     }
