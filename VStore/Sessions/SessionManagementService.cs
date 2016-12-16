@@ -299,23 +299,23 @@ namespace NuClear.VStore.Sessions
                 throw new FilesizeMismatchException("Article exceeds the size limit");
             }
 
-            ChmFile chmFile = null;
             var enumeratorContext = new EnumeratorContext { IsGoalReached = false };
             try
             {
-                chmFile = ChmFile.Open(inputStream);
-                chmFile.Enumerate(
-                    EnumerateLevel.Normal | EnumerateLevel.Files,
-                    ArticleEnumeratorCallback,
-                    enumeratorContext);
+                using (var memoryStream = new MemoryStream())
+                {
+                    inputStream.CopyTo(memoryStream);
+
+                    ChmFile.Open(memoryStream)
+                           .Enumerate(
+                               EnumerateLevel.Normal | EnumerateLevel.Files,
+                               ArticleEnumeratorCallback,
+                               enumeratorContext);
+                }
             }
             catch (Exception ex)
             {
                 throw new ArticleIncorrectException("Article cannot be loaded from the stream", ex);
-            }
-            finally
-            {
-                chmFile?.Close();
             }
 
             if (!enumeratorContext.IsGoalReached)
