@@ -2,14 +2,15 @@
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
-using Xunit;
+using NUnit.Framework;
 
 // ReSharper disable UnusedMember.Global
 namespace VStore.UnitTests
 {
+    [TestFixture]
     public class LinkValidationTests
     {
-        [Fact]
+        [Test]
         public void TestHttpLinkValidation()
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
@@ -19,10 +20,10 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "http://abc. com");
-            Assert.StrictEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestHttpsLinkValidation()
         {
             var value = new TextElementValue { Raw = "https://дубль-гис.рф" };
@@ -32,10 +33,10 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "https://abc. com");
-            Assert.StrictEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestLinkSchemeValidation()
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
@@ -45,7 +46,7 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "ftp://дубль-гис.рф");
-            Assert.StrictEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.IncorrectLink, error.ErrorType);
 
             value.Raw = "http://xn----9sbhbxp9bk7f.xn--p1ai";
             TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(

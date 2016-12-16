@@ -25,9 +25,9 @@ build:app:
   environment: test
   when: always
   script:
-    - dotnet restore --infer-runtimes
-    - dotnet test VStore.UnitTests/project.json --configuration Release
-    - dotnet publish VStore.Host/project.json --configuration Release --output publish/vstore
+    - dotnet restore
+    - dotnet test VStore.UnitTests --configuration Release
+    - dotnet publish VStore.Host --configuration Release --output publish/vstore
   tags:
     - 2gis
     - docker

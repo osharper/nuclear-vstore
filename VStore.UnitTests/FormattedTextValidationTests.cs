@@ -6,11 +6,12 @@ using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
-using Xunit;
+using NUnit.Framework;
 
 // ReSharper disable UnusedMember.Global
 namespace VStore.UnitTests
 {
+    [TestFixture]
     public class FormattedTextValidationTests
     {
         private static readonly TestHelpers.Validator[] AllChecks =
@@ -27,7 +28,7 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckUnsupportedListElements
             };
 
-        [Fact]
+        [Test]
         public void TestTextCheckLength()
         {
             const int MaxSymbols = 10;
@@ -39,8 +40,8 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckLength,
                 val => val.Raw = new string('b', MaxSymbols + 1));
-            Assert.StrictEqual(MaxSymbols, error.MaxLength);
-            Assert.StrictEqual(value.Raw.Length, error.ActualLength);
+            Assert.AreEqual(MaxSymbols, error.MaxLength);
+            Assert.AreEqual(value.Raw.Length, error.ActualLength);
 
             value.Raw = "<i><b>" + new string('a', MaxSymbols) + "</b></i>";
             error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongError>(
@@ -48,12 +49,12 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckLength,
                 val => val.Raw = "<i><b>" + new string('b', MaxSymbols + 1) + "</b></i>");
-            Assert.StrictEqual(MaxSymbols, error.MaxLength);
-            Assert.StrictEqual(MaxSymbols + 1, error.ActualLength);
-            Assert.StrictEqual(ElementValidationErrors.TextTooLong, error.ErrorType);
+            Assert.AreEqual(MaxSymbols, error.MaxLength);
+            Assert.AreEqual(MaxSymbols + 1, error.ActualLength);
+            Assert.AreEqual(ElementValidationErrors.TextTooLong, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckLongWords()
         {
             const int MaxSymbols = 10;
@@ -65,13 +66,13 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckWordsLength,
                 val => val.Raw = new string('b', MaxSymbols + 1));
-            Assert.StrictEqual(MaxSymbols, error.MaxWordLength);
-            Assert.StrictEqual(1, error.TooLongWords.Count);
-            Assert.StrictEqual(value.Raw, error.TooLongWords.First());
-            Assert.StrictEqual(ElementValidationErrors.WordsTooLong, error.ErrorType);
+            Assert.AreEqual(MaxSymbols, error.MaxWordLength);
+            Assert.AreEqual(1, error.TooLongWords.Count);
+            Assert.AreEqual(value.Raw, error.TooLongWords.First());
+            Assert.AreEqual(ElementValidationErrors.WordsTooLong, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckMaxLines()
         {
             var value = new TextElementValue { Raw = "1 <br> 2 <br/> 3 <br /> 4 \n 4" };
@@ -82,12 +83,12 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckLinesCount,
                 val => val.Raw += "<ul><li> 5 </li></ul>");
-            Assert.StrictEqual(constraints.MaxLines, error.MaxLinesCount);
-            Assert.StrictEqual(constraints.MaxLines + 1, error.ActualLinesCount);
-            Assert.StrictEqual(ElementValidationErrors.TooManyLines, error.ErrorType);
+            Assert.AreEqual(constraints.MaxLines, error.MaxLinesCount);
+            Assert.AreEqual(constraints.MaxLines + 1, error.ActualLinesCount);
+            Assert.AreEqual(ElementValidationErrors.TooManyLines, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckRestrictedSymbols()
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&|_ []{}()<> /*-+=";
@@ -99,7 +100,7 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
-            Assert.StrictEqual(ElementValidationErrors.NonBreakingSpaceSymbol, errorOnSpace.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.NonBreakingSpaceSymbol, errorOnSpace.ErrorType);
 
             value.Raw = AllChars.ToUpper();
             var errorOnChars = TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextError>(
@@ -107,10 +108,10 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\r");
-            Assert.StrictEqual(ElementValidationErrors.ControlСharacters, errorOnChars.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.ControlСharacters, errorOnChars.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckMarkup()
         {
             var value = new TextElementValue { Raw = "<br/><br /><br><ul><li><b><i><strong> text &nbsp; </strong><i/></b></li><em>small</em><li></li></ul>" };
@@ -121,10 +122,10 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckValidHtml,
                 val => val.Raw += "<ul>");
-            Assert.StrictEqual(ElementValidationErrors.InvalidHtml, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.InvalidHtml, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckTags()
         {
             var value = new TextElementValue { Raw = "<br/><br /><br><ul><li><b><i><strong> text &nbsp; </strong><i/></b></li><em>small</em><li></li></ul>" };
@@ -135,16 +136,12 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckSupportedHtmlTags,
                 val => val.Raw = "<html><head></head><body><p></p><hr></body></html>");
-            Assert.StrictEqual(5, error.UnsupportedTags.Count);
-            Assert.Contains("html", error.UnsupportedTags);
-            Assert.Contains("head", error.UnsupportedTags);
-            Assert.Contains("body", error.UnsupportedTags);
-            Assert.Contains("hr", error.UnsupportedTags);
-            Assert.Contains("p", error.UnsupportedTags);
-            Assert.StrictEqual(ElementValidationErrors.UnsupportedTags, error.ErrorType);
+            Assert.AreEqual(5, error.UnsupportedTags.Count);
+            Assert.That(error.UnsupportedTags, Is.EquivalentTo(new[] { "html", "head", "body", "hr", "p" }));
+            Assert.AreEqual(ElementValidationErrors.UnsupportedTags, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckAttributes()
         {
             var value = new TextElementValue { Raw = "<b></b>" };
@@ -156,13 +153,12 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckAttributesAbsence,
                 val => val.Raw = "<b class='err'><i onclick='alert(123)'></i></b>");
 
-            Assert.StrictEqual(2, error.UnsupportedAttributes.Count);
-            Assert.Contains("class", error.UnsupportedAttributes);
-            Assert.Contains("onclick", error.UnsupportedAttributes);
-            Assert.StrictEqual(ElementValidationErrors.UnsupportedAttributes, error.ErrorType);
+            Assert.AreEqual(2, error.UnsupportedAttributes.Count);
+            Assert.That(error.UnsupportedAttributes, Is.EquivalentTo(new[] { "class", "onclick" }));
+            Assert.AreEqual(ElementValidationErrors.UnsupportedAttributes, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckEmptyList()
         {
             var value = new TextElementValue { Raw = "<ul><li></li></ul>" };
@@ -174,10 +170,10 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckEmptyList,
                 val => val.Raw = "<ul> </ul>");
 
-            Assert.StrictEqual(ElementValidationErrors.EmptyList, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.EmptyList, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckNestedList()
         {
             var value = new TextElementValue { Raw = "<ul><li> list item </li></ul>" };
@@ -189,10 +185,10 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckNestedList,
                 val => val.Raw = "<ul><li> outer list <ul><li> inner list </li></ul> </li></ul>");
 
-            Assert.StrictEqual(ElementValidationErrors.NestedList, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.NestedList, error.ErrorType);
         }
 
-        [Fact]
+        [Test]
         public void TestTextCheckListElements()
         {
             var value = new TextElementValue { Raw = "<ul><li> list item </li></ul>" };
@@ -204,20 +200,20 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckUnsupportedListElements,
                 val => val.Raw = "<ul><hr></ul>");
 
-            Assert.StrictEqual(ElementValidationErrors.UnsupportedListElements, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.UnsupportedListElements, error.ErrorType);
         }
 
-        [Theory]
-        [InlineData("Too long text", 1, null, null, false, 1)]
-        [InlineData("<i><b>Too long text</b></i>", 1, null, null, false, 1)]
-        [InlineData("Too_long_word", null, 1, null, false, 1)]
-        [InlineData("<i><b>Too_long_word</b></i>", null, 1, null, false, 1)]
-        [InlineData("Text <br> on <br/> too <br /> many \n lines", null, null, 3, false, 1)]
-        [InlineData("Too_long_word_in_too_long_text", 1, 1, null, false, 2)]
-        [InlineData("\r\v bad symbols and non breaking space \xA0", null, null, null, true, 2)]
-        [InlineData("Too_long_word <br> on <br> too <br> many <br> lines", null, 1, 4, false, 2)]
-        [InlineData("Too_long_word_in_too_long_text <br> on <br> too <br> many <br> lines", 1, 1, 4, false, 3)]
-        [InlineData("Long_Word in too long text <br> with too many lines, \r\v bad symbols and non breaking space \xA0", 10, 5, 1)]
+        [Test]
+        [TestCase("Too long text", 1, null, null, false, 1)]
+        [TestCase("<i><b>Too long text</b></i>", 1, null, null, false, 1)]
+        [TestCase("Too_long_word", null, 1, null, false, 1)]
+        [TestCase("<i><b>Too_long_word</b></i>", null, 1, null, false, 1)]
+        [TestCase("Text <br> on <br/> too <br /> many \n lines", null, null, 3, false, 1)]
+        [TestCase("Too_long_word_in_too_long_text", 1, 1, null, false, 2)]
+        [TestCase("\r\v bad symbols and non breaking space \xA0", null, null, null, true, 2)]
+        [TestCase("Too_long_word <br> on <br> too <br> many <br> lines", null, 1, 4, false, 2)]
+        [TestCase("Too_long_word_in_too_long_text <br> on <br> too <br> many <br> lines", 1, 1, 4, false, 3)]
+        [TestCase("Long_Word in too long text <br> with too many lines, \r\v bad symbols and non breaking space \xA0", 10, 5, 1)]
         public void TestAllChecks(string text, int? maxLength, int? maxWordLength, int? maxLines, bool containsRestrictedSymbols = true, int expectedErrorsCount = 5)
         {
             IObjectElementValue value = new TextElementValue { Raw = text };

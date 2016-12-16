@@ -4,13 +4,14 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
-using Xunit;
+using NUnit.Framework;
 
 namespace VStore.UnitTests
 {
+    [TestFixture]
     public class DateValidationTests
     {
-        [Fact]
+        [Test]
         public void TestDateRangeValidation()
         {
             var value = new DateElementValue { BeginDate = DateTime.Today, EndDate = DateTime.Today.AddDays(1) };
@@ -20,7 +21,7 @@ namespace VStore.UnitTests
                 null,
                 DateValidator.CheckDate,
                 val => val.EndDate = DateTime.Today.AddMinutes(-1));
-            Assert.StrictEqual(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+            Assert.AreEqual(ElementValidationErrors.InvalidDateRange, error.ErrorType);
         }
     }
 }
