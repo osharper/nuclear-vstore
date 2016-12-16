@@ -45,6 +45,7 @@ build:test:
   environment: test
   when: on_success
   script:
+    - dotnet restore
     - dotnet test VStore.UnitTests/project.json --output test/vstore --no-build
   tags:
     - 2gis
