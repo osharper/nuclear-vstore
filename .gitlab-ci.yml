@@ -14,6 +14,7 @@ variables:
 
 stages:
   - build:app
+  - build:test
   - build:image
   - deploy
 
@@ -23,9 +24,11 @@ build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
+  when: always
   script:
     - dotnet restore
-    - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
+    - dotnet publish VStore.Host/project.json --configuration Release --output publish/vstore
+    - dotnet build VStore.UnitTests/project.json --configuration Release --framework netcoreapp1.1 --output test/vstore
   tags:
     - 2gis
     - docker
@@ -34,6 +37,18 @@ build:app:
     expire_in: '1 week'
     paths:
       - publish/vstore/
+      - test/vstore/
+
+build:test:
+  image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
+  stage: build:test
+  environment: test
+  when: on_success
+  script:
+    - dotnet test VStore.UnitTests/project.json --output test/vstore --no-build
+  tags:
+    - 2gis
+    - docker
 
 build:image:
   variables:
@@ -50,7 +65,6 @@ build:image:
   tags:
     - 2gis
     - docker
-  when: on_success
 
 # ================ Deploy =================
 
