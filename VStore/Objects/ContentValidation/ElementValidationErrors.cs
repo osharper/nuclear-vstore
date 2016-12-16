@@ -15,6 +15,7 @@
         WordsTooLong,
         TextTooLong,
         InvalidDateRange,
-        FilenameTooLong
+        FilenameTooLong,
+        BinaryNotFound
     }
 }

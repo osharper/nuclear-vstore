@@ -249,7 +249,7 @@ namespace NuClear.VStore.Objects
                                      var binaryValue = objectElement.Value as IBinaryElementValue;
                                      if (binaryValue != null && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
                                      {
-                                         throw new ObjectInconsistentException(id, $"Binary for the element with template code {objectElement.TemplateCode} not found. Had it been uploaded?");
+                                         throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
                                      }
                                  });
         }
