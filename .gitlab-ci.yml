@@ -23,9 +23,11 @@ build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
   environment: test
+  when: always
   script:
     - dotnet restore
-    - dotnet publish VStore.Host/project.json -c release -o $(pwd)/publish/vstore
+#    - dotnet test VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
+    - dotnet publish VStore.Host --configuration Release --output publish/vstore
   tags:
     - 2gis
     - docker
@@ -50,7 +52,6 @@ build:image:
   tags:
     - 2gis
     - docker
-  when: on_success
 
 # ================ Deploy =================
 

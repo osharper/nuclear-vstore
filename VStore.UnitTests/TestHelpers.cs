@@ -6,7 +6,7 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
-using Xunit;
+using NUnit.Framework;
 
 namespace VStore.UnitTests
 {
@@ -18,12 +18,12 @@ namespace VStore.UnitTests
             where TValue : IObjectElementValue
             where TException : ObjectElementValidationError
         {
-            Assert.Empty(validator(value, constraints));
+            Assert.IsEmpty(validator(value, constraints));
             valueChanger(value);
 
             var errors = validator(value, constraints).ToList();
-            Assert.StrictEqual(1, errors.Count);
-            Assert.IsType<TException>(errors.First());
+            Assert.AreEqual(1, errors.Count);
+            Assert.IsInstanceOf<TException>(errors.First());
 
             return (TException)errors.First();
         }
@@ -41,26 +41,26 @@ namespace VStore.UnitTests
                 errors.AddRange(validator(value, constraints));
             }
 
-            Assert.StrictEqual(expectedErrorsCount, errors.Count);
+            Assert.AreEqual(expectedErrorsCount, errors.Count);
             if (containsRestrictedSymbols)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(NonBreakingSpaceSymbolError));
-                Assert.Contains(errors, err => err.GetType() == typeof(ControlСharactersInTextError));
+                Assert.That(errors, Has.Exactly(1).InstanceOf<NonBreakingSpaceSymbolError>());
+                Assert.That(errors, Has.Exactly(1).InstanceOf<ControlСharactersInTextError>());
             }
 
             if (constraints.MaxSymbols.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(ElementTextTooLongError));
+                Assert.That(errors, Has.Exactly(1).InstanceOf<ElementTextTooLongError>());
             }
 
             if (constraints.MaxLines.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(TooManyLinesError));
+                Assert.That(errors, Has.Exactly(1).InstanceOf<TooManyLinesError>());
             }
 
             if (constraints.MaxSymbolsPerWord.HasValue)
             {
-                Assert.Contains(errors, err => err.GetType() == typeof(ElementWordsTooLongError));
+                Assert.That(errors, Has.Exactly(1).InstanceOf<ElementWordsTooLongError>());
             }
         }
     }

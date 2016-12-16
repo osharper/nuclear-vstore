@@ -1,15 +1,16 @@
 {
     "version": "1.0.0-*",
-    "testRunner": "xunit",
+    "testRunner": "nunit",
 
     "dependencies": {
-        "xunit": "2.2.0-beta4-build3444",
-        "dotnet-test-xunit": "2.2.0-preview2-build1029",
+        "NUnit": "3.5.0",
+        "dotnet-test-nunit": "3.4.0-beta-3",
         "VStore": { "target": "project" }
     },
 
     "frameworks": {
         "netcoreapp1.1": {
+            "imports": "portable-net45+win8",
             "Microsoft.NETCore.App": {
                 "type": "platform",
                 "version": "1.1.0"
