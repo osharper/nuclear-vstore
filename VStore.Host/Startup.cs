@@ -93,6 +93,13 @@ namespace NuClear.VStore.Host
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplateStorageReader>(),
                          x.GetService<LockSessionFactory>()));
+            services.AddScoped(x => new SessionStorageReader(x.GetService<IOptions<CephOptions>>().Value.FilesBucketName, x.GetService<IAmazonS3>()));
+            services.AddScoped(
+                x => new SessionManagementService(
+                         x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
+                         x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
+                         x.GetService<IAmazonS3>(),
+                         x.GetService<TemplateStorageReader>()));
             services.AddScoped(
                 x => new ObjectStorageReader(
                          x.GetService<IOptions<CephOptions>>().Value,
@@ -104,13 +111,8 @@ namespace NuClear.VStore.Host
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplateStorageReader>(),
                          x.GetService<ObjectStorageReader>(),
+                         x.GetService<SessionStorageReader>(),
                          x.GetService<LockSessionFactory>()));
-            services.AddScoped(
-                x => new SessionManagementService(
-                         x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
-                         x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplateStorageReader>()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

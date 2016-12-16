@@ -70,6 +70,11 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return BadRequest(ex.Message);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(new EventId(0), ex, "Error occured while getting an object");
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet("{id}/{versionId}")]
@@ -94,6 +99,10 @@ namespace NuClear.VStore.Host.Controllers
             catch (ObjectNotFoundException)
             {
                 return NotFound(id);
+            }
+            catch (ObjectInconsistentException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -128,6 +137,10 @@ namespace NuClear.VStore.Host.Controllers
                 _logger.LogError(new EventId(0), ex, "Error occured while creating object");
                 return BadRequest(ex.Message);
             }
+            catch (ObjectInconsistentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(new EventId(0), ex, "Unknown error occured while creating object");
@@ -144,7 +157,6 @@ namespace NuClear.VStore.Host.Controllers
                 if (invalidObjectException != null)
                 {
                     var errors = new JArray();
-
                     foreach (var validationError in invalidObjectException.Errors)
                     {
                         errors.Add(validationError.SerializeToJson());
@@ -152,10 +164,10 @@ namespace NuClear.VStore.Host.Controllers
 
                     content.Add(
                         new JObject
-                        {
-                            [Tokens.IdToken] = invalidObjectException.ElementId,
-                            [Tokens.ErrorsToken] = errors
-                        });
+                            {
+                                [Tokens.IdToken] = invalidObjectException.ElementId,
+                                [Tokens.ErrorsToken] = errors
+                            });
                 }
             }
 
