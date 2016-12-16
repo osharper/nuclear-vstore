@@ -56,11 +56,6 @@ namespace NuClear.VStore.Templates
                 throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
             }
 
-            if (response.ResponseStream == null)
-            {
-                throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
-            }
-
             string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
             {

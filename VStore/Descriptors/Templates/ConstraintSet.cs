@@ -53,6 +53,27 @@ namespace NuClear.VStore.Descriptors.Templates
             return _constraints.Select(item => new ConstraintSetItem(item.Key, item.Value)).GetEnumerator();
         }
 
+        public override bool Equals(object obj)
+        {
+            var other = obj as ConstraintSet;
+            if (other == null)
+            {
+                return false;
+            }
+
+            return ReferenceEquals(obj, this) || Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return _constraints?.GetHashCode() ?? 0;
+        }
+
+        private bool Equals(ConstraintSet other)
+        {
+            return _constraints.Count == other._constraints.Count && !_constraints.Except(other._constraints).Any();
+        }
+
         IEnumerator<KeyValuePair<Language, IElementConstraints>> IEnumerable<KeyValuePair<Language, IElementConstraints>>.GetEnumerator() => _constraints.GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => _constraints.GetEnumerator();

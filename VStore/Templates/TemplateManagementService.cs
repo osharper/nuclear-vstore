@@ -140,11 +140,25 @@ namespace NuClear.VStore.Templates
 
         private static void VerifyArticleConstraints(long? templateId, ArticleElementConstraints articleElementConstraints)
         {
+            if (articleElementConstraints.SupportedFileFormats == null)
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          "Supported file formats constraints cannot be null");
+            }
+
+            if (!articleElementConstraints.SupportedFileFormats.Any())
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          "Supported file formats constraints must be set");
+            }
+
             if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
             {
                 throw new TemplateInconsistentException(
                           templateId,
-                          $"Supported file formats for articles are: {string.Join(",", ImageFileFormats)}");
+                          $"Supported file formats for articles are: {string.Join(",", ArticleFileFormats)}");
             }
 
             if (articleElementConstraints.MaxFilenameLength <= 0)
@@ -160,6 +174,20 @@ namespace NuClear.VStore.Templates
 
         private static void VerifyImageConstraints(long? templateId, ImageElementConstraints imageElementConstraints)
         {
+            if (imageElementConstraints.SupportedFileFormats == null)
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          "Supported file formats constraints cannot be null");
+            }
+
+            if (!imageElementConstraints.SupportedFileFormats.Any())
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          "Supported file formats constraints must be set");
+            }
+
             if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
             {
                 throw new TemplateInconsistentException(

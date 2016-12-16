@@ -17,6 +17,7 @@ using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
+using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Objects
@@ -26,6 +27,7 @@ namespace NuClear.VStore.Objects
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplateStorageReader _templateStorageReader;
         private readonly ObjectStorageReader _objectStorageReader;
+        private readonly SessionStorageReader _sessionStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
@@ -34,11 +36,13 @@ namespace NuClear.VStore.Objects
             IAmazonS3 amazonS3,
             TemplateStorageReader templateStorageReader,
             ObjectStorageReader objectStorageReader,
+            SessionStorageReader sessionStorageReader,
             LockSessionFactory lockSessionFactory)
         {
             _amazonS3 = amazonS3;
             _templateStorageReader = templateStorageReader;
             _objectStorageReader = objectStorageReader;
+            _sessionStorageReader = sessionStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.ObjectsBucketName;
         }
@@ -57,17 +61,8 @@ namespace NuClear.VStore.Objects
                 throw new InvalidOperationException($"Object '{id}' already exists.");
             }
 
-            if (!await _templateStorageReader.IsTemplateExists(objectDescriptor.TemplateId))
-            {
-                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' does not exist.");
-            }
-
-            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
-            if (!objectDescriptor.TemplateVersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
-                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
-            }
+            await EnsureObjectTemplateState(id, objectDescriptor);
+            EnsureAllBinariesExist(id, objectDescriptor.Elements);
 
             return await PutObject(id, objectDescriptor);
         }
@@ -199,6 +194,64 @@ namespace NuClear.VStore.Objects
 
             objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
             return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase)).Select(x => x.VersionId).Single();
+        }
+
+        private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)
+        {
+            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
+
+            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+            if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
+                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
+            }
+
+            if (templateDescriptor.Elements.Count != objectDescriptor.Elements.Count)
+            {
+                throw new ObjectInconsistentException(id, "Number of elements in the object doesn't match to the number of elements in corresponding template " +
+                                                          $"with Id '{templateDescriptor.Id}' and Version Id '{templateDescriptor.VersionId}'.");
+            }
+
+            foreach (var templateElement in templateDescriptor.Elements)
+            {
+                var objectElements = objectDescriptor.Elements.Where(x => x.TemplateCode == templateElement.TemplateCode).ToArray();
+                if (objectElements.Length == 0)
+                {
+                    throw new ObjectInconsistentException(id, $"Element with template code '{templateElement.TemplateCode}' not found in the object.");
+                }
+
+                if (objectElements.Length > 1)
+                {
+                    throw new ObjectInconsistentException(id, $"Element with template code '{templateElement.TemplateCode}' must be unique within the object.");
+                }
+
+                var objectElement = objectElements[0];
+                if (objectElement.Type != templateElement.Type)
+                {
+                    throw new ObjectInconsistentException(id, $"Type of the element with template code '{objectElement.TemplateCode}' ({objectElement.Type}) " +
+                                                              $"doesn't match to the type of corresponding element in template ({templateElement.Type}).");
+                }
+
+                if (!objectElement.Constraints.Equals(templateElement.Constraints))
+                {
+                    throw new ObjectInconsistentException(id, $"Constraints for the element with template code '{objectElement.TemplateCode}' " +
+                                                              "doesn't match to constraints for corresponding element in template.");
+                }
+            }
+        }
+
+        private void EnsureAllBinariesExist(long id, IEnumerable<IObjectElementDescriptor> objectElements)
+        {
+            Parallel.ForEach(objectElements,
+                             objectElement =>
+                                 {
+                                     var binaryValue = objectElement.Value as IBinaryElementValue;
+                                     if (binaryValue != null && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
+                                     {
+                                         throw new ObjectInconsistentException(id, $"Binary for the element with template code {objectElement.TemplateCode} not found. Had it been uploaded?");
+                                     }
+                                 });
         }
 
         private async Task EnsureObjectState(string key, string versionId)

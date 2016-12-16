@@ -7,6 +7,9 @@ namespace NuClear.VStore.Objects
         public ObjectInconsistentException(long objectId, string details)
             : base($"Object '{objectId}' is inconsistent. Details: {details}")
         {
+            ObjectId = objectId;
         }
+
+        public long ObjectId { get; }
     }
 }

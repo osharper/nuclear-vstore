@@ -62,22 +62,15 @@ namespace NuClear.VStore.Sessions
             }
 
             var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
-            var binaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes();
-            if (binaryElementTemplateCodes.Count == 0)
-            {
-                throw new SessionCannotBeCreatedException(
-                          $"There is no binary content can be uploaded for template '{templateDescriptor.Id}' " +
-                          $"with version '{templateDescriptor.VersionId}'");
-            }
 
             var setupContext = new SessionSetupContext(templateDescriptor);
             var sessionDescriptor = new SessionDescriptor
-                                        {
-                                            TemplateId = templateDescriptor.Id,
-                                            TemplateVersionId = templateDescriptor.VersionId,
-                                            Language = language,
-                                            BinaryElementTemplateCodes = binaryElementTemplateCodes
-                                        };
+                {
+                    TemplateId = templateDescriptor.Id,
+                    TemplateVersionId = templateDescriptor.VersionId,
+                    Language = language,
+                    BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
+                };
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
