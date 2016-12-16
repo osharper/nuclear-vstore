@@ -40,7 +40,7 @@ build:app:
       - test/vstore/
 
 build:test:
-  image: $REGISTRY/microsoft/aspnetcore:1.1.0
+  image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:test
   environment: test
   when: on_success
