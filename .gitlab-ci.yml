@@ -26,7 +26,8 @@ build:app:
   when: always
   script:
     - dotnet restore
-    - dotnet test VStore.UnitTests --configuration Release
+    - dotnet build VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
+    - dotnet test VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
     - dotnet publish VStore.Host --configuration Release --output publish/vstore
   tags:
     - 2gis
