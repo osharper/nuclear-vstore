@@ -132,6 +132,10 @@ namespace NuClear.VStore.Host.Controllers
                     StatusCode = 422
                 };
             }
+            catch (ObjectAlreadyExistsException)
+            {
+                return new StatusCodeResult(409);   //Conflict
+            }
             catch (InvalidOperationException ex)
             {
                 _logger.LogError(new EventId(0), ex, "Error occured while creating object");
@@ -144,6 +148,50 @@ namespace NuClear.VStore.Host.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(new EventId(0), ex, "Unknown error occured while creating object");
+                return new StatusCodeResult(500);
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Modify(long objectId, string versionId, [FromBody] IObjectDescriptor objectDescriptor)
+        {
+            if (objectDescriptor == null)
+            {
+                return BadRequest("Incorrect object descriptor");
+            }
+
+            try
+            {
+                var newVersionId = await _objectManagementService.ModifyElement(objectId, versionId, objectDescriptor);
+                return Ok(newVersionId);
+            }
+            catch (AggregateException ex)
+            {
+                return new JsonResult(GenerateErrorJsonResult(ex))
+                {
+                    StatusCode = 422
+                };
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound(objectId);
+            }
+            catch (ConcurrencyException)
+            {
+                return new StatusCodeResult(409);   //Conflict
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(new EventId(0), ex, "Error occured while modifying object");
+                return BadRequest(ex.Message);
+            }
+            catch (ObjectInconsistentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new EventId(0), ex, "Unknown error occured while modifying object");
                 return new StatusCodeResult(500);
             }
         }
