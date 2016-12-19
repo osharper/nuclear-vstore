@@ -69,6 +69,16 @@ namespace NuClear.VStore.Objects
 
         public async Task<string> ModifyElement(long objectId, string versionId, IObjectDescriptor objectDescriptor)
         {
+            if (objectId == 0)
+            {
+                throw new ArgumentException("Object Id must be set", nameof(objectId));
+            }
+
+            if (string.IsNullOrEmpty(versionId))
+            {
+                throw new ArgumentException("VersionId must be set", nameof(versionId));
+            }
+
             using (_lockSessionFactory.CreateLockSession(objectId))
             {
                 var descriptorKey = objectId.AsS3ObjectKey(Tokens.ObjectPostfix);
@@ -173,17 +183,19 @@ namespace NuClear.VStore.Objects
                 await _amazonS3.PutObjectAsync(putRequest);
             }
 
+            var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             var objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
-                                                  {
-                                                      TemplateId = objectDescriptor.TemplateId,
-                                                      TemplateVersionId = objectDescriptor.TemplateVersionId,
-                                                      Language = objectDescriptor.Language,
-                                                      Properties = objectDescriptor.Properties,
-                                                      Elements = objectVersions
-                                                  };
+                {
+                    TemplateId = objectDescriptor.TemplateId,
+                    TemplateVersionId = objectDescriptor.TemplateVersionId,
+                    Language = objectDescriptor.Language,
+                    Properties = objectDescriptor.Properties,
+                    Elements = objectVersions
+                        .Where(x => !x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
+                        .ToArray()
+                };
 
-            var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             putRequest = new PutObjectRequest
                              {
                                  Key = objectKey,

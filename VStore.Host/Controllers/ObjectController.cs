@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Json;
+using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.S3;
@@ -152,8 +153,8 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Modify(long objectId, string versionId, [FromBody] IObjectDescriptor objectDescriptor)
+        [HttpPut("{id}/{versionId}")]
+        public async Task<IActionResult> Modify(long id, string versionId, [FromBody] IObjectDescriptor objectDescriptor)
         {
             if (objectDescriptor == null)
             {
@@ -162,19 +163,23 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var newVersionId = await _objectManagementService.ModifyElement(objectId, versionId, objectDescriptor);
+                var newVersionId = await _objectManagementService.ModifyElement(id, versionId, objectDescriptor);
                 return Ok(newVersionId);
             }
             catch (AggregateException ex)
             {
                 return new JsonResult(GenerateErrorJsonResult(ex))
-                {
-                    StatusCode = 422
-                };
+                    {
+                        StatusCode = 422
+                    };
             }
-            catch (ObjectNotFoundException)
+            catch (ObjectNotFoundException ex)
             {
-                return NotFound(objectId);
+                return NotFound(ex.Message);
+            }
+            catch (SessionLockAlreadyExistsException)
+            {
+                return new StatusCodeResult(409);   //Conflict
             }
             catch (ConcurrencyException)
             {
@@ -183,6 +188,10 @@ namespace NuClear.VStore.Host.Controllers
             catch (InvalidOperationException ex)
             {
                 _logger.LogError(new EventId(0), ex, "Error occured while modifying object");
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
                 return BadRequest(ex.Message);
             }
             catch (ObjectInconsistentException ex)
