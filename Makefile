@@ -24,6 +24,8 @@ DEIS ?= deis
 # В deis есть ограничение на название приложения, поэтому пофильтруем его
 DEIS_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g' )
 
+TAG_FILTER = $(shell echo $(TAG) | tr '[:upper:]' '[:lower:]' | sed -e 's/\//-/g' )
+
 
 .PHONY: help
 help:
@@ -36,7 +38,7 @@ help:
 
 .PHONY: docker-build
 docker-build:
-	docker build --pull --rm $(DOCKER_BUILD_ARG) --tag "$(REGISTRY)/$(IMAGE):$(TAG)" -f "$(DOCKER_FILE)" $(DOCKER_BUILD_CONTEXT)
+	docker build --pull --rm $(DOCKER_BUILD_ARG) --tag "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)" -f "$(DOCKER_FILE)" $(DOCKER_BUILD_CONTEXT)
 
 .PHONY: docker-clean-containers
 docker-clean-containers:
@@ -44,11 +46,11 @@ docker-clean-containers:
 
 .PHONY: docker-clean-images
 docker-clean-images:
-	docker rmi --force $$(docker images --quiet "$(REGISTRY)/$(IMAGE):$(TAG)")
+	docker rmi --force $$(docker images --quiet "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)")
 
 .PHONY: docker-push
 docker-push:
-	docker push "$(REGISTRY)/$(IMAGE):$(TAG)"
+	docker push "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)"
 
 
 #
@@ -68,7 +70,7 @@ deis-create:
 
 .PHONY: deis-pull
 deis-pull:
-	$(DEIS) pull "$(REGISTRY)/$(IMAGE):$(TAG)" -a $(DEIS_APPLICATION_FILTER)
+	$(DEIS) pull "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)" -a $(DEIS_APPLICATION_FILTER)
 
 .PHONY: deis-info
 deis-info:

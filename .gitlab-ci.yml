@@ -11,7 +11,6 @@ variables:
   DEIS_SCALE_PROD_N3: "cmd=1"
   DEIS_SCALE_PROD_M1: "cmd=1"
   DEIS_SCALE_PROD_D1: "cmd=1"
-  DOCKER_TAG: $$(echo $CI_BUILD_REF_NAME | sed -e 's/\//-/g')
 
 stages:
   - build:app
@@ -48,8 +47,8 @@ build:image:
   environment: test
   when: manual
   script:
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG make docker-push
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make docker-push
   tags:
     - 2gis
     - docker
@@ -68,7 +67,7 @@ deploy:staging-01:
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-scale
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-info
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis-apps-check
@@ -88,7 +87,7 @@ deploy:staging-02:
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-scale
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-info
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis-apps-check
@@ -108,7 +107,7 @@ deploy:staging-03:
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_USERNAME=$DEIS_STAGE_USERNAME DEIS_TOKEN=$DEIS_STAGE_TOKEN make deis-config-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging.ini make deis-config-push
-    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG make deis-pull
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-scale
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-info
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis-apps-check
@@ -128,7 +127,7 @@ deploy:production-n3:
     - DEIS_PROFILE=production-n3 make deis-create
     - DEIS_PROFILE=production-n3 DEIS_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" make deis-memory-limits-set
     - DEIS_PROFILE=production-n3 DEIS_ENV_FILE=env/prod_n3.ini make deis-config-push
-    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$DOCKER_TAG make deis-pull
+    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
     - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis-scale
     - DEIS_PROFILE=production-n3 make deis-info
     - DEIS_PROFILE=production-n3 make deis-apps-check
