@@ -11,7 +11,7 @@ variables:
   DEIS_SCALE_PROD_N3: "cmd=1"
   DEIS_SCALE_PROD_M1: "cmd=1"
   DEIS_SCALE_PROD_D1: "cmd=1"
-  DOCKER_TAG: (echo $CI_BUILD_REF_NAME | sed -e 's/\//-/g')
+  DOCKER_TAG: $(echo $CI_BUILD_REF_NAME | sed -e 's/\//-/g')
 
 stages:
   - build:app
