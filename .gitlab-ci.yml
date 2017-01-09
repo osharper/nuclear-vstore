@@ -38,8 +38,6 @@ build:app:
       - publish/vstore/
 
 build:image:
-  variables:
-    GIT_STRATEGY: none
   image: $REGISTRY/2gis/docker:1.11.2
   services:
     - docker:dind
