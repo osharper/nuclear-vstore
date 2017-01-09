@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.Locks;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -129,6 +130,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var latestVersionId = await _templateManagementService.ModifyTemplate(id, versionId, templateDescriptor);
                 return Ok(latestVersionId);
+            }
+            catch (SessionLockAlreadyExistsException)
+            {
+                return new StatusCodeResult(409);   //Conflict
             }
             catch (Exception ex)
             {

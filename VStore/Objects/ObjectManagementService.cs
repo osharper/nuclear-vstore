@@ -58,7 +58,7 @@ namespace NuClear.VStore.Objects
 
             if (await _objectStorageReader.IsObjectExists(id))
             {
-                throw new InvalidOperationException($"Object '{id}' already exists.");
+                throw new ObjectAlreadyExistsException(id);
             }
 
             await EnsureObjectTemplateState(id, objectDescriptor);
@@ -67,15 +67,27 @@ namespace NuClear.VStore.Objects
             return await PutObject(id, objectDescriptor);
         }
 
-        public async Task<string> ModifyElement(long rootObjectId, string rootObjectVersionId, long elementId, string content)
+        public async Task<string> ModifyElement(long objectId, string versionId, IObjectDescriptor objectDescriptor)
         {
-            using (_lockSessionFactory.CreateLockSession(rootObjectId))
+            if (objectId == 0)
             {
-                var descriptorKey = rootObjectId.AsS3ObjectKey(Tokens.ObjectPostfix);
-                await EnsureObjectState(descriptorKey, rootObjectVersionId);
+                throw new ArgumentException("Object Id must be set", nameof(objectId));
             }
 
-            return string.Empty;
+            if (string.IsNullOrEmpty(versionId))
+            {
+                throw new ArgumentException("VersionId must be set", nameof(versionId));
+            }
+
+            using (_lockSessionFactory.CreateLockSession(objectId))
+            {
+                var descriptorKey = objectId.AsS3ObjectKey(Tokens.ObjectPostfix);
+                await EnsureObjectTemplateState(objectId, objectDescriptor);
+                await EnsureObjectState(descriptorKey, versionId);
+                EnsureAllBinariesExist(objectId, objectDescriptor.Elements);
+
+                return await PutObject(objectId, objectDescriptor);
+            }
         }
 
         private IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
@@ -171,17 +183,19 @@ namespace NuClear.VStore.Objects
                 await _amazonS3.PutObjectAsync(putRequest);
             }
 
+            var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             var objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
-                                                  {
-                                                      TemplateId = objectDescriptor.TemplateId,
-                                                      TemplateVersionId = objectDescriptor.TemplateVersionId,
-                                                      Language = objectDescriptor.Language,
-                                                      Properties = objectDescriptor.Properties,
-                                                      Elements = objectVersions
-                                                  };
+                {
+                    TemplateId = objectDescriptor.TemplateId,
+                    TemplateVersionId = objectDescriptor.TemplateVersionId,
+                    Language = objectDescriptor.Language,
+                    Properties = objectDescriptor.Properties,
+                    Elements = objectVersions
+                        .Where(x => !x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
+                        .ToArray()
+                };
 
-            var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             putRequest = new PutObjectRequest
                              {
                                  Key = objectKey,
@@ -193,7 +207,9 @@ namespace NuClear.VStore.Objects
             await _amazonS3.PutObjectAsync(putRequest);
 
             objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
-            return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase)).Select(x => x.VersionId).Single();
+            return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.VersionId)
+                .Single();
         }
 
         private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)

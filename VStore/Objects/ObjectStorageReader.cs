@@ -73,7 +73,7 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
         {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString());
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString() + "/");
             return versionsResponse.Versions.FindAll(x => x.IsLatest)
                                    .Select(x => new S3ObjectVersion { Key = x.Key, VersionId = x.VersionId, LastModified = x.LastModified })
                                    .ToArray();

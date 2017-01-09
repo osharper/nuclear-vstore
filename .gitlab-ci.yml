@@ -127,7 +127,7 @@ deploy:production-n3:
     - DEIS_PROFILE=production-n3 make deis-create
     - DEIS_PROFILE=production-n3 DEIS_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" make deis-memory-limits-set
     - DEIS_PROFILE=production-n3 DEIS_ENV_FILE=env/prod_n3.ini make deis-config-push
-    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=${CI_BUILD_REF_NAME} make deis-pull
+    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis-pull
     - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis-scale
     - DEIS_PROFILE=production-n3 make deis-info
     - DEIS_PROFILE=production-n3 make deis-apps-check
