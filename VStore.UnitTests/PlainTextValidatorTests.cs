@@ -5,12 +5,11 @@ using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
-using NUnit.Framework;
+using Xunit;
 
 // ReSharper disable UnusedMember.Global
 namespace VStore.UnitTests
 {
-    [TestFixture]
     public class PlainTextValidatorTests
     {
         private static readonly TestHelpers.Validator[] AllChecks =
@@ -21,7 +20,7 @@ namespace VStore.UnitTests
                 PlainTextValidator.CheckRestrictedSymbols
             };
 
-        [Test]
+        [Fact]
         public void TestTextCheckLength()
         {
             const int MaxSymbols = 50;
@@ -33,11 +32,11 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckLength,
                 val => val.Raw = new string('b', MaxSymbols + 1));
-            Assert.AreEqual(MaxSymbols, error.MaxLength);
-            Assert.AreEqual(MaxSymbols + 1, error.ActualLength);
+            Assert.Equal(MaxSymbols, error.MaxLength);
+            Assert.Equal(MaxSymbols + 1, error.ActualLength);
         }
 
-        [Test]
+        [Fact]
         public void TestTextCheckLongWords()
         {
             const int MaxSymbols = 10;
@@ -49,12 +48,12 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckWordsLength,
                 val => val.Raw = new string('b', MaxSymbols + 1));
-            Assert.AreEqual(MaxSymbols, error.MaxWordLength);
-            Assert.AreEqual(1, error.TooLongWords.Count);
-            Assert.AreEqual(value.Raw, error.TooLongWords.First());
+            Assert.Equal(MaxSymbols, error.MaxWordLength);
+            Assert.Equal(1, error.TooLongWords.Count);
+            Assert.Equal(value.Raw, error.TooLongWords.First());
         }
 
-        [Test]
+        [Fact]
         public void TestTextCheckMaxLines()
         {
             const int MaxLines = 10;
@@ -66,11 +65,11 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckLinesCount,
                 val => val.Raw = new string('\n', MaxLines));
-            Assert.AreEqual(MaxLines, error.MaxLinesCount);
-            Assert.AreEqual(MaxLines + 1, error.ActualLinesCount);
+            Assert.Equal(MaxLines, error.MaxLinesCount);
+            Assert.Equal(MaxLines + 1, error.ActualLinesCount);
         }
 
-        [Test]
+        [Fact]
         public void TestTextCheckRestrictedSymbols()
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&_ []{}()<> /*-+=";
@@ -91,7 +90,7 @@ namespace VStore.UnitTests
                 val => val.Raw = "\r");
         }
 
-        [Test]
+        [Fact]
         public void TestFasCommentCheckLength()
         {
             var value = new FasElementValue { Raw = "custom", Text = "text" };
@@ -102,11 +101,11 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckLength,
                 val => val.Text = "long text");
-            Assert.AreEqual(constraints.MaxSymbols, error.MaxLength);
-            Assert.AreEqual(value.Text.Length, error.ActualLength);
+            Assert.Equal(constraints.MaxSymbols, error.MaxLength);
+            Assert.Equal(value.Text.Length, error.ActualLength);
         }
 
-        [Test]
+        [Fact]
         public void TestFasCommentCheckLongWords()
         {
             const int MaxSymbols = 4;
@@ -118,12 +117,12 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckWordsLength,
                 val => val.Text = new string('b', MaxSymbols + 1));
-            Assert.AreEqual(MaxSymbols, error.MaxWordLength);
-            Assert.AreEqual(1, error.TooLongWords.Count);
-            Assert.AreEqual(value.Text, error.TooLongWords.First());
+            Assert.Equal(MaxSymbols, error.MaxWordLength);
+            Assert.Equal(1, error.TooLongWords.Count);
+            Assert.Equal(value.Text, error.TooLongWords.First());
         }
 
-        [Test]
+        [Fact]
         public void TestFasCommentCheckMaxLines()
         {
             const int MaxLines = 10;
@@ -135,11 +134,11 @@ namespace VStore.UnitTests
                 constraints,
                 PlainTextValidator.CheckLinesCount,
                 val => val.Text = new string('\n', MaxLines));
-            Assert.AreEqual(MaxLines, error.MaxLinesCount);
-            Assert.AreEqual(MaxLines + 1, error.ActualLinesCount);
+            Assert.Equal(MaxLines, error.MaxLinesCount);
+            Assert.Equal(MaxLines + 1, error.ActualLinesCount);
         }
 
-        [Test]
+        [Fact]
         public void TestFasCommentCheckRestrictedSymbols()
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&|_ []{}()<> /*-+=";
@@ -152,15 +151,15 @@ namespace VStore.UnitTests
             TestHelpers.MakeCheck<FasElementValue, ControlСharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
         }
 
-        [Test]
-        [TestCase("Too long text", 1, null, null, false, 1)]
-        [TestCase("Too_long_word", null, 1, null, false, 1)]
-        [TestCase("Text \n on \n too \n many \n lines", null, null, 4, false, 1)]
-        [TestCase("Too_long_word_in_too_long_text", 1, 1, null, false, 2)]
-        [TestCase("\r\v bad symbols and non breaking space \xA0", null, null, null, true, 2)]
-        [TestCase("Too_long_word \n on \n too \n many \n lines", null, 1, 4, false, 2)]
-        [TestCase("Too_long_word_in_too_long_text \n on \n too \n many \n lines", 1, 1, 4, false, 3)]
-        [TestCase("Long_Word in too long text \n with too many lines, \r\v bad symbols and non breaking space \xA0", 10, 5, 1)]
+        [Theory]
+        [InlineData("Too long text", 1, null, null, false, 1)]
+        [InlineData("Too_long_word", null, 1, null, false, 1)]
+        [InlineData("Text \n on \n too \n many \n lines", null, null, 4, false, 1)]
+        [InlineData("Too_long_word_in_too_long_text", 1, 1, null, false, 2)]
+        [InlineData("\r\v bad symbols and non breaking space \xA0", null, null, null, true, 2)]
+        [InlineData("Too_long_word \n on \n too \n many \n lines", null, 1, 4, false, 2)]
+        [InlineData("Too_long_word_in_too_long_text \n on \n too \n many \n lines", 1, 1, 4, false, 3)]
+        [InlineData("Long_Word in too long text \n with too many lines, \r\v bad symbols and non breaking space \xA0", 10, 5, 1)]
         public void TestAllChecks(string text, int? maxLength, int? maxWordLength, int? maxLines, bool containsRestrictedSymbols = true, int expectedErrorsCount = 5)
         {
             IObjectElementValue value = new TextElementValue { Raw = text };

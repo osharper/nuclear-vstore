@@ -27,7 +27,7 @@ build:app:
   script:
     - dotnet restore
 #    - dotnet test VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
-    - dotnet publish VStore.Host --configuration Release --output publish/vstore
+    - dotnet publish VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
   tags:
     - 2gis
     - docker

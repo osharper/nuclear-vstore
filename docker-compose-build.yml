@@ -5,6 +5,5 @@ services:
     image: microsoft/aspnetcore-build:1.1.0-projectjson
     volumes:
       - .:/sln
-      - ~/.aws:/sln/.aws:ro
     working_dir: /sln
     entrypoint: ["sh", "./build.sh"]
