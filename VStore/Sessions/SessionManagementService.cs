@@ -279,7 +279,7 @@ namespace NuClear.VStore.Sessions
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
 
-            if (image.Width == constraints.ImageSize.Width || image.Height == constraints.ImageSize.Height)
+            if (image.Width != constraints.ImageSize.Width || image.Height != constraints.ImageSize.Height)
             {
                 throw new ImageIncorrectException("Image has an incorrect size");
             }
