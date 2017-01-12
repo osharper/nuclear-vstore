@@ -274,7 +274,7 @@ namespace NuClear.VStore.Sessions
                                                            return result;
                                                        });
 
-            if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
+            if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
             {
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
