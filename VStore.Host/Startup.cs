@@ -177,11 +177,9 @@ namespace NuClear.VStore.Host
 
         private void ConfigureLogger()
         {
-            var loggerConfiguration = new LoggerConfiguration()
-                .ReadFrom.Configuration(_configuration);
+            var loggerConfiguration = new LoggerConfiguration().ReadFrom.Configuration(_configuration);
 
-            Log.Logger = loggerConfiguration
-                .CreateLogger();
+            Log.Logger = loggerConfiguration.CreateLogger();
 
             var serilogLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
                                    : Log.IsEnabled(LogEventLevel.Debug) ? "DEBUG"

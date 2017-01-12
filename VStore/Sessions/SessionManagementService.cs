@@ -27,14 +27,14 @@ namespace NuClear.VStore.Sessions
 {
     public sealed class SessionManagementService
     {
-        private static readonly Dictionary<FileFormat, IImageDecoder> ImageDecodersMap =
-            new Dictionary<FileFormat, IImageDecoder>
+        private static readonly Dictionary<FileFormat, IImageFormat> ImageFormatsMap =
+            new Dictionary<FileFormat, IImageFormat>
                 {
-                        { FileFormat.Bmp, new BmpDecoder() },
-                        { FileFormat.Gif, new GifDecoder() },
-                        { FileFormat.Jpeg, new JpegDecoder() },
-                        { FileFormat.Jpg, new JpegDecoder() },
-                        { FileFormat.Png, new PngDecoder() }
+                        { FileFormat.Bmp, new BmpFormat() },
+                        { FileFormat.Gif, new GifFormat() },
+                        { FileFormat.Jpeg, new JpegFormat() },
+                        { FileFormat.Jpg, new JpegFormat() },
+                        { FileFormat.Png, new PngFormat() }
                 };
 
         private readonly Uri _fileStorageEndpointUri;
@@ -210,14 +210,14 @@ namespace NuClear.VStore.Sessions
         {
             if (elementDescriptor.Type == ElementDescriptorType.Image)
             {
-                var maxHeaderSize = ImageDecodersMap.Values.Max(x => x.HeaderSize);
+                var maxHeaderSize = ImageFormatsMap.Values.Max(x => x.HeaderSize);
                 var header = new byte[maxHeaderSize];
 
                 var position = inputStream.Position;
                 inputStream.Read(header, 0, header.Length);
                 inputStream.Position = position;
 
-                if (!ImageDecodersMap.Values.Any(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray())))
+                if (!ImageFormatsMap.Values.Any(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray())))
                 {
                     throw new ImageIncorrectException("Input stream cannot be recognized as image.");
                 }
@@ -260,21 +260,21 @@ namespace NuClear.VStore.Sessions
                 throw new ImageIncorrectException("Image cannot be loaded from the stream.", ex);
             }
 
-            var supportedDecoders = constraints.SupportedFileFormats
+            var imageFormats = constraints.SupportedFileFormats
                                                .Aggregate(
-                                                   new List<IImageDecoder>(),
+                                                   new List<IImageFormat>(),
                                                    (result, next) =>
                                                        {
-                                                           IImageDecoder imageDecoder;
-                                                           if (ImageDecodersMap.TryGetValue(next, out imageDecoder))
+                                                           IImageFormat imageFormat;
+                                                           if (ImageFormatsMap.TryGetValue(next, out imageFormat))
                                                            {
-                                                               result.Add(imageDecoder);
+                                                               result.Add(imageFormat);
                                                            }
 
                                                            return result;
                                                        });
 
-            if (!supportedDecoders.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
+            if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
             {
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
