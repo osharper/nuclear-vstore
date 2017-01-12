@@ -2,7 +2,7 @@
   "version": "0.0.1",
 
   "dependencies": {
-    "2GIS.ChmLibCore": "1.0.2",
+    "2GIS.ChmLibCore": "1.0.3",
     "AWSSDK.S3": "3.3.5.2",
     "Newtonsoft.Json": "9.0.1",
     "ImageSharp": "1.0.0-alpha1-00036",
