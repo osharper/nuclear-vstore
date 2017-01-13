@@ -307,12 +307,12 @@ namespace NuClear.VStore.Sessions
                                                            return result;
                                                        });
 
-            if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.Decoder.GetType()))
+            if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
             {
                 throw new ImageIncorrectException("Image has an incorrect format");
             }
 
-            if (image.Width == constraints.ImageSize.Width || image.Height == constraints.ImageSize.Height)
+            if (image.Width != constraints.ImageSize.Width || image.Height != constraints.ImageSize.Height)
             {
                 throw new ImageIncorrectException("Image has an incorrect size");
             }
