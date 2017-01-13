@@ -12,13 +12,14 @@ using NuClear.VStore.Sessions;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("session")]
-    public sealed class SessionController : Controller
+    [ApiVersion("1.0")]
+    [Route("api/{version:apiVersion}/sessions")]
+    public sealed class SessionsController : VStoreController
     {
         private readonly SessionManagementService _sessionManagementService;
-        private readonly ILogger<SessionController> _logger;
+        private readonly ILogger<SessionsController> _logger;
 
-        public SessionController(SessionManagementService sessionManagementService, ILogger<SessionController> logger)
+        public SessionsController(SessionManagementService sessionManagementService, ILogger<SessionsController> logger)
         {
             _sessionManagementService = sessionManagementService;
             _logger = logger;

@@ -40,18 +40,18 @@ namespace NuClear.VStore.Sessions
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
 
         public SessionManagementService(
             Uri fileStorageEndpointUri,
             string filesBucketName,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader)
+            TemplatesStorageReader templatesStorageReader)
         {
             _fileStorageEndpointUri = fileStorageEndpointUri;
             _filesBucketName = filesBucketName;
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
+            _templatesStorageReader = templatesStorageReader;
         }
 
         public async Task<SessionSetupContext> Setup(long templateId, Language language)
@@ -61,7 +61,7 @@ namespace NuClear.VStore.Sessions
                 throw new SessionCannotBeCreatedException("Language must be explicitly specified.");
             }
 
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, null);
 
             var setupContext = new SessionSetupContext(templateDescriptor);
             var sessionDescriptor = new SessionDescriptor
@@ -361,7 +361,7 @@ namespace NuClear.VStore.Sessions
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)
         {
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             return templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
         }
     }

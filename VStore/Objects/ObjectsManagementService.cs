@@ -22,26 +22,26 @@ using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ObjectManagementService
+    public sealed class ObjectsManagementService
     {
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
-        private readonly ObjectStorageReader _objectStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
+        private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
-        public ObjectManagementService(
+        public ObjectsManagementService(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader,
-            ObjectStorageReader objectStorageReader,
+            TemplatesStorageReader templatesStorageReader,
+            ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
             LockSessionFactory lockSessionFactory)
         {
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
-            _objectStorageReader = objectStorageReader;
+            _templatesStorageReader = templatesStorageReader;
+            _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.ObjectsBucketName;
@@ -56,7 +56,7 @@ namespace NuClear.VStore.Objects
                 throw new InvalidOperationException("Language must be explicitly specified.");
             }
 
-            if (await _objectStorageReader.IsObjectExists(id))
+            if (await _objectsStorageReader.IsObjectExists(id))
             {
                 throw new ObjectAlreadyExistsException(id);
             }
@@ -184,7 +184,7 @@ namespace NuClear.VStore.Objects
             }
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
-            var objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
+            var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
                 {
                     TemplateId = objectDescriptor.TemplateId,
@@ -206,7 +206,7 @@ namespace NuClear.VStore.Objects
                              };
             await _amazonS3.PutObjectAsync(putRequest);
 
-            objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
+            objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
                 .Select(x => x.VersionId)
                 .Single();
@@ -214,9 +214,9 @@ namespace NuClear.VStore.Objects
 
         private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)
         {
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
 
-            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+            var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
             if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +

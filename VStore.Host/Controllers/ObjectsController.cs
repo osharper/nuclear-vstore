@@ -16,26 +16,27 @@ using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("object")]
-    public sealed class ObjectController : Controller
+    [ApiVersion("1.0")]
+    [Route("api/{version:apiVersion}/objects")]
+    public sealed class ObjectsController : VStoreController
     {
-        private readonly ObjectStorageReader _objectStorageReader;
-        private readonly ObjectManagementService _objectManagementService;
-        private readonly ILogger<ObjectController> _logger;
+        private readonly ObjectsStorageReader _objectsStorageReader;
+        private readonly ObjectsManagementService _objectsManagementService;
+        private readonly ILogger<ObjectsController> _logger;
 
-        public ObjectController(ObjectStorageReader objectStorageReader, ObjectManagementService objectManagementService, ILogger<ObjectController> logger)
+        public ObjectsController(ObjectsStorageReader objectsStorageReader, ObjectsManagementService objectsManagementService, ILogger<ObjectsController> logger)
         {
             _logger = logger;
-            _objectStorageReader = objectStorageReader;
-            _objectManagementService = objectManagementService;
+            _objectsStorageReader = objectsStorageReader;
+            _objectsManagementService = objectsManagementService;
         }
 
-        [HttpGet("template/{id}/{versionId}")]
+        [HttpGet("{id}/{versionId}/template")]
         public async Task<IActionResult> GetTemplateDescriptor(long id, string versionId)
         {
             try
             {
-                var descriptor = await _objectStorageReader.GetTemplateDescriptor(id, versionId);
+                var descriptor = await _objectsStorageReader.GetTemplateDescriptor(id, versionId);
                 return Json(descriptor);
             }
             catch (ObjectNotFoundException)
@@ -49,7 +50,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var descriptor = await _objectStorageReader.GetObjectDescriptor(id, null);
+                var descriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
                 return Json(
                     new
                         {
@@ -83,7 +84,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var descriptor = await _objectStorageReader.GetObjectDescriptor(id, versionId);
+                var descriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
                 return Json(
                     new
                         {
@@ -122,7 +123,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var versionId = await _objectManagementService.Create(id, objectDescriptor);
+                var versionId = await _objectsManagementService.Create(id, objectDescriptor);
                 var url = Url.AbsoluteAction("Get", "Object", new { id, versionId });
                 return Created(url, versionId);
             }
@@ -135,7 +136,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ObjectAlreadyExistsException)
             {
-                return new StatusCodeResult(409);   //Conflict
+                return new StatusCodeResult(409);   // Conflict
             }
             catch (InvalidOperationException ex)
             {
@@ -163,7 +164,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var newVersionId = await _objectManagementService.ModifyElement(id, versionId, objectDescriptor);
+                var newVersionId = await _objectsManagementService.ModifyElement(id, versionId, objectDescriptor);
                 return Ok(newVersionId);
             }
             catch (AggregateException ex)
@@ -179,11 +180,11 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (SessionLockAlreadyExistsException)
             {
-                return new StatusCodeResult(409);   //Conflict
+                return new StatusCodeResult(409);   // Conflict
             }
             catch (ConcurrencyException)
             {
-                return new StatusCodeResult(409);   //Conflict
+                return new StatusCodeResult(409);   // Conflict
             }
             catch (InvalidOperationException ex)
             {

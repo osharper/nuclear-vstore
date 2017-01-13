@@ -23,19 +23,19 @@ using S3ObjectVersion = NuClear.VStore.S3.S3ObjectVersion;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ObjectStorageReader
+    public sealed class ObjectsStorageReader
     {
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
 
-        public ObjectStorageReader(
+        public ObjectsStorageReader(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader)
+            TemplatesStorageReader templatesStorageReader)
         {
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
+            _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
@@ -68,7 +68,7 @@ namespace NuClear.VStore.Objects
                 throw new ObjectInconsistentException(id, "Template version cannot be determined.");
             }
 
-            return await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            return await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
         }
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
