@@ -28,6 +28,8 @@ using NuClear.VStore.Templates;
 using Serilog;
 using Serilog.Events;
 
+using Swashbuckle.AspNetCore.Swagger;
+
 namespace NuClear.VStore.Host
 {
     // ReSharper disable once ClassNeverInstantiated.Global
@@ -75,7 +77,12 @@ namespace NuClear.VStore.Host
                             });
             services.AddApiVersioning(options => options.ReportApiVersions = true);
 
-            services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
+            services.AddSwaggerGen(
+                x =>
+                    {
+                        x.SwaggerDoc("1.0", new Info { Title = "VStore API", Version = "1.0" });
+                        x.OperationFilter<UploadFileOperationFilter>();
+                    });
 
             services.AddOptions();
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
@@ -152,7 +159,14 @@ namespace NuClear.VStore.Host
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
             app.UseMvc();
             app.UseSwagger();
-            app.UseSwaggerUi();
+            app.UseSwaggerUi(
+                c =>
+                    {
+                        c.SwaggerEndpoint("/swagger/1.0/swagger.json", "VStore API 1.0");
+                        c.DocExpansion("none");
+                        c.EnabledValidator();
+                        c.ShowRequestHeaders();
+                    });
         }
 
         private static void ConfigureSerilogAppender(string loggerName, string level)

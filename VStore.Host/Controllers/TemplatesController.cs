@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Locks;
@@ -26,18 +27,22 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("element-descriptors/available")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IElementDescriptor>), 200)]
         public JsonResult GetAvailableElementDescriptors()
         {
             return Json(_templatesManagementService.GetAvailableElementDescriptors());
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ImmutableDescriptor>), 200)]
         public async Task<JsonResult> List()
         {
             return Json(await _templatesStorageReader.GetTemplateMetadatas());
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> Get(long id)
         {
             try
@@ -55,11 +60,13 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ObjectNotFoundException)
             {
-                return NotFound(id);
+                return NotFound();
             }
         }
 
         [HttpGet("{id}/{versionId}")]
+        [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> Get(long id, string versionId)
         {
             try
@@ -77,11 +84,13 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ObjectNotFoundException)
             {
-                return NotFound(new { id, versionId });
+                return NotFound();
             }
         }
 
         [HttpPost("validate-elements")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(object), 400)]
         public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
@@ -91,11 +100,13 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ex.Message });
+                return BadRequest(ex);
             }
         }
 
         [HttpPost("{id}/validate-elements")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(object), 400)]
         public IActionResult ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
@@ -105,32 +116,38 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ex.Message });
+                return BadRequest(ex);
             }
         }
 
         [HttpPost("{id}")]
+        [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(object), 400)]
         public async Task<IActionResult> Create(long id, [FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
             {
                 var versionId = await _templatesManagementService.CreateTemplate(id, templateDescriptor);
-                var url = Url.AbsoluteAction("Get", "Template", new { id, versionId });
-                return Created(url, versionId);
+                var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId });
+                return Created(url, null);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ex.Message });
+                return BadRequest(ex);
             }
         }
 
         [HttpPut("{id}/{versionId}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(object), 400)]
+        [ProducesResponseType(409)]
         public async Task<IActionResult> Modify(long id, string versionId, [FromBody] ITemplateDescriptor templateDescriptor)
         {
             try
             {
                 var latestVersionId = await _templatesManagementService.ModifyTemplate(id, versionId, templateDescriptor);
-                return Ok(latestVersionId);
+                var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId = latestVersionId });
+                return NoContent(url);
             }
             catch (SessionLockAlreadyExistsException)
             {
@@ -138,7 +155,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ex.Message });
+                return BadRequest(ex);
             }
         }
     }

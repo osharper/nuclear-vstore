@@ -51,7 +51,7 @@ namespace NuClear.VStore.Templates
             {
                 response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
             }
-            catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
             }

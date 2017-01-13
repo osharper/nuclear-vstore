@@ -124,19 +124,16 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var versionId = await _objectsManagementService.Create(id, objectDescriptor);
-                var url = Url.AbsoluteAction("Get", "Object", new { id, versionId });
+                var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId });
                 return Created(url, versionId);
             }
             catch (AggregateException ex)
             {
-                return new JsonResult(GenerateErrorJsonResult(ex))
-                {
-                    StatusCode = 422
-                };
+                return Unprocessable(GenerateErrorJsonResult(ex));
             }
             catch (ObjectAlreadyExistsException)
             {
-                return new StatusCodeResult(409);   // Conflict
+                return Conflict();
             }
             catch (InvalidOperationException ex)
             {
@@ -150,7 +147,7 @@ namespace NuClear.VStore.Host.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(new EventId(0), ex, "Unknown error occured while creating object");
-                return new StatusCodeResult(500);
+                return InternalServerError();
             }
         }
 
@@ -164,15 +161,13 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var newVersionId = await _objectsManagementService.ModifyElement(id, versionId, objectDescriptor);
-                return Ok(newVersionId);
+                var latestVersionId = await _objectsManagementService.ModifyElement(id, versionId, objectDescriptor);
+                var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId = latestVersionId });
+                return NoContent(url);
             }
             catch (AggregateException ex)
             {
-                return new JsonResult(GenerateErrorJsonResult(ex))
-                    {
-                        StatusCode = 422
-                    };
+                return Unprocessable(GenerateErrorJsonResult(ex));
             }
             catch (ObjectNotFoundException ex)
             {
@@ -180,11 +175,11 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (SessionLockAlreadyExistsException)
             {
-                return new StatusCodeResult(409);   // Conflict
+                return Conflict();
             }
             catch (ConcurrencyException)
             {
-                return new StatusCodeResult(409);   // Conflict
+                return Conflict();
             }
             catch (InvalidOperationException ex)
             {
@@ -202,7 +197,7 @@ namespace NuClear.VStore.Host.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(new EventId(0), ex, "Unknown error occured while modifying object");
-                return new StatusCodeResult(500);
+                return InternalServerError();
             }
         }
 

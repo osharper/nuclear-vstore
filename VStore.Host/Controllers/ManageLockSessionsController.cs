@@ -1,14 +1,15 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 
 using NuClear.VStore.Locks;
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
     [Route("api/{version:apiVersion}/mgmt/lock-sessions")]
-    [Route("")]
     public sealed class ManageLockSessionsController : VStoreController
     {
         private readonly LockSessionManager _lockSessionManager;
@@ -19,6 +20,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyCollection<string>), 200)]
         public async Task<JsonResult> ListAllCurrentLockSessios()
         {
             var keys = await _lockSessionManager.GetAllCurrentLockSessions();
@@ -26,9 +28,18 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpDelete("{rootObjectId}")]
-        public async Task DeleteSessionLock(string rootObjectId)
+        [ProducesResponseType(typeof(void), 202)]
+        public async Task<IActionResult> DeleteSessionLock(string rootObjectId)
         {
-            await _lockSessionManager.DeleteLockSession(rootObjectId);
+            try
+            {
+                await _lockSessionManager.DeleteLockSession(rootObjectId);
+                return Accepted();
+            }
+            catch (S3Exception)
+            {
+                return InternalServerError();
+            }
         }
     }
 }

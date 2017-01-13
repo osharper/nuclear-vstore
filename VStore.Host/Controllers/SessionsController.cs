@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Sessions;
+using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
+using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 
 namespace NuClear.VStore.Host.Controllers
@@ -25,14 +28,39 @@ namespace NuClear.VStore.Host.Controllers
             _logger = logger;
         }
 
+        [HttpGet("{sessionId}")]
+        [ProducesResponseType(typeof(SessionDescriptor), 200)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(410)]
+        public async Task<IActionResult> Get(Guid sessionId)
+        {
+            try
+            {
+                var sessionDescriptor = await _sessionManagementService.GetSessionDescriptor(sessionId);
+                return Json(sessionDescriptor);
+            }
+            catch (ObjectNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (SessionExpiredException ex)
+            {
+                return Gone(ex.ExpiredAt);
+            }
+        }
+
         [HttpPost("{templateId}/{language}")]
+        [ProducesResponseType(typeof(object), 201)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(long templateId, Language language)
         {
             try
             {
                 var sessionSetupContext = await _sessionManagementService.Setup(templateId, language);
-                var templateDescriptor = sessionSetupContext.TemplateDescriptor;
+                var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId = sessionSetupContext.Id });
 
+                var templateDescriptor = sessionSetupContext.TemplateDescriptor;
                 var uploadUrls = UploadUrl.Generate(
                     templateDescriptor,
                     templateCode => Url.Action(
@@ -43,7 +71,8 @@ namespace NuClear.VStore.Host.Controllers
                                 templateCode
                             }));
 
-                return Json(
+                return Created(
+                    url,
                     new
                         {
                             Template = new
@@ -57,15 +86,22 @@ namespace NuClear.VStore.Host.Controllers
                             sessionSetupContext.ExpiresAt
                         });
             }
+            catch (ObjectNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
             catch (SessionCannotBeCreatedException ex)
             {
-                return StatusCode(422, ex.Message);
+                return Unprocessable(ex.Message);
             }
         }
 
         [HttpPost("{sessionId}/upload/{templateCode}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
+        [ProducesResponseType(typeof(UploadedFileInfo), 201)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -116,7 +152,8 @@ namespace NuClear.VStore.Host.Controllers
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
-                return Json(
+                return Created(
+                    uploadedFileInfo.PreviewUri,
                     new
                         {
                             uploadedFileInfo.Id,
@@ -132,7 +169,7 @@ namespace NuClear.VStore.Host.Controllers
                     await _sessionManagementService.AbortMultipartUpload(uploadSession);
                 }
 
-                return StatusCode(422, ex.Message);
+                return Unprocessable(ex.Message);
             }
         }
     }

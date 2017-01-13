@@ -5,6 +5,8 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.S3;
+
 namespace NuClear.VStore.Locks
 {
     public sealed class LockSession : IDisposable
@@ -53,7 +55,7 @@ namespace NuClear.VStore.Locks
                                 {
                                     BucketName = _bucketName,
                                     Key = _rootObjectId,
-                                    ContentType = "application/json",
+                                    ContentType = ContentType.Json,
                                     ContentBody = content,
                                     CannedACL = S3CannedACL.PublicRead
                                 })

@@ -22,7 +22,7 @@
     "Serilog.Sinks.Console": "2.1.0",
     "Serilog.Formatting.Compact": "1.0.0",
     "System.Runtime.Serialization.Formatters": "4.3.0",
-    "Swashbuckle": "6.0.0-beta902",
+    "Swashbuckle.AspNetCore": "1.0.0-rc1",
     "VStore": {
       "target": "project"
     }

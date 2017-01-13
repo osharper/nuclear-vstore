@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -52,6 +53,38 @@ namespace NuClear.VStore.Sessions
             _filesBucketName = filesBucketName;
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
+        }
+
+        public async Task<SessionDescriptor> GetSessionDescriptor(Guid sessionId)
+        {
+            GetObjectResponse objectResponse;
+            try
+            {
+                objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+            }
+            catch (Exception ex)
+            {
+                throw new S3Exception(ex);
+            }
+
+            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
+            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (SessionSetupContext.IsSessionExpired(expiresAt))
+            {
+                throw new SessionExpiredException(sessionId, expiresAt);
+            }
+
+            string json;
+            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
+            {
+                json = reader.ReadToEnd();
+            }
+
+            return JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
         }
 
         public async Task<SessionSetupContext> Setup(long templateId, Language language)
@@ -337,26 +370,6 @@ namespace NuClear.VStore.Sessions
                                        Prefix = sessionId.ToString()
                                    });
             return response.S3Objects.Count > 0;
-        }
-
-        private async Task<SessionDescriptor> GetSessionDescriptor(Guid sessionId)
-        {
-            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (SessionSetupContext.IsSessionExpired(expiresAt))
-            {
-                throw new SessionExpiredException(sessionId);
-            }
-
-            string json;
-            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            return JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)

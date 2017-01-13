@@ -6,6 +6,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 
 using NuClear.VStore.Options;
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Locks
 {
@@ -28,11 +29,14 @@ namespace NuClear.VStore.Locks
 
         public async Task DeleteLockSession(string rootObjectKey)
         {
-            await _amazonS3.DeleteObjectAsync(new DeleteObjectRequest
-                                                  {
-                                                      BucketName = _bucketName,
-                                                      Key = rootObjectKey
-                                                  });
+            try
+            {
+                await _amazonS3.DeleteObjectAsync(new DeleteObjectRequest { BucketName = _bucketName, Key = rootObjectKey });
+            }
+            catch (AmazonS3Exception ex)
+            {
+                throw new S3Exception(ex);
+            }
         }
     }
 }
