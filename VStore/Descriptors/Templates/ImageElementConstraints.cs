@@ -9,7 +9,7 @@ namespace NuClear.VStore.Descriptors.Templates
         public int? MaxSize { get; set; }
         public int? MaxFilenameLength { get; set; }
         public IEnumerable<FileFormat> SupportedFileFormats { get; set; }
-        public ImageSize ImageSize { get; set; }
+        public IEnumerable<ImageSize> SupportedImageSizes { get; set; }
         public bool IsAlphaChannelRequired { get; set; }
 
         public bool Equals(ImageElementConstraints other)
@@ -27,7 +27,7 @@ namespace NuClear.VStore.Descriptors.Templates
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
                    SupportedFileFormats.SequenceEqual(other.SupportedFileFormats) &&
-                   ImageSize.Equals(other.ImageSize) &&
+                   SupportedImageSizes.SequenceEqual(other.SupportedImageSizes) &&
                    IsAlphaChannelRequired == other.IsAlphaChannelRequired;
         }
 
@@ -44,7 +44,7 @@ namespace NuClear.VStore.Descriptors.Templates
                 var hashCode = MaxSize.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxFilenameLength.GetHashCode();
                 hashCode = (hashCode * 397) ^ (SupportedFileFormats?.GetHashCode() ?? 0);
-                hashCode = (hashCode * 397) ^ ImageSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ (SupportedImageSizes?.GetHashCode() ?? 0);
                 hashCode = (hashCode * 397) ^ IsAlphaChannelRequired.GetHashCode();
                 return hashCode;
             }
