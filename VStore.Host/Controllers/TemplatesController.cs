@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
@@ -10,6 +11,8 @@ using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Locks;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
+
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace NuClear.VStore.Host.Controllers
 {
@@ -42,12 +45,22 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(304)]
         [ProducesResponseType(404)]
-        public async Task<IActionResult> Get(long id)
+        public async Task<IActionResult> Get(
+            [FromHeader(Name = HeaderNames.IfNoneMatch)] string ifNoneMatch,
+            long id)
         {
             try
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, null);
+                SetResponseHeaders(templateDescriptor);
+
+                if (ifNoneMatch == templateDescriptor.VersionId)
+                {
+                    return NotModified();
+                }
+
                 return Json(
                     new
                         {
@@ -66,21 +79,24 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet("{id}/{versionId}")]
         [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(304)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> Get(long id, string versionId)
         {
             try
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, versionId);
+                SetResponseHeaders(templateDescriptor);
+
                 return Json(
                     new
-                    {
-                        id,
-                        templateDescriptor.VersionId,
-                        templateDescriptor.LastModified,
-                        templateDescriptor.Properties,
-                        templateDescriptor.Elements
-                    });
+                        {
+                            id,
+                            templateDescriptor.VersionId,
+                            templateDescriptor.LastModified,
+                            templateDescriptor.Properties,
+                            templateDescriptor.Elements
+                        });
             }
             catch (ObjectNotFoundException)
             {
@@ -137,21 +153,35 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPut("{id}/{versionId}")]
+        [HttpPut("{id}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(object), 400)]
         [ProducesResponseType(409)]
-        public async Task<IActionResult> Modify(long id, string versionId, [FromBody] ITemplateDescriptor templateDescriptor)
+        [ProducesResponseType(412)]
+        public async Task<IActionResult> Modify(
+            [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
+            [FromBody] ITemplateDescriptor templateDescriptor,
+            long id)
         {
             try
             {
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, versionId, templateDescriptor);
+                if (string.IsNullOrEmpty(ifMatch))
+                {
+                    Response.ContentType = ContentType.PlainText;
+                    return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
+                }
+
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, templateDescriptor);
                 var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId = latestVersionId });
                 return NoContent(url);
             }
             catch (SessionLockAlreadyExistsException)
             {
                 return Conflict();
+            }
+            catch (ConcurrencyException)
+            {
+                return PreconditionFailed();
             }
             catch (Exception ex)
             {

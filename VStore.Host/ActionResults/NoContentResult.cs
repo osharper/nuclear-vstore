@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace NuClear.VStore.Host.ActionResults
 {
@@ -14,7 +15,7 @@ namespace NuClear.VStore.Host.ActionResults
         public override void ExecuteResult(ActionContext context)
         {
             base.ExecuteResult(context);
-            context.HttpContext.Response.Headers["Location"] = _location;
+            context.HttpContext.Response.Headers[HeaderNames.Location] = _location;
         }
     }
 }

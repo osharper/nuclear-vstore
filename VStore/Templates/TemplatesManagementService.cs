@@ -99,9 +99,7 @@ namespace NuClear.VStore.Templates
                 var latestVersionId = await _templatesStorageReader.GetTemplateLatestVersion(id);
                 if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
                 {
-                    throw new InvalidOperationException($"Template '{id}' cannot be modified. " +
-                                                        $"Reason: version '{versionId}' has been overwritten. " +
-                                                        $"Latest versionId is '{latestVersionId}'");
+                    throw new ConcurrencyException(id.ToString(), versionId, latestVersionId);
                 }
 
                 await PutTemplate(id, templateDescriptor);
