@@ -107,7 +107,8 @@ namespace NuClear.VStore.Sessions
                           $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
             }
 
-            var key = sessionId.AsS3ObjectKey(fileName);
+            var fileKey = Guid.NewGuid().ToString();
+            var key = sessionId.AsS3ObjectKey(fileKey);
             var request = new InitiateMultipartUploadRequest
                               {
                                   BucketName = _filesBucketName,
@@ -119,7 +120,7 @@ namespace NuClear.VStore.Sessions
 
             var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
 
-            return new MultipartUploadSession(sessionId, fileName, uploadResponse.UploadId);
+            return new MultipartUploadSession(sessionId, fileName, fileKey, uploadResponse.UploadId);
         }
 
         public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, int templateCode)
@@ -136,7 +137,7 @@ namespace NuClear.VStore.Sessions
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
 
-                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
+                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
                 var response = await _amazonS3.UploadPartAsync(
                                    new UploadPartRequest
                                        {
@@ -154,14 +155,14 @@ namespace NuClear.VStore.Sessions
         {
             if (!uploadSession.IsCompleted)
             {
-                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
+                var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
                 await _amazonS3.AbortMultipartUploadAsync(_filesBucketName, key, uploadSession.UploadId);
             }
         }
 
         public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, int templateCode)
         {
-            var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileName);
+            var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
             var uploadResponse = await _amazonS3.CompleteMultipartUploadAsync(
                                      new CompleteMultipartUploadRequest

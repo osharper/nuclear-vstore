@@ -130,7 +130,17 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return new JsonResult(GenerateErrorJsonResult(ex))
                 {
-                    StatusCode = 422
+                    StatusCode = 422    //Unprocessable Entity
+                };
+            }
+            catch (ObjectNotFoundException ex)
+            {
+                _logger.LogError(new EventId(0), ex, "Error occured while creating object");
+                return new ContentResult
+                    {
+                        Content = ex.Message,
+                        ContentType = "text/plain",
+                        StatusCode = 422    //Unprocessable Entity
                 };
             }
             catch (ObjectAlreadyExistsException)
