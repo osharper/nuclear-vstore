@@ -56,7 +56,7 @@ namespace NuClear.VStore.Templates
                        };
         }
 
-        public async Task<string> CreateTemplate(long id, ITemplateDescriptor templateDescriptor)
+        public async Task<string> CreateTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -70,14 +70,14 @@ namespace NuClear.VStore.Templates
                     throw new InvalidOperationException($"Template '{id}' already exists");
                 }
 
-                await PutTemplate(id, templateDescriptor);
+                await PutTemplate(id, author, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
             }
         }
 
-        public async Task<string> ModifyTemplate(long id, string versionId, ITemplateDescriptor templateDescriptor)
+        public async Task<string> ModifyTemplate(long id, string versionId, string author, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -102,7 +102,7 @@ namespace NuClear.VStore.Templates
                     throw new ConcurrencyException(id.ToString(), versionId, latestVersionId);
                 }
 
-                await PutTemplate(id, templateDescriptor);
+                await PutTemplate(id, author, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
@@ -227,8 +227,7 @@ namespace NuClear.VStore.Templates
                           "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
             }
 
-            if (elementDescriptor.Type != ElementDescriptorType.Text &&
-                textElementConstraints.IsFormatted)
+            if (elementDescriptor.Type != ElementDescriptorType.Text && textElementConstraints.IsFormatted)
             {
                 throw new TemplateInconsistentException(templateId, "Only text element can be formatted");
             }
@@ -249,7 +248,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private async Task PutTemplate(long id, ITemplateDescriptor templateDescriptor)
+        private async Task PutTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
             VerifyElementDescriptorsConsistency(id, templateDescriptor.Elements);
 
@@ -261,6 +260,9 @@ namespace NuClear.VStore.Templates
                     ContentBody = JsonConvert.SerializeObject(templateDescriptor, SerializerSettings.Default),
                     CannedACL = S3CannedACL.PublicRead,
                 };
+            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+            metadataWrapper.Write(MetadataElement.Title, author);
+
             await _amazonS3.PutObjectAsync(putRequest);
         }
     }

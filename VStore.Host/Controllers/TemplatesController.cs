@@ -37,7 +37,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(IReadOnlyCollection<ImmutableDescriptor>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
         public async Task<JsonResult> List()
         {
             return Json(await _templatesStorageReader.GetTemplateMetadatas());
@@ -139,11 +139,14 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{id}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(object), 400)]
-        public async Task<IActionResult> Create(long id, [FromBody] ITemplateDescriptor templateDescriptor)
+        public async Task<IActionResult> Create(
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromBody] ITemplateDescriptor templateDescriptor,
+            long id)
         {
             try
             {
-                var versionId = await _templatesManagementService.CreateTemplate(id, templateDescriptor);
+                var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
                 var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId });
                 return Created(url, null);
             }
@@ -160,6 +163,7 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(412)]
         public async Task<IActionResult> Modify(
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
             [FromBody] ITemplateDescriptor templateDescriptor,
             long id)
         {
@@ -171,7 +175,7 @@ namespace NuClear.VStore.Host.Controllers
                     return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
                 }
 
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, templateDescriptor);
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, author, templateDescriptor);
                 var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId = latestVersionId });
                 return NoContent(url);
             }

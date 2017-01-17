@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
@@ -36,8 +37,12 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var sessionDescriptor = await _sessionManagementService.GetSessionDescriptor(sessionId);
-                return Json(sessionDescriptor);
+                var sessionContext = await _sessionManagementService.GetSessionContext(sessionId);
+
+                Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
+                Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
+
+                return Json(sessionContext.Descriptor);
             }
             catch (ObjectNotFoundException ex)
             {
@@ -53,11 +58,14 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(object), 201)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
-        public async Task<IActionResult> SetupSession(long templateId, Language language)
+        public async Task<IActionResult> SetupSession(
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            long templateId,
+            Language language)
         {
             try
             {
-                var sessionSetupContext = await _sessionManagementService.Setup(templateId, language);
+                var sessionSetupContext = await _sessionManagementService.Setup(templateId, language, author);
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId = sessionSetupContext.Id });
 
                 var templateDescriptor = sessionSetupContext.TemplateDescriptor;
@@ -71,6 +79,7 @@ namespace NuClear.VStore.Host.Controllers
                                 templateCode
                             }));
 
+                Response.Headers[HeaderNames.Expires] = sessionSetupContext.ExpiresAt.ToString("R");
                 return Created(
                     url,
                     new
@@ -82,8 +91,7 @@ namespace NuClear.VStore.Host.Controllers
                                                templateDescriptor.Properties,
                                                templateDescriptor.Elements
                                            },
-                            uploadUrls,
-                            sessionSetupContext.ExpiresAt
+                            uploadUrls
                         });
             }
             catch (ObjectNotFoundException ex)

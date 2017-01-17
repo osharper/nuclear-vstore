@@ -55,7 +55,7 @@ namespace NuClear.VStore.Sessions
             _templatesStorageReader = templatesStorageReader;
         }
 
-        public async Task<SessionDescriptor> GetSessionDescriptor(Guid sessionId)
+        public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
             GetObjectResponse objectResponse;
             try
@@ -78,16 +78,20 @@ namespace NuClear.VStore.Sessions
                 throw new SessionExpiredException(sessionId, expiresAt);
             }
 
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
+
             string json;
             using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
             {
                 json = reader.ReadToEnd();
             }
 
-            return JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+
+            return new SessionContext(sessionDescriptor, author, expiresAt);
         }
 
-        public async Task<SessionSetupContext> Setup(long templateId, Language language)
+        public async Task<SessionSetupContext> Setup(long templateId, Language language, string author)
         {
             if (language == Language.Unspecified)
             {
@@ -98,12 +102,12 @@ namespace NuClear.VStore.Sessions
 
             var setupContext = new SessionSetupContext(templateDescriptor);
             var sessionDescriptor = new SessionDescriptor
-                {
-                    TemplateId = templateDescriptor.Id,
-                    TemplateVersionId = templateDescriptor.VersionId,
-                    Language = language,
-                    BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
-                };
+                                        {
+                                            TemplateId = templateDescriptor.Id,
+                                            TemplateVersionId = templateDescriptor.VersionId,
+                                            Language = language,
+                                            BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
+                                        };
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
@@ -114,6 +118,10 @@ namespace NuClear.VStore.Sessions
                               };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.ExpiresAt, setupContext.ExpiresAt);
+            if (!string.IsNullOrEmpty(author))
+            {
+                metadataWrapper.Write(MetadataElement.Author, author);
+            }
 
             await _amazonS3.PutObjectAsync(request);
 
@@ -132,12 +140,12 @@ namespace NuClear.VStore.Sessions
                 throw new InvalidOperationException($"Session '{sessionId}' does not exist");
             }
 
-            var sessionDescriptor = await GetSessionDescriptor(sessionId);
-            if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
+            var sessionContext = await GetSessionContext(sessionId);
+            if (sessionContext.Descriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
-                          $"Binary content is not expected for the item '{templateCode}' within template '{sessionDescriptor.TemplateId}' " +
-                          $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
+                          $"Binary content is not expected for the item '{templateCode}' within template '{sessionContext.Descriptor.TemplateId}' " +
+                          $"with version Id '{sessionContext.Descriptor.TemplateVersionId}'.");
             }
 
             var fileKey = Guid.NewGuid().ToString();
@@ -165,8 +173,8 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
-                    var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
+                    var sessionContext = await GetSessionContext(uploadSession.SessionId);
+                    var elementDescriptor = await GetElementDescriptor(sessionContext.Descriptor.TemplateId, sessionContext.Descriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
 
@@ -207,8 +215,8 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
-            var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
+            var sessionContext = await GetSessionContext(uploadSession.SessionId);
+            var elementDescriptor = await GetElementDescriptor(sessionContext.Descriptor.TemplateId, sessionContext.Descriptor.TemplateVersionId, templateCode);
             try
             {
                 var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
@@ -216,7 +224,7 @@ namespace NuClear.VStore.Sessions
                 {
                     EnsureUploadedFileIsValid(
                         elementDescriptor.Type,
-                        elementDescriptor.Constraints.For(sessionDescriptor.Language),
+                        elementDescriptor.Constraints.For(sessionContext.Descriptor.Language),
                         getResponse.ResponseStream,
                         getResponse.ContentLength);
                 }

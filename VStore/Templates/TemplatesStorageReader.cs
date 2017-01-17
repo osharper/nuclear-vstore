@@ -30,14 +30,14 @@ namespace NuClear.VStore.Templates
             _bucketName = cephOptions.TemplatesBucketName;
         }
 
-        public async Task<IReadOnlyCollection<ImmutableDescriptor>> GetTemplateMetadatas()
+        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor>> GetTemplateMetadatas()
         {
             var listVersionsResponse = await _amazonS3.ListVersionsAsync(_bucketName);
 
-            var descriptors = new ConcurrentBag<ImmutableDescriptor>();
+            var descriptors = new ConcurrentBag<IdentifyableObjectDescriptor>();
             Parallel.ForEach(
                 listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker),
-                obj => descriptors.Add(new ImmutableDescriptor(obj.Key, obj.VersionId, obj.LastModified)));
+                obj => descriptors.Add(new IdentifyableObjectDescriptor(obj.Key, obj.VersionId, obj.LastModified)));
 
             return descriptors.OrderBy(x => x.LastModified).ToArray();
         }
