@@ -277,12 +277,12 @@ namespace NuClear.VStore.Sessions
 
             if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
             {
-                throw new ImageIncorrectException("Image has an incorrect format");
+                throw new ImageIncorrectException($"Image has an incorrect format. Supported formats are: {string.Join(", ", constraints.SupportedFileFormats)}");
             }
 
-            if (image.Width != constraints.ImageSize.Width || image.Height != constraints.ImageSize.Height)
+            if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
             {
-                throw new ImageIncorrectException("Image has an incorrect size");
+                throw new ImageIncorrectException($"Image has an incorrect size. Supported image sizes are: {string.Join(", ", constraints.SupportedImageSizes)}");
             }
         }
 
