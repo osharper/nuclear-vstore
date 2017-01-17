@@ -193,11 +193,18 @@ namespace NuClear.VStore.Templates
                           $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
             }
 
-            if (imageElementConstraints.ImageSize == ImageSize.Empty)
+            if (imageElementConstraints.SupportedImageSizes == null)
             {
                 throw new TemplateInconsistentException(
                           templateId,
-                          $"Image size must be set to the value different than: {ImageSize.Empty}");
+                          "Supported image sizes constraints must be set");
+            }
+
+            if (imageElementConstraints.SupportedImageSizes.Contains(ImageSize.Empty))
+            {
+                throw new TemplateInconsistentException(
+                          templateId,
+                          $"Supported image sizes constraints cannot contain '{ImageSize.Empty}' value");
             }
 
             if (imageElementConstraints.MaxFilenameLength <= 0)

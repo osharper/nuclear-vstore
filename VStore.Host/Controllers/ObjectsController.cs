@@ -131,6 +131,13 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Unprocessable(GenerateErrorJsonResult(ex));
             }
+            catch (ObjectNotFoundException ex)
+            {
+                _logger.LogError(new EventId(0), ex, "Error occured while creating object");
+
+                Response.ContentType = ContentType.PlainText;
+                return Unprocessable(ex.Message);
+            }
             catch (ObjectAlreadyExistsException)
             {
                 return Conflict();
