@@ -22,7 +22,7 @@ namespace NuClear.VStore.Sessions
         {
             if (string.IsNullOrEmpty(key))
             {
-                return false;
+                throw new ArgumentNullException(nameof(key), "Binary key is not specified");
             }
 
             var listResponse = await _amazonS3.ListObjectsV2Async(

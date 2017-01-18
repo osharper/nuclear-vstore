@@ -263,7 +263,7 @@ namespace NuClear.VStore.Objects
                              objectElement =>
                                  {
                                      var binaryValue = objectElement.Value as IBinaryElementValue;
-                                     if (binaryValue != null && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
+                                     if (!string.IsNullOrEmpty(binaryValue?.Raw) && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
                                      {
                                          throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
                                      }
