@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+using NuClear.VStore.S3;
+
 namespace NuClear.VStore.Sessions
 {
     public sealed class SessionStorageReader
@@ -35,6 +37,13 @@ namespace NuClear.VStore.Sessions
 
             var obj = listResponse.S3Objects.SingleOrDefault();
             return obj != null && obj.Key.Equals(key, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public async Task<string> GetBinaryFilename(string key)
+        {
+            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
+            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+            return metadataWrapper.Read<string>(MetadataElement.Filename);
         }
     }
 }

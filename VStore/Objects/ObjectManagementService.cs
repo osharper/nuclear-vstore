@@ -63,6 +63,7 @@ namespace NuClear.VStore.Objects
 
             await EnsureObjectTemplateState(id, objectDescriptor);
             EnsureAllBinariesExist(id, objectDescriptor.Elements);
+            RetrieveBinariesFilenames(objectDescriptor.Elements);
 
             return await PutObject(id, objectDescriptor);
         }
@@ -268,6 +269,27 @@ namespace NuClear.VStore.Objects
                                          throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
                                      }
                                  });
+        }
+
+        private void RetrieveBinariesFilenames(IEnumerable<IObjectElementDescriptor> objectElements)
+        {
+            Parallel.ForEach(objectElements,
+                             objectElement =>
+                             {
+                                 var imageValue = objectElement.Value as ImageElementValue;
+                                 if (imageValue != null)
+                                 {
+                                     imageValue.Filename = _sessionStorageReader.GetBinaryFilename(imageValue.Raw).Result;
+                                 }
+                                 else
+                                 {
+                                     var articleValue = objectElement.Value as ArticleElementValue;
+                                     if (articleValue != null)
+                                     {
+                                         articleValue.Filename = _sessionStorageReader.GetBinaryFilename(articleValue.Raw).Result;
+                                     }
+                                 }
+                             });
         }
 
         private async Task EnsureObjectState(string key, string versionId)
