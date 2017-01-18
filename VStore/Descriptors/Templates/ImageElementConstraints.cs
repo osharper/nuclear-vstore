@@ -24,10 +24,22 @@ namespace NuClear.VStore.Descriptors.Templates
                 return true;
             }
 
+            if (SupportedFileFormats == null && other.SupportedFileFormats != null ||
+                SupportedFileFormats != null && other.SupportedFileFormats == null)
+            {
+                return false;
+            }
+
+            if (SupportedImageSizes == null && other.SupportedImageSizes != null ||
+                SupportedImageSizes != null && other.SupportedImageSizes == null)
+            {
+                return false;
+            }
+
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
-                   SupportedFileFormats.SequenceEqual(other.SupportedFileFormats) &&
-                   SupportedImageSizes.SequenceEqual(other.SupportedImageSizes) &&
+                   (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats)) &&
+                   (ReferenceEquals(SupportedImageSizes, other.SupportedImageSizes) || SupportedImageSizes.SequenceEqual(other.SupportedImageSizes)) &&
                    IsAlphaChannelRequired == other.IsAlphaChannelRequired;
         }
 

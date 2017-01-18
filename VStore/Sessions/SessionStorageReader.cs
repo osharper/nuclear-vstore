@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -18,13 +20,21 @@ namespace NuClear.VStore.Sessions
 
         public async Task<bool> IsBinaryExists(string key)
         {
+            if (string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
             var listResponse = await _amazonS3.ListObjectsV2Async(
                                    new ListObjectsV2Request
                                        {
                                            BucketName = _filesBucketName,
-                                           Prefix = key
+                                           Prefix = key,
+                                           MaxKeys = 1
                                        });
-            return listResponse.S3Objects.Count != 0;
+
+            var obj = listResponse.S3Objects.SingleOrDefault();
+            return obj != null && obj.Key.Equals(key, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
