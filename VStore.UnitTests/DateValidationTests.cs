@@ -19,7 +19,30 @@ namespace VStore.UnitTests
                 value,
                 null,
                 DateValidator.CheckDate,
-                val => val.EndDate = DateTime.Today.AddMinutes(-1));
+                val => val.EndDate = val.BeginDate?.AddMinutes(-1));
+            Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+        }
+
+        [Fact]
+        public void TestNullsInDateRangeValidation()
+        {
+            var value = new DateElementValue { BeginDate = null, EndDate = null };
+
+            var error = TestHelpers.MakeCheck<DateElementValue, InvalidDateRangeError>(
+                value,
+                null,
+                DateValidator.CheckDate,
+                val => val.EndDate = DateTime.Now);
+            Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+
+            var now = DateTime.UtcNow;
+            value = new DateElementValue { BeginDate = now, EndDate = now };
+
+            error = TestHelpers.MakeCheck<DateElementValue, InvalidDateRangeError>(
+                value,
+                null,
+                DateValidator.CheckDate,
+                val => val.BeginDate = null);
             Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
         }
     }
