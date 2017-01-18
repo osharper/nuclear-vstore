@@ -12,8 +12,6 @@ using NuClear.VStore.Locks;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
-using Swashbuckle.AspNetCore.Swagger;
-
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
@@ -31,30 +29,45 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet("element-descriptors/available")]
         [ProducesResponseType(typeof(IReadOnlyCollection<IElementDescriptor>), 200)]
-        public JsonResult GetAvailableElementDescriptors()
+        public IActionResult GetAvailableElementDescriptors()
         {
-            return Json(_templatesManagementService.GetAvailableElementDescriptors());
+            try
+            {
+                return Json(_templatesManagementService.GetAvailableElementDescriptors());
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting available element descriptors");
+            }
         }
 
         [HttpGet]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
-        public async Task<JsonResult> List()
+        public async Task<IActionResult> List()
         {
-            return Json(await _templatesStorageReader.GetTemplateMetadatas());
+            try
+            {
+                return Json(await _templatesStorageReader.GetTemplateMetadatas());
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while listing templates");
+            }
         }
 
         [HttpGet("{id}")]
+        [ResponseCache(NoStore = true)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(304)]
         [ProducesResponseType(404)]
-        public async Task<IActionResult> Get(
-            [FromHeader(Name = HeaderNames.IfNoneMatch)] string ifNoneMatch,
-            long id)
+        public async Task<IActionResult> Get(long id, [FromHeader(Name = HeaderNames.IfNoneMatch)] string ifNoneMatch)
         {
             try
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, null);
-                SetResponseHeaders(templateDescriptor);
+
+                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
 
                 if (ifNoneMatch == templateDescriptor.VersionId)
                 {
@@ -67,6 +80,7 @@ namespace NuClear.VStore.Host.Controllers
                             id,
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
+                            templateDescriptor.Author,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -75,25 +89,31 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting template with id '{id}'", id);
+            }
         }
 
         [HttpGet("{id}/{versionId}")]
+        [ResponseCache(NoStore = true)]
         [ProducesResponseType(typeof(object), 200)]
-        [ProducesResponseType(304)]
         [ProducesResponseType(404)]
-        public async Task<IActionResult> Get(long id, string versionId)
+        public async Task<IActionResult> GetVersion(long id, string versionId)
         {
             try
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, versionId);
-                SetResponseHeaders(templateDescriptor);
 
+                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
                 return Json(
                     new
                         {
                             id,
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
+                            templateDescriptor.Author,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -102,11 +122,14 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting template with id '{id}' and versionId '{versionId}'", id, versionId);
+            }
         }
 
         [HttpPost("validate-elements")]
         [ProducesResponseType(200)]
-        [ProducesResponseType(typeof(object), 400)]
         public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
@@ -116,13 +139,12 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex);
+                return InternalServerError(ex, "Unexpected error while getting template elements validation");
             }
         }
 
         [HttpPost("{id}/validate-elements")]
         [ProducesResponseType(200)]
-        [ProducesResponseType(typeof(object), 400)]
         public IActionResult ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
@@ -132,7 +154,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex);
+                return InternalServerError(ex, "Unexpected error while getting template elements validation for template with id '{id}'", id);
             }
         }
 
@@ -140,44 +162,72 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(object), 400)]
         public async Task<IActionResult> Create(
+            long id,
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
-            [FromBody] ITemplateDescriptor templateDescriptor,
-            long id)
+            [FromBody] ITemplateDescriptor templateDescriptor)
         {
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
+            if (templateDescriptor == null)
+            {
+                return BadRequest("Template descriptor must be set.");
+            }
+
             try
             {
                 var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
                 var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId });
+
+                Response.Headers[HeaderNames.ETag] = versionId;
                 return Created(url, null);
             }
             catch (Exception ex)
             {
-                return BadRequest(ex);
+                return InternalServerError(ex, "Unexpected error while template creation with id '{id}'", id);
             }
         }
 
         [HttpPut("{id}")]
         [ProducesResponseType(204)]
-        [ProducesResponseType(typeof(object), 400)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
         [ProducesResponseType(409)]
         [ProducesResponseType(412)]
         public async Task<IActionResult> Modify(
+            long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
-            [FromBody] ITemplateDescriptor templateDescriptor,
-            long id)
+            [FromBody] ITemplateDescriptor templateDescriptor)
         {
+            if (string.IsNullOrEmpty(ifMatch))
+            {
+                return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
+            }
+
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
+            if (templateDescriptor == null)
+            {
+                return BadRequest("Template descriptor must be set.");
+            }
+
             try
             {
-                if (string.IsNullOrEmpty(ifMatch))
-                {
-                    Response.ContentType = ContentType.PlainText;
-                    return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
-                }
-
                 var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, author, templateDescriptor);
                 var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId = latestVersionId });
+
+                Response.Headers[HeaderNames.ETag] = latestVersionId;
                 return NoContent(url);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound();
             }
             catch (SessionLockAlreadyExistsException)
             {
@@ -189,7 +239,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex);
+                return InternalServerError(ex, "Unexpected error while template modification with id '{id}'", id);
             }
         }
     }

@@ -73,8 +73,9 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
         {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString() + "/");
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id + "/");
             return versionsResponse.Versions.FindAll(x => x.IsLatest)
+                                   .Where(x => !x.Key.EndsWith("/"))
                                    .Select(x => new S3ObjectVersion { Key = x.Key, VersionId = x.VersionId, LastModified = x.LastModified })
                                    .ToArray();
         }
@@ -85,14 +86,13 @@ namespace NuClear.VStore.Objects
             if (string.IsNullOrEmpty(versionId))
             {
                 var objectVersions = await GetObjectLatestVersions(id);
-                objectVersionId = objectVersions
-                    .Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
-                    .Select(x => x.VersionId)
-                    .SingleOrDefault();
+                objectVersionId = objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                                                .Select(x => x.VersionId)
+                                                .SingleOrDefault();
 
                 if (objectVersionId == null)
                 {
-                    throw new ObjectNotFoundException($"Object '{id}' not found");
+                    throw new ObjectNotFoundException($"Object '{id}' not found.");
                 }
             }
             else
@@ -126,6 +126,7 @@ namespace NuClear.VStore.Objects
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
+                                     Author = persistenceDescriptorWrapper.Author,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -143,7 +144,7 @@ namespace NuClear.VStore.Objects
             return listResponse.S3Objects.Count != 0;
         }
 
-        private async Task<LastModifiedWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
+        private async Task<ObjectWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -152,8 +153,11 @@ namespace NuClear.VStore.Objects
             }
             catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new ObjectNotFoundException($"Object '{key}' version '{versionId}' not found");
+                throw new ObjectNotFoundException($"Object '{key}' with versionId '{versionId}' not found.");
             }
+
+            var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
 
             string content;
             using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
@@ -162,18 +166,20 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return new LastModifiedWrapper<T>(obj, getObjectResponse.LastModified);
+            return new ObjectWrapper<T>(obj, author, getObjectResponse.LastModified);
         }
 
-        private class LastModifiedWrapper<T>
+        private class ObjectWrapper<T>
         {
-            public LastModifiedWrapper(T @object, DateTime lastModified)
+            public ObjectWrapper(T @object, string author, DateTime lastModified)
             {
                 Object = @object;
+                Author = author;
                 LastModified = lastModified;
             }
 
             public T Object { get; }
+            public string Author { get; }
             public DateTime LastModified { get; }
         }
     }

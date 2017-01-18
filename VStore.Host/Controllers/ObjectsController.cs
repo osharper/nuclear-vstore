@@ -3,10 +3,12 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
@@ -32,6 +34,9 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/{versionId}/template")]
+        [ResponseCache(NoStore = true)]
+        [ProducesResponseType(typeof(IVersionedTemplateDescriptor), 200)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> GetTemplateDescriptor(long id, string versionId)
         {
             try
@@ -41,66 +46,87 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ObjectNotFoundException)
             {
-                return NotFound(id);
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting template for the object with id '{id}' and versionId {versionId}", id, versionId);
             }
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(long id)
+        [ResponseCache(NoStore = true)]
+        [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(304)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> Get(long id, [FromHeader(Name = HeaderNames.IfNoneMatch)] string ifNoneMatch)
         {
             try
             {
-                var descriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
+                var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
+
+                Response.Headers[HeaderNames.ETag] = objectDescriptor.VersionId;
+                Response.Headers[HeaderNames.LastModified] = objectDescriptor.LastModified.ToString("R");
+
+                if (ifNoneMatch == objectDescriptor.VersionId)
+                {
+                    return NotModified();
+                }
+
                 return Json(
                     new
-                        {
-                            descriptor.Id,
-                            descriptor.VersionId,
-                            descriptor.LastModified,
-                            descriptor.TemplateId,
-                            descriptor.TemplateVersionId,
-                            descriptor.Language,
-                            descriptor.Properties,
-                            descriptor.Elements
-                        });
+                    {
+                        objectDescriptor.Id,
+                        objectDescriptor.VersionId,
+                        objectDescriptor.LastModified,
+                        objectDescriptor.TemplateId,
+                        objectDescriptor.TemplateVersionId,
+                        objectDescriptor.Language,
+                        objectDescriptor.Author,
+                        objectDescriptor.Properties,
+                        objectDescriptor.Elements
+                    });
             }
             catch (ObjectNotFoundException)
             {
-                return NotFound(id);
-            }
-            catch (ObjectInconsistentException ex)
-            {
-                return BadRequest(ex.Message);
+                return NotFound();
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while getting an object");
-                return BadRequest(ex.Message);
+                return InternalServerError(ex, "Error occured while getting the object with id '{id}'", id);
             }
         }
 
         [HttpGet("{id}/{versionId}")]
-        public async Task<IActionResult> Get(long id, string versionId)
+        [ResponseCache(NoStore = true)]
+        [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetVersion(long id, string versionId)
         {
             try
             {
-                var descriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
+                var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
+
+                Response.Headers[HeaderNames.ETag] = objectDescriptor.VersionId;
+                Response.Headers[HeaderNames.LastModified] = objectDescriptor.LastModified.ToString("R");
                 return Json(
                     new
-                        {
-                            descriptor.Id,
-                            descriptor.VersionId,
-                            descriptor.LastModified,
-                            descriptor.TemplateId,
-                            descriptor.TemplateVersionId,
-                            descriptor.Language,
-                            descriptor.Properties,
-                            descriptor.Elements
-                        });
+                    {
+                        objectDescriptor.Id,
+                        objectDescriptor.VersionId,
+                        objectDescriptor.LastModified,
+                        objectDescriptor.TemplateId,
+                        objectDescriptor.TemplateVersionId,
+                        objectDescriptor.Language,
+                        objectDescriptor.Author,
+                        objectDescriptor.Properties,
+                        objectDescriptor.Elements
+                    });
             }
             catch (ObjectNotFoundException)
             {
-                return NotFound(id);
+                return NotFound();
             }
             catch (ObjectInconsistentException ex)
             {
@@ -108,24 +134,38 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while getting an object");
-                return BadRequest(ex.Message);
+                return InternalServerError(ex, "Error occured while getting the object with id '{id}' and versionId {versionId}", id, versionId);
             }
         }
 
         [HttpPost("{id}")]
-        public async Task<IActionResult> Create(long id, [FromBody] IObjectDescriptor objectDescriptor)
+        [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        [ProducesResponseType(typeof(object), 422)]
+        public async Task<IActionResult> Create(
+            long id,
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromBody] IObjectDescriptor objectDescriptor)
         {
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
             if (objectDescriptor == null)
             {
-                return BadRequest("Incorrect object descriptor");
+                return BadRequest("Object descriptor must be set.");
             }
 
             try
             {
-                var versionId = await _objectsManagementService.Create(id, objectDescriptor);
+                var versionId = await _objectsManagementService.Create(id, author, objectDescriptor);
                 var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId });
-                return Created(url, versionId);
+
+                Response.Headers[HeaderNames.ETag] = versionId;
+                return Created(url, null);
             }
             catch (AggregateException ex)
             {
@@ -153,23 +193,44 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Unknown error occured while creating object");
-                return InternalServerError();
+                return InternalServerError(ex, "Unknown error occured while creating object with id '{id}'", id);
             }
         }
 
-        [HttpPut("{id}/{versionId}")]
-        public async Task<IActionResult> Modify(long id, string versionId, [FromBody] IObjectDescriptor objectDescriptor)
+        [HttpPut("{id}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        [ProducesResponseType(412)]
+        [ProducesResponseType(typeof(object), 422)]
+        public async Task<IActionResult> Modify(
+            long id,
+            [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromBody] IObjectDescriptor objectDescriptor)
         {
+            if (string.IsNullOrEmpty(ifMatch))
+            {
+                return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
+            }
+
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
             if (objectDescriptor == null)
             {
-                return BadRequest("Incorrect object descriptor");
+                return BadRequest("Object descriptor must be set.");
             }
 
             try
             {
-                var latestVersionId = await _objectsManagementService.ModifyElement(id, versionId, objectDescriptor);
+                var latestVersionId = await _objectsManagementService.ModifyElement(id, ifMatch, author, objectDescriptor);
                 var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId = latestVersionId });
+
+                Response.Headers[HeaderNames.ETag] = latestVersionId;
                 return NoContent(url);
             }
             catch (AggregateException ex)
@@ -186,11 +247,11 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ConcurrencyException)
             {
-                return Conflict();
+                return PreconditionFailed();
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while modifying object");
+                _logger.LogError(new EventId(), ex, "Error occured while modifying object");
                 return BadRequest(ex.Message);
             }
             catch (ArgumentException ex)
@@ -203,8 +264,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Unknown error occured while modifying object");
-                return InternalServerError();
+                return InternalServerError(ex, "Unknown error occured while modifying the object with id '{id}' and versionId {ifMatch}", id, ifMatch);
             }
         }
 
@@ -224,10 +284,10 @@ namespace NuClear.VStore.Host.Controllers
 
                     content.Add(
                         new JObject
-                            {
-                                [Tokens.IdToken] = invalidObjectException.ElementId,
-                                [Tokens.ErrorsToken] = errors
-                            });
+                        {
+                            [Tokens.IdToken] = invalidObjectException.ElementId,
+                            [Tokens.ErrorsToken] = errors
+                        });
                 }
             }
 

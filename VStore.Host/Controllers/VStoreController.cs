@@ -1,9 +1,7 @@
 ﻿using System;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Net.Http.Headers;
 
-using NuClear.VStore.Descriptors;
 using NuClear.VStore.Host.ActionResults;
 
 using NoContentResult = NuClear.VStore.Host.ActionResults.NoContentResult;
@@ -55,21 +53,21 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [NonAction]
-        public StatusCodeResult NotModified()
+        public NotModifiedResult NotModified()
         {
             return new NotModifiedResult();
         }
 
         [NonAction]
-        public StatusCodeResult InternalServerError()
+        public BadRequestContentResult BadRequest(string message)
         {
-            return new StatusCodeResult(500);
+            return new BadRequestContentResult(message);
         }
 
-        protected void SetResponseHeaders(IVersioned versionedObject)
+        [NonAction]
+        public InternalServerErrorResult InternalServerError(Exception exception, string message, params object[] args)
         {
-            Response.Headers[HeaderNames.ETag] = versionedObject.VersionId;
-            Response.Headers[HeaderNames.LastModified] = versionedObject.LastModified.ToString("R");
+            return new InternalServerErrorResult(exception, message, args);
         }
     }
 }

@@ -56,13 +56,16 @@ namespace NuClear.VStore.Templates
                 throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
             }
 
+            var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
+
             string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
             {
                 json = reader.ReadToEnd();
             }
 
-            var descriptor = new TemplateDescriptor { Id = id, VersionId = objectVersionId, LastModified = response.LastModified };
+            var descriptor = new TemplateDescriptor { Id = id, VersionId = objectVersionId, LastModified = response.LastModified, Author = author };
             JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
 
             return descriptor;

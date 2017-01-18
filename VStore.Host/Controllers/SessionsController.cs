@@ -41,7 +41,6 @@ namespace NuClear.VStore.Host.Controllers
 
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
                 Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
-
                 return Json(sessionContext.Descriptor);
             }
             catch (ObjectNotFoundException ex)
@@ -51,6 +50,10 @@ namespace NuClear.VStore.Host.Controllers
             catch (SessionExpiredException ex)
             {
                 return Gone(ex.ExpiredAt);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting session descriptor");
             }
         }
 
@@ -102,6 +105,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Unprocessable(ex.Message);
             }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while setup session");
+            }
         }
 
         [HttpPost("{sessionId}/upload/{templateCode}")]
@@ -109,7 +116,6 @@ namespace NuClear.VStore.Host.Controllers
         [MultipartBodyLengthLimit(1024)]
         [ProducesResponseType(typeof(UploadedFileInfo), 201)]
         [ProducesResponseType(typeof(string), 400)]
-        [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -171,13 +177,12 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while file uploading.");
                 if (uploadSession != null)
                 {
                     await _sessionManagementService.AbortMultipartUpload(uploadSession);
                 }
 
-                return Unprocessable(ex.Message);
+                return InternalServerError(ex, "Unexpected error while file uploading");
             }
         }
     }

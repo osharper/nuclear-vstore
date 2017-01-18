@@ -93,7 +93,7 @@ namespace NuClear.VStore.Templates
             {
                 if (!await _templatesStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{id}' does not exist");
+                    throw new ObjectNotFoundException($"Template '{id}' does not exist");
                 }
 
                 var latestVersionId = await _templatesStorageReader.GetTemplateLatestVersion(id);
@@ -261,7 +261,7 @@ namespace NuClear.VStore.Templates
                     CannedACL = S3CannedACL.PublicRead,
                 };
             var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            metadataWrapper.Write(MetadataElement.Title, author);
+            metadataWrapper.Write(MetadataElement.Author, author);
 
             await _amazonS3.PutObjectAsync(putRequest);
         }

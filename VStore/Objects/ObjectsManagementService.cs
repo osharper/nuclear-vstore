@@ -49,7 +49,7 @@ namespace NuClear.VStore.Objects
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
-        public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
+        public async Task<string> Create(long id, string author, IObjectDescriptor objectDescriptor)
         {
             if (objectDescriptor.Language == Language.Unspecified)
             {
@@ -64,10 +64,10 @@ namespace NuClear.VStore.Objects
             await EnsureObjectTemplateState(id, objectDescriptor);
             EnsureAllBinariesExist(id, objectDescriptor.Elements);
 
-            return await PutObject(id, objectDescriptor);
+            return await PutObject(id, author, objectDescriptor);
         }
 
-        public async Task<string> ModifyElement(long objectId, string versionId, IObjectDescriptor objectDescriptor)
+        public async Task<string> ModifyElement(long objectId, string versionId, string author, IObjectDescriptor objectDescriptor)
         {
             if (objectId == 0)
             {
@@ -86,7 +86,7 @@ namespace NuClear.VStore.Objects
                 await EnsureObjectState(descriptorKey, versionId);
                 EnsureAllBinariesExist(objectId, objectDescriptor.Elements);
 
-                return await PutObject(objectId, objectDescriptor);
+                return await PutObject(objectId, author, objectDescriptor);
             }
         }
 
@@ -165,11 +165,12 @@ namespace NuClear.VStore.Objects
                 });
         }
 
-        private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
+            MetadataCollectionWrapper metadataWrapper;
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
                 putRequest = new PutObjectRequest
@@ -180,6 +181,13 @@ namespace NuClear.VStore.Objects
                                      ContentBody = JsonConvert.SerializeObject(elementDescriptor, SerializerSettings.Default),
                                      CannedACL = S3CannedACL.PublicRead
                                  };
+
+                metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+                if (!string.IsNullOrEmpty(author))
+                {
+                    metadataWrapper.Write(MetadataElement.Author, author);
+                }
+
                 await _amazonS3.PutObjectAsync(putRequest);
             }
 
@@ -191,9 +199,7 @@ namespace NuClear.VStore.Objects
                     TemplateVersionId = objectDescriptor.TemplateVersionId,
                     Language = objectDescriptor.Language,
                     Properties = objectDescriptor.Properties,
-                    Elements = objectVersions
-                        .Where(x => !x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
-                        .ToArray()
+                    Elements = objectVersions.Where(x => !x.Key.EndsWith(Tokens.ObjectPostfix)).ToArray()
                 };
 
             putRequest = new PutObjectRequest
@@ -204,12 +210,19 @@ namespace NuClear.VStore.Objects
                                  ContentBody = JsonConvert.SerializeObject(objectPersistenceDescriptor, SerializerSettings.Default),
                                  CannedACL = S3CannedACL.PublicRead
                              };
+
+            metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+            if (!string.IsNullOrEmpty(author))
+            {
+                metadataWrapper.Write(MetadataElement.Author, author);
+            }
+
             await _amazonS3.PutObjectAsync(putRequest);
 
             objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
-            return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
-                .Select(x => x.VersionId)
-                .Single();
+            return objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                                 .Select(x => x.VersionId)
+                                 .Single();
         }
 
         private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)
