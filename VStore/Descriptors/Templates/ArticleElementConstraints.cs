@@ -22,9 +22,15 @@ namespace NuClear.VStore.Descriptors.Templates
                 return true;
             }
 
+            if (SupportedFileFormats == null && other.SupportedFileFormats != null ||
+                SupportedFileFormats != null && other.SupportedFileFormats == null)
+            {
+                return false;
+            }
+
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
-                   SupportedFileFormats.SequenceEqual(other.SupportedFileFormats);
+                   (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats));
         }
 
         public override bool Equals(object obj)
