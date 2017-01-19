@@ -56,7 +56,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(304)]
         [ProducesResponseType(404)]
@@ -96,7 +96,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/{versionId}")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersion(long id, string versionId)
@@ -179,7 +179,7 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
-                var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId });
+                var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId });
 
                 Response.Headers[HeaderNames.ETag] = versionId;
                 return Created(url, null);
@@ -220,7 +220,7 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, author, templateDescriptor);
-                var url = Url.AbsoluteAction("Get", "Templates", new { id, versionId = latestVersionId });
+                var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = latestVersionId;
                 return NoContent(url);

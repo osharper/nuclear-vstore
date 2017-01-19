@@ -30,7 +30,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{sessionId}")]
-        [ProducesResponseType(typeof(SessionDescriptor), 200)]
+        [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(410)]
         public async Task<IActionResult> Get(Guid sessionId)
@@ -39,9 +39,31 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var sessionContext = await _sessionManagementService.GetSessionContext(sessionId);
 
+                var templateDescriptor = sessionContext.TemplateDescriptor;
+                var uploadUrls = UploadUrl.Generate(
+                    templateDescriptor,
+                    templateCode => Url.Action(
+                        "UploadFile",
+                        new
+                        {
+                            sessionId,
+                            templateCode
+                        }));
+
+                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
                 Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
-                return Json(sessionContext.Descriptor);
+                return Json(new
+                {
+                    Template = new
+                    {
+                        Id = sessionContext.TemplateId,
+                        templateDescriptor.VersionId,
+                        templateDescriptor.Properties,
+                        templateDescriptor.Elements
+                    },
+                    uploadUrls
+                });
             }
             catch (ObjectNotFoundException ex)
             {
@@ -58,7 +80,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpPost("{templateId}/{language}")]
-        [ProducesResponseType(typeof(object), 201)]
+        [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
@@ -68,34 +90,12 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var sessionSetupContext = await _sessionManagementService.Setup(templateId, language, author);
-                var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId = sessionSetupContext.Id });
+                var sessionId = Guid.NewGuid();
+                await _sessionManagementService.Setup(sessionId, templateId, language, author);
+                var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
-                var templateDescriptor = sessionSetupContext.TemplateDescriptor;
-                var uploadUrls = UploadUrl.Generate(
-                    templateDescriptor,
-                    templateCode => Url.Action(
-                        "UploadFile",
-                        new
-                            {
-                                sessionId = sessionSetupContext.Id,
-                                templateCode
-                            }));
-
-                Response.Headers[HeaderNames.Expires] = sessionSetupContext.ExpiresAt.ToString("R");
-                return Created(
-                    url,
-                    new
-                        {
-                            Template = new
-                                           {
-                                               Id = templateId,
-                                               templateDescriptor.VersionId,
-                                               templateDescriptor.Properties,
-                                               templateDescriptor.Elements
-                                           },
-                            uploadUrls
-                        });
+                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                return Created(url,  null);
             }
             catch (ObjectNotFoundException ex)
             {

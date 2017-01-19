@@ -162,7 +162,7 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var versionId = await _objectsManagementService.Create(id, author, objectDescriptor);
-                var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId });
+                var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId });
 
                 Response.Headers[HeaderNames.ETag] = versionId;
                 return Created(url, null);
@@ -228,7 +228,7 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var latestVersionId = await _objectsManagementService.ModifyElement(id, ifMatch, author, objectDescriptor);
-                var url = Url.AbsoluteAction("Get", "Objects", new { id, versionId = latestVersionId });
+                var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = latestVersionId;
                 return NoContent(url);
