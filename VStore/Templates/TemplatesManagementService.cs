@@ -13,6 +13,7 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
@@ -67,7 +68,7 @@ namespace NuClear.VStore.Templates
             {
                 if (await _templatesStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{id}' already exists");
+                    throw new ObjectAlreadyExistsException(id);
                 }
 
                 await PutTemplate(id, author, templateDescriptor);

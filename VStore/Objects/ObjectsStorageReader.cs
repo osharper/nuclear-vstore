@@ -41,34 +41,8 @@ namespace NuClear.VStore.Objects
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            var listResponse = await _amazonS3.ListObjectsV2Async(
-                                   new ListObjectsV2Request
-                                       {
-                                           BucketName = _bucketName,
-                                           Prefix = id.AsS3ObjectKey(Tokens.TemplatePostfix)
-                                       });
-            if (listResponse.S3Objects.Count == 0)
-            {
-                throw new ObjectNotFoundException($"Template for the object '{id}' not found.");
-            }
-
-            if (listResponse.S3Objects.Count > 1)
-            {
-                throw new ObjectInconsistentException(id, $"More than one template found for the object '{id}'.");
-            }
-
-            var templateId = listResponse.S3Objects[0].Key.AsObjectId();
-
-            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
-            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-            var templateVersionId = metadataWrapper.Read<string>(MetadataElement.TemplateVersionId);
-
-            if (string.IsNullOrEmpty(templateVersionId))
-            {
-                throw new ObjectInconsistentException(id, "Template version cannot be determined.");
-            }
-
-            return await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
+            return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
@@ -101,19 +75,18 @@ namespace NuClear.VStore.Objects
             }
 
             var persistenceDescriptorWrapper = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
-            var persistenceDescriptor = persistenceDescriptorWrapper.Object;
+            var persistenceDescriptor = (ObjectPersistenceDescriptor)persistenceDescriptorWrapper;
 
             var elements = new ConcurrentBag<IObjectElementDescriptor>();
             Parallel.ForEach(
                 persistenceDescriptor.Elements,
                 objectVersion =>
                     {
-                        var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
-                        var elementDescriptor = elementDescriptorWrapper.Object;
+                        ObjectElementDescriptor elementDescriptor = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
 
                         elementDescriptor.Id = objectVersion.Key.AsObjectId();
                         elementDescriptor.VersionId = objectVersion.VersionId;
-                        elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
+                        elementDescriptor.LastModified = elementDescriptor.LastModified;
 
                         elements.Add(elementDescriptor);
                     });
@@ -171,16 +144,22 @@ namespace NuClear.VStore.Objects
 
         private class ObjectWrapper<T>
         {
+            private readonly T _object;
+
             public ObjectWrapper(T @object, string author, DateTime lastModified)
             {
-                Object = @object;
+                _object = @object;
                 Author = author;
                 LastModified = lastModified;
             }
 
-            public T Object { get; }
             public string Author { get; }
             public DateTime LastModified { get; }
+
+            public static implicit operator T(ObjectWrapper<T> wrapper)
+            {
+                return wrapper._object;
+            }
         }
     }
 }

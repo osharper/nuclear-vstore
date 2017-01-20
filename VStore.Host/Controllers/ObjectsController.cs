@@ -34,15 +34,18 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/{versionId}/template")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(IVersionedTemplateDescriptor), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetTemplateDescriptor(long id, string versionId)
         {
             try
             {
-                var descriptor = await _objectsStorageReader.GetTemplateDescriptor(id, versionId);
-                return Json(descriptor);
+                var templateDescriptor = await _objectsStorageReader.GetTemplateDescriptor(id, versionId);
+
+                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
+                return Json(templateDescriptor);
             }
             catch (ObjectNotFoundException)
             {
@@ -55,7 +58,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(304)]
         [ProducesResponseType(404)]
@@ -98,7 +101,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/{versionId}")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(404)]

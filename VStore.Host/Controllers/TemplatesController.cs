@@ -9,6 +9,7 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -161,6 +162,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{id}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(object), 400)]
+        [ProducesResponseType(409)]
         public async Task<IActionResult> Create(
             long id,
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
@@ -183,6 +185,10 @@ namespace NuClear.VStore.Host.Controllers
 
                 Response.Headers[HeaderNames.ETag] = versionId;
                 return Created(url, null);
+            }
+            catch (ObjectAlreadyExistsException)
+            {
+                return Conflict();
             }
             catch (Exception ex)
             {

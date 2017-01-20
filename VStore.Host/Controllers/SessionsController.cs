@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
-using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
 using NuClear.VStore.S3;
@@ -88,6 +87,11 @@ namespace NuClear.VStore.Host.Controllers
             long templateId,
             Language language)
         {
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
             try
             {
                 var sessionId = Guid.NewGuid();
