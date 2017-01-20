@@ -80,6 +80,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpPost("{templateId}/{language}")]
         [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
