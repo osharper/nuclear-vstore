@@ -119,7 +119,7 @@ namespace NuClear.VStore.Host.Controllers
                     new
                         {
                             uploadedFileInfo.Id,
-                            uploadedFileInfo.FileName,
+                            uploadedFileInfo.Filename,
                             uploadedFileInfo.PreviewUri
                         });
             }
