@@ -4,15 +4,15 @@ namespace NuClear.VStore.Sessions
 {
     public sealed class UploadedFileInfo
     {
-        public UploadedFileInfo(string id, string fileName, Uri previewUri)
+        public UploadedFileInfo(string id, string filename, Uri previewUri)
         {
             Id = id;
-            FileName = fileName;
+            Filename = filename;
             PreviewUri = previewUri;
         }
 
         public string Id { get; }
-        public string FileName { get; }
+        public string Filename { get; }
         public Uri PreviewUri { get; }
     }
 }
