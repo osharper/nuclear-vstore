@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -64,10 +65,15 @@ namespace NuClear.VStore.Objects
             await EnsureObjectTemplateState(id, objectDescriptor);
             EnsureAllBinariesExist(id, objectDescriptor.Elements);
 
-            return await PutObject(id, author, objectDescriptor);
+            return await PutObject(id, author, objectDescriptor, null);
         }
 
-        public async Task<string> ModifyElement(long objectId, string versionId, string author, IObjectDescriptor objectDescriptor)
+        public async Task<string> ModifyElement(
+            long objectId,
+            string versionId,
+            string author,
+            IObjectDescriptor objectDescriptor,
+            IReadOnlyCollection<long> modifiedElementIds)
         {
             if (objectId == 0)
             {
@@ -86,7 +92,7 @@ namespace NuClear.VStore.Objects
                 await EnsureObjectState(descriptorKey, versionId);
                 EnsureAllBinariesExist(objectId, objectDescriptor.Elements);
 
-                return await PutObject(objectId, author, objectDescriptor);
+                return await PutObject(objectId, author, objectDescriptor, modifiedElementIds);
             }
         }
 
@@ -165,13 +171,30 @@ namespace NuClear.VStore.Objects
                 });
         }
 
-        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor, IReadOnlyCollection<long> modifiedElementIds)
         {
-            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            IReadOnlyCollection<IObjectElementDescriptor> modifiedElements;
+            if (modifiedElementIds != null)
+            {
+                var isSubset = new HashSet<long>(modifiedElementIds).IsSubsetOf(new HashSet<long>(objectDescriptor.Elements.Select(x => x.Id)));
+                if (!isSubset)
+                {
+                    throw new ArgumentException("Specified modified elements must be fully included by object elements", nameof(modifiedElementIds));
+                }
+
+                modifiedElements = objectDescriptor.Elements.Where(x => modifiedElementIds.Contains(x.Id)).ToArray();
+            }
+            else
+            {
+                modifiedElements = objectDescriptor.Elements;
+            }
+
+            VerifyObjectElementsConsistency(id, objectDescriptor.Language, modifiedElements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
-            foreach (var elementDescriptor in objectDescriptor.Elements)
+
+            foreach (var elementDescriptor in modifiedElements)
             {
                 putRequest = new PutObjectRequest
                                  {
@@ -193,15 +216,15 @@ namespace NuClear.VStore.Objects
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
+            var elementVersions = objectVersions.Where(x => !x.Key.EndsWith(Tokens.ObjectPostfix)).ToArray();
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
-                {
-                    TemplateId = objectDescriptor.TemplateId,
-                    TemplateVersionId = objectDescriptor.TemplateVersionId,
-                    Language = objectDescriptor.Language,
-                    Properties = objectDescriptor.Properties,
-                    Elements = objectVersions.Where(x => !x.Key.EndsWith(Tokens.ObjectPostfix)).ToArray()
-                };
-
+                                                  {
+                                                      TemplateId = objectDescriptor.TemplateId,
+                                                      TemplateVersionId = objectDescriptor.TemplateVersionId,
+                                                      Language = objectDescriptor.Language,
+                                                      Properties = objectDescriptor.Properties,
+                                                      Elements = elementVersions
+                                                  };
             putRequest = new PutObjectRequest
                              {
                                  Key = objectKey,
