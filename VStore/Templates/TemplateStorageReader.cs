@@ -88,7 +88,7 @@ namespace NuClear.VStore.Templates
                                            BucketName = _bucketName,
                                            Prefix = id.ToString()
                                        });
-            return listResponse.S3Objects.Count != 0;
+            return listResponse.S3Objects.SingleOrDefault(o => o.Key == id.ToString()) != null;
         }
     }
 }
