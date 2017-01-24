@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -41,7 +42,7 @@ namespace NuClear.VStore.Locks
                         Prefix = _rootObjectId
                     });
 
-            if (responseTask.Result.S3Objects.Count > 0)
+            if (responseTask.Result.S3Objects.SingleOrDefault(o => o.Key == _rootObjectId) != null)
             {
                 throw new SessionLockAlreadyExistsException(_rootObjectId);
             }
