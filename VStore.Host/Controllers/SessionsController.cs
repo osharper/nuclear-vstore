@@ -5,66 +5,122 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
+using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("session")]
-    public sealed class SessionController : Controller
+    [ApiVersion("1.0")]
+    [Route("api/{version:apiVersion}/sessions")]
+    public sealed class SessionsController : VStoreController
     {
         private readonly SessionManagementService _sessionManagementService;
-        private readonly ILogger<SessionController> _logger;
+        private readonly ILogger<SessionsController> _logger;
 
-        public SessionController(SessionManagementService sessionManagementService, ILogger<SessionController> logger)
+        public SessionsController(SessionManagementService sessionManagementService, ILogger<SessionsController> logger)
         {
             _sessionManagementService = sessionManagementService;
             _logger = logger;
         }
 
-        [HttpPost("{templateId}/{language}")]
-        public async Task<IActionResult> SetupSession(long templateId, Language language)
+        [HttpGet("{sessionId}")]
+        [ProducesResponseType(typeof(object), 200)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(410)]
+        public async Task<IActionResult> Get(Guid sessionId)
         {
             try
             {
-                var sessionSetupContext = await _sessionManagementService.Setup(templateId, language);
-                var templateDescriptor = sessionSetupContext.TemplateDescriptor;
+                var sessionContext = await _sessionManagementService.GetSessionContext(sessionId);
 
+                var templateDescriptor = sessionContext.TemplateDescriptor;
                 var uploadUrls = UploadUrl.Generate(
                     templateDescriptor,
                     templateCode => Url.Action(
                         "UploadFile",
                         new
-                            {
-                                sessionId = sessionSetupContext.Id,
-                                templateCode
-                            }));
-
-                return Json(
-                    new
                         {
-                            Template = new
-                                           {
-                                               Id = templateId,
-                                               templateDescriptor.VersionId,
-                                               templateDescriptor.Properties,
-                                               templateDescriptor.Elements
-                                           },
-                            uploadUrls,
-                            sessionSetupContext.ExpiresAt
-                        });
+                            sessionId,
+                            templateCode
+                        }));
+
+                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
+                Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
+                return Json(new
+                {
+                    Template = new
+                    {
+                        Id = sessionContext.TemplateId,
+                        templateDescriptor.VersionId,
+                        templateDescriptor.Properties,
+                        templateDescriptor.Elements
+                    },
+                    uploadUrls
+                });
+            }
+            catch (ObjectNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (SessionExpiredException ex)
+            {
+                return Gone(ex.ExpiredAt);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while getting session descriptor");
+            }
+        }
+
+        [HttpPost("{templateId}/{language}")]
+        [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(string), 422)]
+        public async Task<IActionResult> SetupSession(
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            long templateId,
+            Language language)
+        {
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
+            try
+            {
+                var sessionId = Guid.NewGuid();
+                await _sessionManagementService.Setup(sessionId, templateId, language, author);
+                var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
+
+                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                return Created(url,  null);
+            }
+            catch (ObjectNotFoundException ex)
+            {
+                return NotFound(ex.Message);
             }
             catch (SessionCannotBeCreatedException ex)
             {
-                return StatusCode(422, ex.Message);
+                return Unprocessable(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while setup session");
             }
         }
 
         [HttpPost("{sessionId}/upload/{templateCode}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
+        [ProducesResponseType(typeof(UploadedFileInfo), 201)]
+        [ProducesResponseType(typeof(string), 400)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -115,7 +171,8 @@ namespace NuClear.VStore.Host.Controllers
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
-                return Json(
+                return Created(
+                    uploadedFileInfo.PreviewUri,
                     new
                         {
                             uploadedFileInfo.Id,
@@ -125,13 +182,12 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while file uploading.");
                 if (uploadSession != null)
                 {
                     await _sessionManagementService.AbortMultipartUpload(uploadSession);
                 }
 
-                return StatusCode(422, ex.Message);
+                return InternalServerError(ex, "Unexpected error while file uploading");
             }
         }
     }

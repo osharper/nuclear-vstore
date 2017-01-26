@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Net;
 using System.Reflection;
-using System.Threading.Tasks;
 
 using Amazon;
 using Amazon.S3;
@@ -9,7 +8,6 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,7 +16,6 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 
-using NuClear.VStore.Host.Convensions;
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Json;
@@ -31,13 +28,13 @@ using NuClear.VStore.Templates;
 using Serilog;
 using Serilog.Events;
 
+using Swashbuckle.AspNetCore.Swagger;
+
 namespace NuClear.VStore.Host
 {
     // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class Startup
     {
-        private const string ApiVersion = "/api/1.0";
-
         private readonly IConfigurationRoot _configuration;
 
         public Startup(IHostingEnvironment env)
@@ -60,7 +57,11 @@ namespace NuClear.VStore.Host
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
 
-            services.AddMvc(options => options.UseGlobalRoutePrefix(new RouteAttribute(ApiVersion)))
+            services.AddMvcCore()
+                    .AddApiExplorer()
+                    .AddAuthorization()
+                    .AddCors()
+                    .AddJsonFormatters()
                     .AddJsonOptions(
                         options =>
                             {
@@ -74,8 +75,14 @@ namespace NuClear.VStore.Host
                                 settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
                                 settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
                             });
+            services.AddApiVersioning(options => options.ReportApiVersions = true);
 
-            services.AddSwaggerGen(x => x.OperationFilter<UploadFileOperationFilter>());
+            services.AddSwaggerGen(
+                x =>
+                    {
+                        x.SwaggerDoc("1.0", new Info { Title = "VStore API", Version = "1.0" });
+                        x.OperationFilter<UploadFileOperationFilter>();
+                    });
 
             services.AddOptions();
             services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
@@ -86,12 +93,12 @@ namespace NuClear.VStore.Host
             services.AddAWSService<IAmazonS3>();
             services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
-            services.AddScoped(x => new TemplateStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
+            services.AddScoped(x => new TemplatesStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
             services.AddScoped(
-                x => new TemplateManagementService(
+                x => new TemplatesManagementService(
                          x.GetService<IOptions<CephOptions>>().Value,
                          x.GetService<IAmazonS3>(),
-                         x.GetService<TemplateStorageReader>(),
+                         x.GetService<TemplatesStorageReader>(),
                          x.GetService<LockSessionFactory>()));
             services.AddScoped(x => new SessionStorageReader(x.GetService<IOptions<CephOptions>>().Value.FilesBucketName, x.GetService<IAmazonS3>()));
             services.AddScoped(
@@ -99,18 +106,18 @@ namespace NuClear.VStore.Host
                          x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
                          x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
                          x.GetService<IAmazonS3>(),
-                         x.GetService<TemplateStorageReader>()));
+                         x.GetService<TemplatesStorageReader>()));
             services.AddScoped(
-                x => new ObjectStorageReader(
+                x => new ObjectsStorageReader(
                          x.GetService<IOptions<CephOptions>>().Value,
                          x.GetService<IAmazonS3>(),
-                         x.GetService<TemplateStorageReader>()));
+                         x.GetService<TemplatesStorageReader>()));
             services.AddScoped(
-                x => new ObjectManagementService(
+                x => new ObjectsManagementService(
                          x.GetService<IOptions<CephOptions>>().Value,
                          x.GetService<IAmazonS3>(),
-                         x.GetService<TemplateStorageReader>(),
-                         x.GetService<ObjectStorageReader>(),
+                         x.GetService<TemplatesStorageReader>(),
+                         x.GetService<ObjectsStorageReader>(),
                          x.GetService<SessionStorageReader>(),
                          x.GetService<LockSessionFactory>()));
         }
@@ -149,11 +156,17 @@ namespace NuClear.VStore.Host
                     });
             }
 
-            app.UseStatusCodePages(x => Task.Run(() => RedirectToCurrentApiVersion(x.HttpContext)));
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
             app.UseMvc();
             app.UseSwagger();
-            app.UseSwaggerUi();
+            app.UseSwaggerUi(
+                c =>
+                    {
+                        c.SwaggerEndpoint("/swagger/1.0/swagger.json", "VStore API 1.0");
+                        c.DocExpansion("none");
+                        c.EnabledValidator();
+                        c.ShowRequestHeaders();
+                    });
         }
 
         private static void ConfigureSerilogAppender(string loggerName, string level)
@@ -165,14 +178,6 @@ namespace NuClear.VStore.Host
             wrapper.Level = wrapper.Hierarchy.LevelMap[level];
             wrapper.AddAppender(serilogAppender);
             wrapper.Repository.Configured = true;
-        }
-
-        private static void RedirectToCurrentApiVersion(HttpContext httpContext)
-        {
-            if (httpContext.Response.StatusCode == (int)HttpStatusCode.NotFound && !httpContext.Request.Path.StartsWithSegments(ApiVersion))
-            {
-                httpContext.Response.Redirect($"{ApiVersion}{httpContext.Request.Path}");
-            }
         }
 
         private void ConfigureLogger()

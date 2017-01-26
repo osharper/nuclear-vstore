@@ -3,8 +3,8 @@ using System.Linq;
 
 using NuClear.VStore.Host.Filters;
 
-using Swashbuckle.Swagger.Model;
-using Swashbuckle.SwaggerGen.Generator;
+using Swashbuckle.AspNetCore.Swagger;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace NuClear.VStore.Host.Swashbuckle
 {

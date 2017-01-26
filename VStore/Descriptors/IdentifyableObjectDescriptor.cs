@@ -2,16 +2,16 @@
 
 namespace NuClear.VStore.Descriptors
 {
-    public sealed class ImmutableDescriptor : IIdentifyable<long>, IVersioned, IEquatable<ImmutableDescriptor>
+    public sealed class IdentifyableObjectDescriptor : IIdentifyable<long>, IVersioned, IEquatable<IdentifyableObjectDescriptor>
     {
-        public ImmutableDescriptor(long id, string versionId, DateTime lastModified)
+        public IdentifyableObjectDescriptor(long id, string versionId, DateTime lastModified)
         {
             Id = id;
             VersionId = versionId;
             LastModified = lastModified;
         }
 
-        public ImmutableDescriptor(string id, string versionId, DateTime lastModified)
+        public IdentifyableObjectDescriptor(string id, string versionId, DateTime lastModified)
             : this(long.Parse(id), versionId, lastModified)
         {
         }
@@ -24,7 +24,7 @@ namespace NuClear.VStore.Descriptors
 
         public override bool Equals(object obj)
         {
-            var other = obj as ImmutableDescriptor;
+            var other = obj as IdentifyableObjectDescriptor;
             if (other == null)
             {
                 return false;
@@ -38,7 +38,7 @@ namespace NuClear.VStore.Descriptors
             return Id == other.Id && (VersionId?.Equals(other.VersionId, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        public bool Equals(ImmutableDescriptor other) => other.Equals(this);
+        public bool Equals(IdentifyableObjectDescriptor other) => other.Equals(this);
 
         public override int GetHashCode()
         {

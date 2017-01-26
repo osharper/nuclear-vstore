@@ -5,10 +5,9 @@
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.2",
     "Microsoft.NETCore.Runtime.CoreCLR": "1.1.0",
     "Microsoft.NETCore.DotNetHostPolicy": "1.1.0",
-    "Microsoft.AspNetCore.Cors": "1.1.0",
     "Microsoft.AspNetCore.Diagnostics": "1.1.0",
     "Microsoft.AspNetCore.Mvc": "1.1.0",
-    "Microsoft.AspNetCore.Routing": "1.1.0",
+    "Microsoft.AspNetCore.Mvc.Versioning": "1.0.3",
     "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
     "Microsoft.Extensions.Configuration.EnvironmentVariables": "1.1.0",
     "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",
@@ -23,7 +22,7 @@
     "Serilog.Sinks.Console": "2.1.0",
     "Serilog.Formatting.Compact": "1.0.0",
     "System.Runtime.Serialization.Formatters": "4.3.0",
-    "Swashbuckle": "6.0.0-beta902",
+    "Swashbuckle.AspNetCore": "1.0.0-rc1",
     "VStore": {
       "target": "project"
     }
@@ -37,7 +36,8 @@
   },
   "runtimes": {
     "win10-x64": {},
-    "ubuntu.14.04-x64": {}
+    "ubuntu.14.04-x64": {},
+    "osx.10.11-x64": {}
   },
   "runtimeOptions": {
     "configProperties": {

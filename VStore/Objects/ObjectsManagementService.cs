@@ -22,26 +22,26 @@ using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ObjectManagementService
+    public sealed class ObjectsManagementService
     {
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
-        private readonly ObjectStorageReader _objectStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
+        private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
-        public ObjectManagementService(
+        public ObjectsManagementService(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader,
-            ObjectStorageReader objectStorageReader,
+            TemplatesStorageReader templatesStorageReader,
+            ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
             LockSessionFactory lockSessionFactory)
         {
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
-            _objectStorageReader = objectStorageReader;
+            _templatesStorageReader = templatesStorageReader;
+            _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.ObjectsBucketName;
@@ -49,14 +49,14 @@ namespace NuClear.VStore.Objects
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
-        public async Task<string> Create(long id, IObjectDescriptor objectDescriptor)
+        public async Task<string> Create(long id, string author, IObjectDescriptor objectDescriptor)
         {
             if (objectDescriptor.Language == Language.Unspecified)
             {
                 throw new InvalidOperationException("Language must be explicitly specified.");
             }
 
-            if (await _objectStorageReader.IsObjectExists(id))
+            if (await _objectsStorageReader.IsObjectExists(id))
             {
                 throw new ObjectAlreadyExistsException(id);
             }
@@ -64,10 +64,10 @@ namespace NuClear.VStore.Objects
             await EnsureObjectTemplateState(id, objectDescriptor);
             EnsureAllBinariesExist(id, objectDescriptor.Elements);
 
-            return await PutObject(id, objectDescriptor);
+            return await PutObject(id, author, objectDescriptor);
         }
 
-        public async Task<string> ModifyElement(long objectId, string versionId, IObjectDescriptor objectDescriptor)
+        public async Task<string> ModifyElement(long objectId, string versionId, string author, IObjectDescriptor objectDescriptor)
         {
             if (objectId == 0)
             {
@@ -86,7 +86,7 @@ namespace NuClear.VStore.Objects
                 await EnsureObjectState(descriptorKey, versionId);
                 EnsureAllBinariesExist(objectId, objectDescriptor.Elements);
 
-                return await PutObject(objectId, objectDescriptor);
+                return await PutObject(objectId, author, objectDescriptor);
             }
         }
 
@@ -165,11 +165,12 @@ namespace NuClear.VStore.Objects
                 });
         }
 
-        private async Task<string> PutObject(long id, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
+            MetadataCollectionWrapper metadataWrapper;
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
                 putRequest = new PutObjectRequest
@@ -180,20 +181,25 @@ namespace NuClear.VStore.Objects
                                      ContentBody = JsonConvert.SerializeObject(elementDescriptor, SerializerSettings.Default),
                                      CannedACL = S3CannedACL.PublicRead
                                  };
+
+                metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+                if (!string.IsNullOrEmpty(author))
+                {
+                    metadataWrapper.Write(MetadataElement.Author, author);
+                }
+
                 await _amazonS3.PutObjectAsync(putRequest);
             }
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
-            var objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
+            var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
                 {
                     TemplateId = objectDescriptor.TemplateId,
                     TemplateVersionId = objectDescriptor.TemplateVersionId,
                     Language = objectDescriptor.Language,
                     Properties = objectDescriptor.Properties,
-                    Elements = objectVersions
-                        .Where(x => !x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
-                        .ToArray()
+                    Elements = objectVersions.Where(x => !x.Key.EndsWith(Tokens.ObjectPostfix)).ToArray()
                 };
 
             putRequest = new PutObjectRequest
@@ -204,19 +210,26 @@ namespace NuClear.VStore.Objects
                                  ContentBody = JsonConvert.SerializeObject(objectPersistenceDescriptor, SerializerSettings.Default),
                                  CannedACL = S3CannedACL.PublicRead
                              };
+
+            metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+            if (!string.IsNullOrEmpty(author))
+            {
+                metadataWrapper.Write(MetadataElement.Author, author);
+            }
+
             await _amazonS3.PutObjectAsync(putRequest);
 
-            objectVersions = await _objectStorageReader.GetObjectLatestVersions(id);
-            return objectVersions.Where(x => x.Key.Equals(objectKey, StringComparison.OrdinalIgnoreCase))
-                .Select(x => x.VersionId)
-                .Single();
+            objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
+            return objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                                 .Select(x => x.VersionId)
+                                 .Single();
         }
 
         private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)
         {
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
 
-            var latestTemplateVersionId = await _templateStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+            var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
             if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +

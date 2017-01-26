@@ -6,6 +6,8 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.S3;
+
 namespace NuClear.VStore.Locks
 {
     public sealed class LockSession : IDisposable
@@ -39,7 +41,8 @@ namespace NuClear.VStore.Locks
                 new ListObjectsV2Request
                     {
                         BucketName = _bucketName,
-                        Prefix = _rootObjectId
+                        Prefix = _rootObjectId,
+                        MaxKeys = 1
                     });
 
             if (responseTask.Result.S3Objects.SingleOrDefault(o => o.Key == _rootObjectId) != null)
@@ -54,7 +57,7 @@ namespace NuClear.VStore.Locks
                                 {
                                     BucketName = _bucketName,
                                     Key = _rootObjectId,
-                                    ContentType = "application/json",
+                                    ContentType = ContentType.Json,
                                     ContentBody = content,
                                     CannedACL = S3CannedACL.PublicRead
                                 })

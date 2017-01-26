@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -40,51 +41,63 @@ namespace NuClear.VStore.Sessions
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
 
         public SessionManagementService(
             Uri fileStorageEndpointUri,
             string filesBucketName,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader)
+            TemplatesStorageReader templatesStorageReader)
         {
             _fileStorageEndpointUri = fileStorageEndpointUri;
             _filesBucketName = filesBucketName;
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
+            _templatesStorageReader = templatesStorageReader;
         }
 
-        public async Task<SessionSetupContext> Setup(long templateId, Language language)
+        public async Task<SessionContext> GetSessionContext(Guid sessionId)
+        {
+            var sessionDescriptorWrapper = await GetSessionDescriptor(sessionId);
+
+            var sessionDescriptor = (SessionDescriptor)sessionDescriptorWrapper;
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
+
+            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptorWrapper.Author, sessionDescriptorWrapper.ExpiresAt);
+        }
+
+        public async Task Setup(Guid sessionId, long templateId, Language language, string author)
         {
             if (language == Language.Unspecified)
             {
                 throw new SessionCannotBeCreatedException("Language must be explicitly specified.");
             }
 
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, null);
-
-            var setupContext = new SessionSetupContext(templateDescriptor);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, null);
             var sessionDescriptor = new SessionDescriptor
-                {
-                    TemplateId = templateDescriptor.Id,
-                    TemplateVersionId = templateDescriptor.VersionId,
-                    Language = language,
-                    BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
-                };
+                                        {
+                                            TemplateId = templateDescriptor.Id,
+                                            TemplateVersionId = templateDescriptor.VersionId,
+                                            Language = language,
+                                            BinaryElementTemplateCodes = templateDescriptor.GetBinaryElementTemplateCodes()
+                                        };
             var request = new PutObjectRequest
                               {
                                   BucketName = _filesBucketName,
-                                  Key = setupContext.Id.AsS3ObjectKey(Tokens.SessionPostfix),
+                                  Key = sessionId.AsS3ObjectKey(Tokens.SessionPostfix),
                                   CannedACL = S3CannedACL.PublicRead,
                                   ContentType = ContentType.Json,
                                   ContentBody = JsonConvert.SerializeObject(sessionDescriptor, SerializerSettings.Default)
                               };
+
+            var expiresAt = CurrentTime().AddDays(1);
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
-            metadataWrapper.Write(MetadataElement.ExpiresAt, setupContext.ExpiresAt);
+            metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
+            if (!string.IsNullOrEmpty(author))
+            {
+                metadataWrapper.Write(MetadataElement.Author, author);
+            }
 
             await _amazonS3.PutObjectAsync(request);
-
-            return setupContext;
         }
 
         public async Task<MultipartUploadSession> InitiateMultipartUpload(
@@ -99,7 +112,7 @@ namespace NuClear.VStore.Sessions
                 throw new InvalidOperationException($"Session '{sessionId}' does not exist");
             }
 
-            var sessionDescriptor = await GetSessionDescriptor(sessionId);
+            SessionDescriptor sessionDescriptor = await GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -132,7 +145,7 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+                    SessionDescriptor sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
@@ -174,7 +187,7 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            var sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+            SessionDescriptor sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {
@@ -206,6 +219,10 @@ namespace NuClear.VStore.Sessions
                 await _amazonS3.DeleteObjectAsync(_filesBucketName, uploadKey);
             }
         }
+
+        private static DateTime CurrentTime() => DateTime.UtcNow;
+
+        private static bool IsSessionExpired(DateTime expiresAt) => expiresAt <= CurrentTime();
 
         private static void EnsureFileHeaderIsValid(IElementDescriptor elementDescriptor, Stream inputStream)
         {
@@ -329,27 +346,30 @@ namespace NuClear.VStore.Sessions
             return EnumerateStatus.Continue;
         }
 
-        private async Task<bool> IsSessionExists(Guid sessionId)
+        private async Task<SessionDescriptorWrapper> GetSessionDescriptor(Guid sessionId)
         {
-            var response = await _amazonS3.ListObjectsAsync(
-                               new ListObjectsRequest
-                                   {
-                                       BucketName = _filesBucketName,
-                                       Prefix = sessionId.ToString()
-                                   });
-            return response.S3Objects.Count > 0;
-        }
-
-        private async Task<SessionDescriptor> GetSessionDescriptor(Guid sessionId)
-        {
-            var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (SessionSetupContext.IsSessionExpired(expiresAt))
+            GetObjectResponse objectResponse;
+            try
             {
-                throw new SessionExpiredException(sessionId);
+                objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
             }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+            }
+            catch (Exception ex)
+            {
+                throw new S3Exception(ex);
+            }
+
+            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
+            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (IsSessionExpired(expiresAt))
+            {
+                throw new SessionExpiredException(sessionId, expiresAt);
+            }
+
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
 
             string json;
             using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
@@ -357,13 +377,46 @@ namespace NuClear.VStore.Sessions
                 json = reader.ReadToEnd();
             }
 
-            return JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+            return new SessionDescriptorWrapper(sessionDescriptor, author, expiresAt);
+        }
+
+        private async Task<bool> IsSessionExists(Guid sessionId)
+        {
+            var response = await _amazonS3.ListObjectsAsync(
+                               new ListObjectsRequest
+                                   {
+                                       BucketName = _filesBucketName,
+                                       Prefix = sessionId.ToString(),
+                                       MaxKeys = 1
+                                   });
+            return response.S3Objects.Count > 0;
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)
         {
-            var templateDescriptor = await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             return templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
+        }
+
+        private sealed class SessionDescriptorWrapper
+        {
+            private readonly SessionDescriptor _sessionDescriptor;
+
+            public SessionDescriptorWrapper(SessionDescriptor sessionDescriptor, string author, DateTime expiresAt)
+            {
+                _sessionDescriptor = sessionDescriptor;
+                Author = author;
+                ExpiresAt = expiresAt;
+            }
+
+            public string Author { get; }
+            public DateTime ExpiresAt { get; }
+
+            public static implicit operator SessionDescriptor(SessionDescriptorWrapper wrapper)
+            {
+                return wrapper._sessionDescriptor;
+            }
         }
     }
 }
