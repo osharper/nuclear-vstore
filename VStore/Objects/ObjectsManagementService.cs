@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -52,51 +51,153 @@ namespace NuClear.VStore.Objects
 
         public async Task<string> Create(long id, string author, IObjectDescriptor objectDescriptor)
         {
-            if (objectDescriptor.Language == Language.Unspecified)
-            {
-                throw new InvalidOperationException("Language must be explicitly specified.");
-            }
+            CheckRequredProperties(id, objectDescriptor);
 
             if (await _objectsStorageReader.IsObjectExists(id))
             {
                 throw new ObjectAlreadyExistsException(id);
             }
 
-            await EnsureObjectTemplateState(id, objectDescriptor);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
+
+            var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+            if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
+                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
+            }
+
+            if (templateDescriptor.Elements.Count != objectDescriptor.Elements.Count)
+            {
+                throw new ObjectInconsistentException(
+                    id,
+                    $"Quantity of elements in the object doesn't match to the quantity of elements in the corresponding template with Id '{objectDescriptor.TemplateId}' and versionId '{objectDescriptor.TemplateVersionId}'.");
+            }
+
+            EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
+
             EnsureAllBinariesExist(id, objectDescriptor.Elements);
 
-            return await PutObject(id, author, objectDescriptor, null);
+            return await PutObject(id, author, objectDescriptor);
         }
 
-        public async Task<string> ModifyElement(
-            long objectId,
-            string versionId,
-            string author,
-            IObjectDescriptor objectDescriptor,
-            IReadOnlyCollection<long> modifiedElementIds)
+        public async Task<string> Modify(long id, string versionId, string author, IObjectDescriptor modifiedObjectDescriptor)
         {
-            if (objectId == 0)
-            {
-                throw new ArgumentException("Object Id must be set", nameof(objectId));
-            }
+            CheckRequredProperties(id, modifiedObjectDescriptor);
 
             if (string.IsNullOrEmpty(versionId))
             {
-                throw new ArgumentException("VersionId must be set", nameof(versionId));
+                throw new ArgumentException("Object version must be set", nameof(versionId));
             }
 
-            using (_lockSessionFactory.CreateLockSession(objectId))
+            using (_lockSessionFactory.CreateLockSession(id))
             {
-                var descriptorKey = objectId.AsS3ObjectKey(Tokens.ObjectPostfix);
-                await EnsureObjectTemplateState(objectId, objectDescriptor);
-                await EnsureObjectState(descriptorKey, versionId);
-                EnsureAllBinariesExist(objectId, objectDescriptor.Elements);
+                var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
+                if (objectDescriptor == null)
+                {
+                    throw new ObjectNotFoundException($"Object '{id}' not found.");
+                }
 
-                return await PutObject(objectId, author, objectDescriptor, modifiedElementIds);
+                var currentTemplateIds = new HashSet<long>(objectDescriptor.Elements.Select(x => x.Id));
+                var modifiedTemplateIds = new HashSet<long>(modifiedObjectDescriptor.Elements.Select(x => x.Id));
+                if (!modifiedTemplateIds.IsSubsetOf(currentTemplateIds))
+                {
+                    throw new ObjectInconsistentException(id, "Modified object contains non existing elements.");
+                }
+
+                EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
+                EnsureAllBinariesExist(id, modifiedObjectDescriptor.Elements);
+
+                return await PutObject(id, author, modifiedObjectDescriptor);
             }
         }
 
-        private IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
+        private static void EnsureObjectElementsState(
+            long objectId,
+            IReadOnlyCollection<IElementDescriptor> referenceElementDescriptors,
+            IEnumerable<IElementDescriptor> elementDescriptors)
+        {
+            foreach (var elementDescriptor in elementDescriptors)
+            {
+                var referenceObjectElements = referenceElementDescriptors.Where(x => x.TemplateCode == elementDescriptor.TemplateCode).ToArray();
+                if (referenceObjectElements.Length == 0)
+                {
+                    throw new ObjectInconsistentException(objectId, $"Element with template code '{elementDescriptor.TemplateCode}' not found in the object.");
+                }
+
+                if (referenceObjectElements.Length > 1)
+                {
+                    throw new ObjectInconsistentException(objectId, $"Element with template code '{elementDescriptor.TemplateCode}' must be unique within the object.");
+                }
+
+                var referenceObjectElement = referenceObjectElements[0];
+                if (referenceObjectElement.Type != elementDescriptor.Type)
+                {
+                    throw new ObjectInconsistentException(
+                        objectId,
+                        $"Type of the element with template code '{referenceObjectElement.TemplateCode}' ({referenceObjectElement.Type}) doesn't match to the type of corresponding element in template ({elementDescriptor.Type}).");
+                }
+
+                if (!referenceObjectElement.Constraints.Equals(elementDescriptor.Constraints))
+                {
+                    throw new ObjectInconsistentException(
+                        objectId,
+                        $"Constraints for the element with template code '{referenceObjectElement.TemplateCode} doesn't match to constraints for corresponding element in template.");
+                }
+            }
+        }
+
+        private static void CheckRequredProperties(long id, IObjectPersistenceDescriptor objectDescriptor)
+        {
+            if (id <= 0)
+            {
+                throw new ArgumentException("Object Id must be set", nameof(id));
+            }
+
+            if (objectDescriptor.Language == Language.Unspecified)
+            {
+                throw new ArgumentException("Language must be specified.", nameof(objectDescriptor.Language));
+            }
+
+            if (objectDescriptor.TemplateId <= 0)
+            {
+                throw new ArgumentException("Template Id must be specified", nameof(objectDescriptor.TemplateId));
+            }
+
+            if (string.IsNullOrEmpty(objectDescriptor.TemplateVersionId))
+            {
+                throw new ArgumentException("Template versionId must be specified", nameof(objectDescriptor.TemplateVersionId));
+            }
+
+            if (objectDescriptor.Properties == null)
+            {
+                throw new ArgumentException("Object properties must be specified", nameof(objectDescriptor.Properties));
+            }
+        }
+
+        private static void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        {
+            Parallel.ForEach(
+                elementDescriptors,
+                elementDescriptor =>
+                {
+                    var errors = new List<ObjectElementValidationError>();
+                    var constraints = elementDescriptor.Constraints.For(language);
+                    var rules = GetVerificationRules(elementDescriptor, constraints);
+
+                    foreach (var validationRule in rules)
+                    {
+                        errors.AddRange(validationRule(elementDescriptor.Value, constraints));
+                    }
+
+                    if (errors.Count > 0)
+                    {
+                        throw new InvalidObjectElementException(objectId, elementDescriptor.Id, errors);
+                    }
+                });
+        }
+
+        private static IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
         {
             switch (descriptor.Type)
             {
@@ -149,52 +250,27 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private void EnsureAllBinariesExist(long id, IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            Parallel.ForEach(
-                elementDescriptors,
-                elementDescriptor =>
-                {
-                    var errors = new List<ObjectElementValidationError>();
-                    var constraints = elementDescriptor.Constraints.For(language);
-                    var rules = GetVerificationRules(elementDescriptor, constraints);
-
-                    foreach (var validationRule in rules)
-                    {
-                        errors.AddRange(validationRule(elementDescriptor.Value, constraints));
-                    }
-
-                    if (errors.Count > 0)
-                    {
-                        throw new InvalidObjectElementException(objectId, elementDescriptor.Id, errors);
-                    }
-                });
+            Parallel.ForEach(objectElements,
+                             objectElement =>
+                             {
+                                 var binaryValue = objectElement.Value as IBinaryElementValue;
+                                 if (!string.IsNullOrEmpty(binaryValue?.Raw) && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
+                                 {
+                                     throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
+                                 }
+                             });
         }
 
-        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor, IReadOnlyCollection<long> modifiedElementIds)
+        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
-            IReadOnlyCollection<IObjectElementDescriptor> modifiedElements;
-            if (modifiedElementIds != null)
-            {
-                var isSubset = new HashSet<long>(modifiedElementIds).IsSubsetOf(new HashSet<long>(objectDescriptor.Elements.Select(x => x.Id)));
-                if (!isSubset)
-                {
-                    throw new ArgumentException("Specified modified elements must be fully included by object elements", nameof(modifiedElementIds));
-                }
-
-                modifiedElements = objectDescriptor.Elements.Where(x => modifiedElementIds.Contains(x.Id)).ToArray();
-            }
-            else
-            {
-                modifiedElements = objectDescriptor.Elements;
-            }
-
-            VerifyObjectElementsConsistency(id, objectDescriptor.Language, modifiedElements);
+            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
 
-            foreach (var elementDescriptor in modifiedElements)
+            foreach (var elementDescriptor in objectDescriptor.Elements)
             {
                 putRequest = new PutObjectRequest
                                  {
@@ -240,85 +316,14 @@ namespace NuClear.VStore.Objects
                 metadataWrapper.Write(MetadataElement.Author, author);
             }
 
+            metadataWrapper.Write(MetadataElement.ModifiedElements, string.Join(";", objectDescriptor.Elements.Select(x => x.TemplateCode)));
+
             await _amazonS3.PutObjectAsync(putRequest);
 
             objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             return objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
                                  .Select(x => x.VersionId)
                                  .Single();
-        }
-
-        private async Task EnsureObjectTemplateState(long id, IObjectDescriptor objectDescriptor)
-        {
-            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
-
-            var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
-            if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
-                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
-            }
-
-            if (templateDescriptor.Elements.Count != objectDescriptor.Elements.Count)
-            {
-                throw new ObjectInconsistentException(id, "Number of elements in the object doesn't match to the number of elements in corresponding template " +
-                                                          $"with Id '{templateDescriptor.Id}' and Version Id '{templateDescriptor.VersionId}'.");
-            }
-
-            foreach (var templateElement in templateDescriptor.Elements)
-            {
-                var objectElements = objectDescriptor.Elements.Where(x => x.TemplateCode == templateElement.TemplateCode).ToArray();
-                if (objectElements.Length == 0)
-                {
-                    throw new ObjectInconsistentException(id, $"Element with template code '{templateElement.TemplateCode}' not found in the object.");
-                }
-
-                if (objectElements.Length > 1)
-                {
-                    throw new ObjectInconsistentException(id, $"Element with template code '{templateElement.TemplateCode}' must be unique within the object.");
-                }
-
-                var objectElement = objectElements[0];
-                if (objectElement.Type != templateElement.Type)
-                {
-                    throw new ObjectInconsistentException(id, $"Type of the element with template code '{objectElement.TemplateCode}' ({objectElement.Type}) " +
-                                                              $"doesn't match to the type of corresponding element in template ({templateElement.Type}).");
-                }
-
-                if (!objectElement.Constraints.Equals(templateElement.Constraints))
-                {
-                    throw new ObjectInconsistentException(id, $"Constraints for the element with template code '{objectElement.TemplateCode}' " +
-                                                              "doesn't match to constraints for corresponding element in template.");
-                }
-            }
-        }
-
-        private void EnsureAllBinariesExist(long id, IEnumerable<IObjectElementDescriptor> objectElements)
-        {
-            Parallel.ForEach(objectElements,
-                             objectElement =>
-                                 {
-                                     var binaryValue = objectElement.Value as IBinaryElementValue;
-                                     if (!string.IsNullOrEmpty(binaryValue?.Raw) && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
-                                     {
-                                         throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
-                                     }
-                                 });
-        }
-
-        private async Task EnsureObjectState(string key, string versionId)
-        {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, key);
-            if (versionsResponse.Versions.Count == 0)
-            {
-                throw new ObjectNotFoundException($"Object '{key}' not found.");
-            }
-
-            var latestVersionId = versionsResponse.Versions.Find(x => x.IsLatest).VersionId;
-            if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
-            {
-                throw new ConcurrencyException(key, versionId, latestVersionId);
-            }
         }
     }
 }

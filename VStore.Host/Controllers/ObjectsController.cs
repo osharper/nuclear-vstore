@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -202,7 +200,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(404)]
@@ -213,7 +211,6 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
-            [FromHeader(Name = Headers.HeaderNames.AmsModifiedElements)] IReadOnlyCollection<string> modifiedElements,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
             if (string.IsNullOrEmpty(ifMatch))
@@ -231,36 +228,9 @@ namespace NuClear.VStore.Host.Controllers
                 return BadRequest("Object descriptor must be set.");
             }
 
-            IReadOnlyCollection<long> modifiedElementIds = null;
-            if (modifiedElements != null)
-            {
-                if (modifiedElements.Count == 0)
-                {
-                    return BadRequest($"'{Headers.HeaderNames.AmsModifiedElements}' request header must contain value.");
-                }
-
-                modifiedElementIds = modifiedElements.Aggregate(
-                    new List<long>(),
-                    (result, next) =>
-                        {
-                            long elementId;
-                            if (long.TryParse(next, out elementId))
-                            {
-                                result.Add(elementId);
-                            }
-
-                            return result;
-                        });
-
-                if (modifiedElementIds.Count != modifiedElements.Count)
-                {
-                    return BadRequest($"'{Headers.HeaderNames.AmsModifiedElements}' request header value has the unexpected format.");
-                }
-            }
-
             try
             {
-                var latestVersionId = await _objectsManagementService.ModifyElement(id, ifMatch, author, objectDescriptor, modifiedElementIds);
+                var latestVersionId = await _objectsManagementService.Modify(id, ifMatch, author, objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = latestVersionId;

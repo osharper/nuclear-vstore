@@ -10,6 +10,7 @@
         ExpiresAt,
         Filename,
         Title,
-        Author
+        Author,
+        ModifiedElements
     }
 }
