@@ -112,7 +112,8 @@ namespace NuClear.VStore.Objects
                                    new ListObjectsV2Request
                                    {
                                        BucketName = _bucketName,
-                                       Prefix = id.ToString()
+                                       MaxKeys = 1,
+                                       Prefix = id.ToString() + "/" + Tokens.ObjectPostfix
                                    });
             return listResponse.S3Objects.Count != 0;
         }
