@@ -92,10 +92,15 @@ namespace NuClear.VStore.Objects
 
             using (_lockSessionFactory.CreateLockSession(id))
             {
-                var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
+                var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
                 if (objectDescriptor == null)
                 {
                     throw new ObjectNotFoundException($"Object '{id}' not found.");
+                }
+
+                if (!versionId.Equals(objectDescriptor.VersionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ConcurrencyException(id, versionId, objectDescriptor.VersionId);
                 }
 
                 var currentTemplateIds = new HashSet<long>(objectDescriptor.Elements.Select(x => x.Id));
