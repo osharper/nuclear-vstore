@@ -100,7 +100,7 @@ namespace NuClear.VStore.Templates
                 var latestVersionId = await _templatesStorageReader.GetTemplateLatestVersion(id);
                 if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
                 {
-                    throw new ConcurrencyException(id.ToString(), versionId, latestVersionId);
+                    throw new ConcurrencyException(id, versionId, latestVersionId);
                 }
 
                 await PutTemplate(id, author, templateDescriptor);

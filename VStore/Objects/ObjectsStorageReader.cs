@@ -82,11 +82,12 @@ namespace NuClear.VStore.Objects
                 persistenceDescriptor.Elements,
                 objectVersion =>
                     {
-                        ObjectElementDescriptor elementDescriptor = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
+                        var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
+                        var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
 
                         elementDescriptor.Id = objectVersion.Key.AsObjectId();
                         elementDescriptor.VersionId = objectVersion.VersionId;
-                        elementDescriptor.LastModified = elementDescriptor.LastModified;
+                        elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
 
                         elements.Add(elementDescriptor);
                     });

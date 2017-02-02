@@ -200,7 +200,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(404)]
@@ -230,7 +230,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _objectsManagementService.ModifyElement(id, ifMatch, author, objectDescriptor);
+                var latestVersionId = await _objectsManagementService.Modify(id, ifMatch, author, objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = latestVersionId;

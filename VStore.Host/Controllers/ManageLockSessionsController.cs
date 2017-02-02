@@ -20,6 +20,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
+        [ResponseCache(NoStore = true)]
         [ProducesResponseType(typeof(IReadOnlyCollection<string>), 200)]
         public async Task<IActionResult> ListAllCurrentLockSessios()
         {
