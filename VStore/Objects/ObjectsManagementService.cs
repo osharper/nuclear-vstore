@@ -53,32 +53,36 @@ namespace NuClear.VStore.Objects
         {
             CheckRequredProperties(id, objectDescriptor);
 
-            if (await _objectsStorageReader.IsObjectExists(id))
+            using (_lockSessionFactory.CreateLockSession(id))
             {
-                throw new ObjectAlreadyExistsException(id);
+                if (await _objectsStorageReader.IsObjectExists(id))
+                {
+                    throw new ObjectAlreadyExistsException(id);
+                }
+
+                var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
+
+                var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
+                if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
+                        $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
+                }
+
+                if (templateDescriptor.Elements.Count != objectDescriptor.Elements.Count)
+                {
+                    throw new ObjectInconsistentException(
+                        id,
+                        $"Quantity of elements in the object doesn't match to the quantity of elements in the corresponding template with Id '{objectDescriptor.TemplateId}' and versionId '{objectDescriptor.TemplateVersionId}'.");
+                }
+
+                EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
+
+                EnsureAllBinariesExist(id, objectDescriptor.Elements);
+
+                return await PutObject(id, author, objectDescriptor);
             }
-
-            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(objectDescriptor.TemplateId, objectDescriptor.TemplateVersionId);
-
-            var latestTemplateVersionId = await _templatesStorageReader.GetTemplateLatestVersion(objectDescriptor.TemplateId);
-            if (!templateDescriptor.VersionId.Equals(latestTemplateVersionId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"Template '{objectDescriptor.TemplateId}' has an outdated version. " +
-                                                    $"Latest versionId for template '{objectDescriptor.TemplateId}' is '{latestTemplateVersionId}'.");
-            }
-
-            if (templateDescriptor.Elements.Count != objectDescriptor.Elements.Count)
-            {
-                throw new ObjectInconsistentException(
-                    id,
-                    $"Quantity of elements in the object doesn't match to the quantity of elements in the corresponding template with Id '{objectDescriptor.TemplateId}' and versionId '{objectDescriptor.TemplateVersionId}'.");
-            }
-
-            EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
-
-            EnsureAllBinariesExist(id, objectDescriptor.Elements);
-
-            return await PutObject(id, author, objectDescriptor);
         }
 
         public async Task<string> Modify(long id, string versionId, string author, IObjectDescriptor modifiedObjectDescriptor)
