@@ -49,7 +49,7 @@ namespace NuClear.VStore.Host.Controllers
                             templateCode
                         }));
 
-                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
                 Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
                 return Json(
@@ -102,7 +102,7 @@ namespace NuClear.VStore.Host.Controllers
                 await _sessionManagementService.Setup(sessionId, templateId, null, language, author);
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
-                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 return Created(url,  null);
             }
             catch (ObjectNotFoundException ex)
@@ -141,7 +141,7 @@ namespace NuClear.VStore.Host.Controllers
                 await _sessionManagementService.Setup(sessionId, templateId, templateVersionId, language, author);
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
-                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 return Created(url,  null);
             }
             catch (ObjectNotFoundException ex)

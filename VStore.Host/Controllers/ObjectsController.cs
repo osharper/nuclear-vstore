@@ -43,7 +43,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var templateDescriptor = await _objectsStorageReader.GetTemplateDescriptor(id, versionId);
 
-                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{templateDescriptor.VersionId}\"";
                 Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
                 return Json(templateDescriptor);
             }
@@ -68,10 +68,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
 
-                Response.Headers[HeaderNames.ETag] = objectDescriptor.VersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{objectDescriptor.VersionId}\"";
                 Response.Headers[HeaderNames.LastModified] = objectDescriptor.LastModified.ToString("R");
 
-                if (ifNoneMatch == objectDescriptor.VersionId)
+                if (!string.IsNullOrEmpty(ifNoneMatch) && ifNoneMatch.Trim('"') == objectDescriptor.VersionId)
                 {
                     return NotModified();
                 }
@@ -111,7 +111,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, versionId);
 
-                Response.Headers[HeaderNames.ETag] = objectDescriptor.VersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{objectDescriptor.VersionId}\"";
                 Response.Headers[HeaderNames.LastModified] = objectDescriptor.LastModified.ToString("R");
                 return Json(
                     new
@@ -167,7 +167,7 @@ namespace NuClear.VStore.Host.Controllers
                 var versionId = await _objectsManagementService.Create(id, author, objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId });
 
-                Response.Headers[HeaderNames.ETag] = versionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
                 return Created(url, null);
             }
             catch (AggregateException ex)
@@ -213,6 +213,7 @@ namespace NuClear.VStore.Host.Controllers
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
+            ifMatch = ifMatch.Trim('"');
             if (string.IsNullOrEmpty(ifMatch))
             {
                 return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
@@ -233,7 +234,7 @@ namespace NuClear.VStore.Host.Controllers
                 var latestVersionId = await _objectsManagementService.Modify(id, ifMatch, author, objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
-                Response.Headers[HeaderNames.ETag] = latestVersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";
                 return NoContent(url);
             }
             catch (AggregateException ex)
