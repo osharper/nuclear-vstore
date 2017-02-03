@@ -88,8 +88,8 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
-            long templateId,
-            Language language)
+            Language language,
+            long templateId)
         {
             if (string.IsNullOrEmpty(author))
             {
@@ -126,9 +126,9 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            Language language,
             long templateId,
-            string templateVersionId,
-            Language language)
+            string templateVersionId)
         {
             if (string.IsNullOrEmpty(author))
             {
