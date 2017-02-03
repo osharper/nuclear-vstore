@@ -62,17 +62,17 @@ namespace NuClear.VStore.Sessions
             var sessionDescriptor = (SessionDescriptor)sessionDescriptorWrapper;
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
-            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptorWrapper.Author, sessionDescriptorWrapper.ExpiresAt);
+            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptor.Language, sessionDescriptorWrapper.Author, sessionDescriptorWrapper.ExpiresAt);
         }
 
-        public async Task Setup(Guid sessionId, long templateId, Language language, string author)
+        public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, string author)
         {
             if (language == Language.Unspecified)
             {
                 throw new SessionCannotBeCreatedException("Language must be explicitly specified.");
             }
 
-            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, null);
+            var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             var sessionDescriptor = new SessionDescriptor
                                         {
                                             TemplateId = templateDescriptor.Id,

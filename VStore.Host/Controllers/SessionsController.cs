@@ -52,17 +52,20 @@ namespace NuClear.VStore.Host.Controllers
                 Response.Headers[HeaderNames.ETag] = sessionId.ToString();
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
                 Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
-                return Json(new
-                {
-                    Template = new
-                    {
-                        Id = sessionContext.TemplateId,
-                        templateDescriptor.VersionId,
-                        templateDescriptor.Properties,
-                        templateDescriptor.Elements
-                    },
-                    uploadUrls
-                });
+                return Json(
+                    new
+                        {
+                            sessionContext.Language,
+                            Template = new
+                                           {
+                                               Id = sessionContext.TemplateId,
+                                               templateDescriptor.VersionId,
+                                               templateDescriptor.Author,
+                                               templateDescriptor.Properties,
+                                               templateDescriptor.Elements
+                                           },
+                            uploadUrls
+                        });
             }
             catch (ObjectNotFoundException ex)
             {
@@ -78,15 +81,15 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{templateId}/{language}")]
+        [HttpPost("{language}/{templateId}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
-            long templateId,
-            Language language)
+            Language language,
+            long templateId)
         {
             if (string.IsNullOrEmpty(author))
             {
@@ -96,7 +99,46 @@ namespace NuClear.VStore.Host.Controllers
             try
             {
                 var sessionId = Guid.NewGuid();
-                await _sessionManagementService.Setup(sessionId, templateId, language, author);
+                await _sessionManagementService.Setup(sessionId, templateId, null, language, author);
+                var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
+
+                Response.Headers[HeaderNames.ETag] = sessionId.ToString();
+                return Created(url,  null);
+            }
+            catch (ObjectNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (SessionCannotBeCreatedException ex)
+            {
+                return Unprocessable(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while setup session");
+            }
+        }
+
+        [HttpPost("{language}/{templateId}/{templateVersionId}")]
+        [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(string), 422)]
+        public async Task<IActionResult> SetupSession(
+            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            Language language,
+            long templateId,
+            string templateVersionId)
+        {
+            if (string.IsNullOrEmpty(author))
+            {
+                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+            }
+
+            try
+            {
+                var sessionId = Guid.NewGuid();
+                await _sessionManagementService.Setup(sessionId, templateId, templateVersionId, language, author);
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
                 Response.Headers[HeaderNames.ETag] = sessionId.ToString();
