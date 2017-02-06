@@ -19,7 +19,7 @@ DEIS_CLIENT_CONFIG ?= $(DEIS_PROFILE).json
 DEIS_APPLICATION ?= $(APPLICATION)
 DEIS_MEMORY_LIMITS ?= Unlimited
 
-DEIS ?= deis
+DEIS ?= deis2
 
 # В deis есть ограничение на название приложения, поэтому пофильтруем его
 DEIS_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g' )

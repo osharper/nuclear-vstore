@@ -55,7 +55,7 @@ build:image:
 # ================ Deploy =================
 
 deploy:staging-01:
-  image: $REGISTRY/2gis/deis-client:1.13
+  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: staging
   when: manual
@@ -76,7 +76,7 @@ deploy:staging-01:
     - docker
 
 deploy:staging-02:
-  image: $REGISTRY/2gis/deis-client:1.13
+  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: staging
   when: manual
@@ -97,7 +97,7 @@ deploy:staging-02:
     - docker
 
 deploy:staging-03:
-  image: $REGISTRY/2gis/deis-client:1.13
+  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: staging
   when: manual
@@ -118,7 +118,7 @@ deploy:staging-03:
     - docker
 
 deploy:production-n3:
-  image: $REGISTRY/2gis/deis-client:1.13
+  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: production
   when: manual
