@@ -213,7 +213,6 @@ namespace NuClear.VStore.Host.Controllers
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
-            ifMatch = ifMatch.Trim('"');
             if (string.IsNullOrEmpty(ifMatch))
             {
                 return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
@@ -231,7 +230,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _objectsManagementService.Modify(id, ifMatch, author, objectDescriptor);
+                var latestVersionId = await _objectsManagementService.Modify(id, ifMatch.Trim('"'), author, objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";

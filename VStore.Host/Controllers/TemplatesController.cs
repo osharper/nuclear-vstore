@@ -208,7 +208,6 @@ namespace NuClear.VStore.Host.Controllers
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            ifMatch = ifMatch.Trim('"');
             if (string.IsNullOrEmpty(ifMatch))
             {
                 return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
@@ -226,7 +225,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, author, templateDescriptor);
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch.Trim('"'), author, templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";
