@@ -67,10 +67,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, null);
 
-                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{templateDescriptor.VersionId}\"";
                 Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
 
-                if (ifNoneMatch == templateDescriptor.VersionId)
+                if (!string.IsNullOrEmpty(ifNoneMatch) && ifNoneMatch.Trim('"') == templateDescriptor.VersionId)
                 {
                     return NotModified();
                 }
@@ -106,7 +106,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(id, versionId);
 
-                Response.Headers[HeaderNames.ETag] = templateDescriptor.VersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{templateDescriptor.VersionId}\"";
                 Response.Headers[HeaderNames.LastModified] = templateDescriptor.LastModified.ToString("R");
                 return Json(
                     new
@@ -183,7 +183,7 @@ namespace NuClear.VStore.Host.Controllers
                 var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId });
 
-                Response.Headers[HeaderNames.ETag] = versionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
                 return Created(url, null);
             }
             catch (ObjectAlreadyExistsException)
@@ -225,10 +225,10 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch, author, templateDescriptor);
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch.Trim('"'), author, templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId = latestVersionId });
 
-                Response.Headers[HeaderNames.ETag] = latestVersionId;
+                Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";
                 return NoContent(url);
             }
             catch (ObjectNotFoundException)
