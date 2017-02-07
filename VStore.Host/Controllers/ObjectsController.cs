@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +9,7 @@ using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
@@ -54,6 +57,21 @@ namespace NuClear.VStore.Host.Controllers
             catch (Exception ex)
             {
                 return InternalServerError(ex, "Unexpected error while getting template for the object with id '{id}' and versionId {versionId}", id, versionId);
+            }
+        }
+
+        [HttpGet("{id}/versions")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
+        public async Task<IActionResult> GetVersions(long id)
+        {
+            try
+            {
+                var versions = await _objectsStorageReader.GetAllObjectRootVersions(id);
+                return Json(versions);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Error occured while getting versions for the object with id '{id}'", id);
             }
         }
 
