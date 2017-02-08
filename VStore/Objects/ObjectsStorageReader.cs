@@ -65,7 +65,7 @@ namespace NuClear.VStore.Objects
                     };
 
             var response = await listVersions(null);
-            if (response.Versions.Count == 0)
+            if (versions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
