@@ -38,14 +38,19 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(string startAfter)
+        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(long startAfter)
         {
-            var listResponse = await _amazonS3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName, StartAfter = startAfter });
+            var listResponse = await _amazonS3.ListObjectsV2Async(
+                                   new ListObjectsV2Request
+                                       {
+                                           BucketName = _bucketName,
+                                           StartAfter = startAfter.ToString() + "/" + Tokens.ObjectPostfix
+                                       });
 
             var descriptors = new ConcurrentBag<IdentifyableObjectDescriptor<long>>();
             Parallel.ForEach(
                 listResponse.S3Objects.FindAll(x => x.Key.EndsWith(Tokens.ObjectPostfix)),
-                obj => descriptors.Add(new IdentifyableObjectDescriptor<long>(obj.Key.AsObjectId(), obj.LastModified)));
+                obj => descriptors.Add(new IdentifyableObjectDescriptor<long>(obj.Key.AsRootObjectId(), obj.LastModified)));
 
             return descriptors.OrderBy(x => x.LastModified).ToArray();
         }
@@ -54,6 +59,38 @@ namespace NuClear.VStore.Objects
         {
             ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
+        }
+
+        public async Task<IReadOnlyCollection<VersionedObjectDescriptor<long>>> GetAllObjectRootVersions(long id)
+        {
+            var versions = new List<VersionedObjectDescriptor<long>>();
+
+            Func<string, Task<ListVersionsResponse>> listVersions =
+                async nextVersionIdMarker =>
+                    {
+                        var versionsResponse = await _amazonS3.ListVersionsAsync(
+                                                   new ListVersionsRequest
+                                                       {
+                                                           BucketName = _bucketName,
+                                                           Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                                                           VersionIdMarker = nextVersionIdMarker
+                                                       });
+                        versions.AddRange(versionsResponse.Versions.Select(x => new VersionedObjectDescriptor<long>(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)));
+                        return versionsResponse;
+                    };
+
+            var response = await listVersions(null);
+            if (versions.Count == 0)
+            {
+                throw new ObjectNotFoundException($"Object '{id}' not found.");
+            }
+
+            while (response.IsTruncated)
+            {
+                response = await listVersions(response.NextVersionIdMarker);
+            }
+
+            return versions;
         }
 
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
@@ -96,7 +133,7 @@ namespace NuClear.VStore.Objects
                         var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Id, objectVersion.VersionId).Result;
                         var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
 
-                        elementDescriptor.Id = objectVersion.Id.AsObjectId();
+                        elementDescriptor.Id = objectVersion.Id.AsSubObjectId();
                         elementDescriptor.VersionId = objectVersion.VersionId;
                         elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
 

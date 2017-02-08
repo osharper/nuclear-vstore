@@ -37,7 +37,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
-        public async Task<IActionResult> List1([FromQuery]string startAfter)
+        public async Task<IActionResult> List([FromQuery]long startAfter)
         {
             try
             {
@@ -70,6 +70,26 @@ namespace NuClear.VStore.Host.Controllers
             catch (Exception ex)
             {
                 return InternalServerError(ex, "Unexpected error while getting template for the object with id '{id}' and versionId {versionId}", id, versionId);
+            }
+        }
+
+        [HttpGet("{id}/versions")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<VersionedObjectDescriptor<long>>), 200)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetVersions(long id)
+        {
+            try
+            {
+                var versions = await _objectsStorageReader.GetAllObjectRootVersions(id);
+                return Json(versions);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Error occured while getting versions for the object with id '{id}'", id);
             }
         }
 
