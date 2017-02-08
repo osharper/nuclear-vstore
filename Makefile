@@ -11,18 +11,28 @@ TAG ?= latest
 
 export DEIS_PROFILE
 
-DEIS_CONTROLLER ?= http://deis.web.2gis.local
-DEIS_SCALE ?= cmd=1
+DEIS ?= deis
+
+DEIS2_CONTROLLER ?= http://deis.web-staging.2gis.ru
 DEIS_ENV_FILE ?= .env
 DEIS_PROFILE ?= client
-DEIS_CLIENT_CONFIG ?= $(DEIS_PROFILE).json
+DEIS2_CLIENT_CONFIG ?= $(DEIS_PROFILE).json
 DEIS_APPLICATION ?= $(APPLICATION)
-DEIS_MEMORY_LIMITS ?= Unlimited
 
-DEIS ?= deis2
+DEIS2_MEMORY_LIMITS ?= cmd=256M/512M
+DEIS2_CPU_LIMITS ?= cmd=100m/200m
+DEIS2_SCALE ?= cmd=1
+DEIS2_CONFIG_SET_PARAMS ?=
+
+DEIS2_HEALTHCHECK_TYPE ?= readiness
+DEIS2_HEALTHCHECK_PORT ?= 5000
+DEIS2_HEALTHCHECK_PATH ?= /
+DEIS2_HEALTHCHECK_INITIAL_DELAY_TIMEOUT ?= 50
+
+DEIS2_PERMS_CREATE_USERS ?=
 
 # В deis есть ограничение на название приложения, поэтому пофильтруем его
-DEIS_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g' )
+DEIS2_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g' )
 
 TAG_FILTER = $(shell echo $(TAG) | tr '[:upper:]' '[:lower:]' | sed -e 's/\//-/g' )
 
@@ -57,90 +67,117 @@ docker-push:
 # Deis commands
 #
 
-.PHONY: deis-create
-deis-create:
-	@echo "Check application for create..."
-	@IS_APP_EXIST=`$(DEIS) apps:list | grep '^$(DEIS_APPLICATION_FILTER)$$'`; \
-	if [ -z "$${IS_APP_EXIST}" ]; then \
-		echo "Create app $(DEIS_APPLICATION_FILTER)..." ; \
-		$(DEIS) create $(DEIS_APPLICATION_FILTER) --no-remote || exit 1; \
-	else \
-		echo "Application $(DEIS_APPLICATION_FILTER) exist!" ; \
-	fi;
+# deis2-common - это общий target, который выполняет команды и умеет коректно пропускать выбранные ошибки.
+# Например, если вызвать deis config:push, при этом ничего не изменилось в конфигах, то платформа вернет
+# Creating config... Error: Unknown Error (409): {"detail":"k.sidenko changed nothing - release stopped"}
+# и при этом exit code будет равен 1. С т.з. логики приложения это нормальная ситуация.
+.PHONY: deis2-common
+deis2-common: DEIS2_ERROR_SKIP ?= changed nothing - release stopped
+deis2-common:
+	printf "$(DEIS2_CMD)..."
+	@status=0 ; err=$$(($(DEIS2_CMD)) 2>&1) || status=$$? ; \
+	message="ok." ; \
+	if [[ $$err =~ "$(DEIS2_ERROR_SKIP)" ]]; then err=""; message="already done, skipped." ; status=0; fi; \
+	if [ $$status -ne 0 ]; then message="fail"; fi; \
+	printf "$$message\n$$err\n" ; \
+	exit $$status
 
-.PHONY: deis-pull
-deis-pull:
-	$(DEIS) pull "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)" -a $(DEIS_APPLICATION_FILTER)
+.PHONY: deis2-create
+deis2-create: DEIS2_ERROR_SKIP = Application with this id already exists
+deis2-create:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) create $(DEIS2_APPLICATION_FILTER) --no-remote" DEIS2_ERROR_SKIP="$(DEIS2_ERROR_SKIP)"
 
-.PHONY: deis-info
-deis-info:
-	$(DEIS) info -a $(DEIS_APPLICATION_FILTER)
+.PHONY: deis2-destroy
+deis2-destroy: DEIS2_ERROR_SKIP = Not Found
+deis2-destroy:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) destroy --confirm=$(DEIS2_APPLICATION_FILTER) -a $(DEIS2_APPLICATION_FILTER)" DEIS2_ERROR_SKIP="$(DEIS2_ERROR_SKIP)"
 
-.PHONY: deis-apps-check
-deis-apps-check:
-	@echo "Check application '$(DEIS_APPLICATION_FILTER)' ..."
-	@APP_INFO=`$(DEIS) apps:info -a $(DEIS_APPLICATION_FILTER)`; \
+.PHONY: deis2-pull
+deis2-pull:
+	$(DEIS) pull "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)" -a $(DEIS2_APPLICATION_FILTER)
+
+.PHONY: deis2-info
+deis2-info:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) info -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-processes-check
+deis2-processes-check:
+	@printf "Check application '$(DEIS2_APPLICATION_FILTER)' processes..."
+	@APP_INFO=`$(DEIS) apps:info -a $(DEIS2_APPLICATION_FILTER)`; \
 	IS_APP_DESTROYED=`echo $$APP_INFO | grep ' destroyed '`; \
 	if [ ! -z "$${IS_APP_DESTROYED}" ]; then \
-		echo "Application '$(DEIS_APPLICATION_FILTER)' is destroyed!" ; \
+		printf "fail\nApplication '$(DEIS2_APPLICATION_FILTER)' is destroyed!\n" ; \
 		exit 1; \
 	fi; \
 	IS_APP_DOWN=`echo $$APP_INFO | grep ' down '`; \
 	if [ ! -z "$${IS_APP_DOWN}" ]; then \
-		echo "Application '$(DEIS_APPLICATION_FILTER)' is down!" ; \
+		printf "fail\nApplication '$(DEIS2_APPLICATION_FILTER)' is down!\n" ; \
 		exit 1; \
 	fi; \
-	IS_APP_ALIVE=`echo $$APP_INFO | grep ' up '`;\
-	if [ -z "$${IS_APP_ALIVE}" ]; then \
-		echo "Application '$(DEIS_APPLICATION_FILTER)' is not running!" ; \
+	IS_APP_RUNNING=`echo $$APP_INFO | grep ' up '`;\
+	if [ -z "$${IS_APP_RUNNING}" ]; then \
+		printf "fail\nApplication '$(DEIS2_APPLICATION_FILTER)' is not running!\n" ; \
 		exit 1; \
 	fi; \
-	echo "ok"
+	printf "ok\n"
 
-.PHONY: deis-config-create
-deis-config-create:
+.PHONY: deis2-config-create
+deis2-config-create:
 	@mkdir -p ~/.deis/
-	@echo "{ \"username\": \"$(DEIS_USERNAME)\", \"ssl_verify\": false, \"controller\":\"$(DEIS_CONTROLLER)\", \"token\": \"$(DEIS_TOKEN)\" }" > ~/.deis/$(DEIS_CLIENT_CONFIG)
+	@echo "{ \"username\": \"$(DEIS2_USERNAME)\", \"ssl_verify\": false, \"controller\":\"$(DEIS2_CONTROLLER)\", \"token\": \"$(DEIS2_TOKEN)\" }" > ~/.deis/$(DEIS2_CLIENT_CONFIG)
 
-.PHONY: deis-config-push
-deis-config-push:
-	@echo "Check config..."
-	@NEW_CONFIG=`cat $(DEIS_ENV_FILE) | sort | md5sum -` ; \
-	OLD_CONFIG=`cd /tmp && $(DEIS) config:pull -o -a $(DEIS_APPLICATION_FILTER) && cat .env | sort | md5sum - && rm -f .env` ; \
-	if [ "$${NEW_CONFIG}" != "$${OLD_CONFIG}" ]; then \
-		echo "Push config..." ; \
-		$(DEIS) config:push -a $(DEIS_APPLICATION_FILTER) -p $(DEIS_ENV_FILE) > /dev/null || exit 1; \
-	else \
-		echo "Config not changed!" ; \
-	fi;
+.PHONY: deis2-config-push
+deis2-config-push:
+	# "deis config:push -p /env/staging" did not work :((
+	@$(MAKE) -s deis2-common DEIS2_CMD="cat $(APPLICATION_PATH)/$(WORKDIR)/$(DEIS2_ENV_FILE) | sed '/HEALTHCHECK_URL/d' | $(DEIS) config:push -a $(DEIS2_APPLICATION_FILTER)"
 
-.PHONY: deis-memory-limits-set
-deis-memory-limits-set:
-	@echo "Check limits..."
-	@DEIS_MEMORY_LIMITS_FORMATTED=`echo $(DEIS_MEMORY_LIMITS) | tr '=' ' '`;\
-	OLD_LIMITS=`$(DEIS) limits:list -a $(DEIS_APPLICATION_FILTER) | sed '1,/Memory/d' | sed '/CPU/,/-End/d' | sed '/./!d' | tr '\n' ' ' | tr -s ' '`;\
-	IS_NEW=`echo "$${OLD_LIMITS}" | grep "$${DEIS_MEMORY_LIMITS_FORMATTED}"`; \
-	if [ -z "$${IS_NEW}" ]; then \
-		echo "Push memory limits..."; \
-		echo "Old limits are $${OLD_LIMITS}"; \
-		echo "New limit will contain $${DEIS_MEMORY_LIMITS_FORMATTED}"; \
-		$(DEIS) limits:set $(DEIS_MEMORY_LIMITS) --memory -a $(DEIS_APPLICATION_FILTER) || exit 1; \
-		echo "deis limits '$(DEIS_MEMORY_LIMITS)' changed!" ; \
-	else \
-		echo "deis limits '$(DEIS_MEMORY_LIMITS)' not changed!" ; \
-	fi;
+.PHONY: deis2-config-list
+deis2-config-list:
+	$(DEIS) config:list -a $(DEIS2_APPLICATION_FILTER)
 
-.PHONY: deis-scale
-deis-scale:
-	@echo "Check scale..."
-	@NEW_CONFIG=`echo $(DEIS_SCALE) | tr " " "\n" | sort | md5sum -` ; \
-	OLD_CONFIG=`$(DEIS) ps:list -a $(DEIS_APPLICATION_FILTER) | grep -e ' up ' | awk -F '.' '{ print $$1 }' | sort | uniq -c | awk '{print $$2"="$$1}' | sort | md5sum -` ; \
-	if [ "$${NEW_CONFIG}" != "$${OLD_CONFIG}" ]; then \
-		echo "Change scale..." ; \
-		$(DEIS) scale $(DEIS_SCALE) -a $(DEIS_APPLICATION_FILTER) || exit 1; \
-	else \
-		echo "Scale not changed!" ; \
-	fi;
+.PHONY: deis2-memory-limits-set
+deis2-memory-limits-set:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) limits:set --memory $(DEIS2_MEMORY_LIMITS) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-cpu-limits-set
+deis2-cpu-limits-set:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) limits:set --cpu $(DEIS2_CPU_LIMITS) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-limits-list
+deis2-limits-list:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) limits:list -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-scale
+deis2-scale:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) scale $(DEIS2_SCALE) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-config-set
+deis2-config-set:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) config:set $(DEIS2_CONFIG_SET_PARAMS) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-healthchecks-set
+deis2-healthchecks-set:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) healthchecks:set $(DEIS2_HEALTHCHECK_TYPE) httpGet $(DEIS2_HEALTHCHECK_PORT) --path $(DEIS2_HEALTHCHECK_PATH) --initial-delay-timeout=$(DEIS2_HEALTHCHECK_INITIAL_DELAY_TIMEOUT) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-healthchecks-list
+deis2-healthchecks-list:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) healthchecks:list -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-tags-set
+deis2-tags-set:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) tags:set $(DEIS2_TAG_KEY)=$(DEIS2_TAG_VALUE) -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-tags-list
+deis2-tags-list:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) tags:list -a $(DEIS2_APPLICATION_FILTER)"
+
+.PHONY: deis2-perms-create
+deis2-perms-create:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(foreach USER, $(DEIS2_PERMS_CREATE_USERS), $(DEIS) perms:create $(USER) -a $(DEIS2_APPLICATION_FILTER); )"
+
+.PHONY: deis2-perms-list
+deis2-perms-list:
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) perms:list -a $(DEIS2_APPLICATION_FILTER)"
 
 #
 # Encryption commands
