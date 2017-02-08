@@ -52,18 +52,6 @@ run-in-docker = docker run -w $(DOCKER_RUN_WORKDIR) $(DOCKER_RUN_ARGS) $(DOCKER_
 # Docker commands
 #
 
-.PHONY: docker-build
-docker-build:
-	docker build --pull --rm $(DOCKER_BUILD_ARG) --tag "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)" -f "$(DOCKER_FILE)" $(DOCKER_BUILD_CONTEXT)
-
-.PHONY: docker-clean-containers
-docker-clean-containers:
-	docker rm --force $$(docker ps --all --filter name="$(APPLICATION)" --quiet)
-
-.PHONY: docker-clean-images
-docker-clean-images:
-	docker rmi --force $$(docker images --quiet "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)")
-
 .PHONY: docker-push
 docker-push:
 	docker push "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)"
@@ -198,44 +186,6 @@ deis2-perms-create:
 .PHONY: deis2-perms-list
 deis2-perms-list:
 	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) perms:list -a $(DEIS2_APPLICATION_FILTER)"
-
-#
-# Encryption commands
-#
-
-.PHONY: passphrase
-passphrase:
-	$(eval PASSPHRASE ?= $(shell bash -c '[ -z "$$PASSPHRASE" ] && read -s -p "Password: " pwd && echo $$pwd'))
-
-.PHONY: check-gpg-input
-check-gpg-input:
-ifndef INPUT
-	$(error INPUT is undefined)
-endif
-ifndef OUTPUT
-	$(error OUTPUT is undefined)
-endif
-
-.PHONY: gpg-decrypt
-gpg-decrypt: passphrase check-gpg-input
-	@echo $(PASSPHRASE) | gpg --output $(OUTPUT) --batch --no-tty --yes --passphrase-fd 0 --decrypt $(INPUT)
-	@echo ""
-
-.PHONY: gpg-encrypt
-gpg-encrypt: passphrase check-gpg-input
-	@echo $(PASSPHRASE) | gpg --output $(OUTPUT) --batch --no-tty --yes --passphrase-fd 0 --symmetric $(INPUT)
-	@echo ""
-
-.PHONY: gpg-edit
-gpg-edit:
-ifndef TARGET
-	$(error TARGET is undefined)
-endif
-	$(eval TMPFILE = $(shell mktemp))
-	INPUT=$(TARGET) OUTPUT=$(TMPFILE) $(MAKE) gpg-decrypt && \
-	$(EDITOR) $(TMPFILE) && \
-	INPUT=$(TMPFILE) OUTPUT=$(TARGET) $(MAKE) gpg-encrypt
-	rm -f $(TMPFILE)
 
 # Source url: http://stackoverflow.com/questions/2214575/passing-arguments-to-make-run
 %:
