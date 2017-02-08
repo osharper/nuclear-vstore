@@ -32,7 +32,7 @@ DEIS2_HEALTHCHECK_INITIAL_DELAY_TIMEOUT ?= 50
 DEIS2_PERMS_CREATE_USERS ?=
 
 # В deis есть ограничение на название приложения, поэтому пофильтруем его
-DEIS2_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g' )
+DEIS2_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g')
 
 TAG_FILTER = $(shell echo $(TAG) | tr '[:upper:]' '[:lower:]' | sed -e 's/\//-/g' )
 
