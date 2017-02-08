@@ -18,6 +18,14 @@ stages:
   - build:image
   - deploy
 
+before_script:
+  - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
+  - export APPLICATION=`make -s print-APPLICATION`
+  - export BRANCH_NAME=`DEIS_APPLICATION="${CI_BUILD_REF_NAME}" make -s print-DEIS_APPLICATION_FILTER`
+  - export GIT_SHA=`git rev-parse HEAD | cut -c1-8`
+  - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
+  - export CI_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "master-${GIT_SHA}"`
+
 # ================= Build =================
 
 build:app:
@@ -33,7 +41,7 @@ build:app:
     - 2gis
     - docker
   artifacts:
-    name: "${APPLICATION}_${CI_BUILD_REF_NAME}"
+    name: "${APPLICATION}_${CI_TAG}"
     expire_in: '1 week'
     paths:
       - publish/vstore/
@@ -46,8 +54,8 @@ build:image:
   environment: test
   when: manual
   script:
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make docker-push
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG make docker-push
   tags:
     - 2gis
     - docker
@@ -70,7 +78,7 @@ deploy:staging-01:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME
+      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
     - echo "Deploy to stage 01 done"
@@ -92,7 +100,7 @@ deploy:staging-02:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME
+      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
     - echo "Deploy to stage 02 done"
@@ -113,7 +121,7 @@ deploy:staging-03:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME
+      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
     - echo "Deploy to stage 03 done"
@@ -132,7 +140,7 @@ deploy:production-n3:
     - DEIS_PROFILE=production-n3 DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" make deis2-memory-limits-set
     - DEIS_PROFILE=production-n3 make deis2-cpu-limits-set
     - DEIS_PROFILE=production-n3 DEIS2_ENV_FILE=env/prod_n3.ini make deis2-config-push
-    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis2-pull
+    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG make deis2-pull
     - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis2-scale
     - DEIS_PROFILE=production-n3 make deis2-info
     - DEIS_PROFILE=production-n3 make deis2-processes-check
