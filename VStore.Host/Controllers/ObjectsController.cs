@@ -62,12 +62,17 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet("{id}/versions")]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersions(long id)
         {
             try
             {
                 var versions = await _objectsStorageReader.GetAllObjectRootVersions(id);
                 return Json(versions);
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound();
             }
             catch (Exception ex)
             {

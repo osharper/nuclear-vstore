@@ -48,21 +48,33 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor>> GetAllObjectRootVersions(long id)
         {
-            var versions = Array.Empty<IdentifyableObjectDescriptor>();
-            ListVersionsResponse versionsResponse = null;
-            do
+            var versions = new List<IdentifyableObjectDescriptor>();
+
+            Func<string, Task<ListVersionsResponse>> listVersions =
+                async nextVersionIdMarker =>
+                    {
+                        var versionsResponse = await _amazonS3.ListVersionsAsync(
+                                                   new ListVersionsRequest
+                                                       {
+                                                           BucketName = _bucketName,
+                                                           Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                                                           VersionIdMarker = nextVersionIdMarker
+                                                       });
+                        versions.AddRange(versionsResponse.Versions.Select(x => new IdentifyableObjectDescriptor(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)));
+                        return versionsResponse;
+                    };
+
+            var response = await listVersions(null);
+            if (response.Versions.Count == 0)
             {
-                versionsResponse = await _amazonS3.ListVersionsAsync(
-                                       new ListVersionsRequest
-                                           {
-                                               BucketName = _bucketName,
-                                               Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
-                                               VersionIdMarker = versionsResponse?.NextVersionIdMarker
-                                           });
-                versions = versions.Concat(versionsResponse.Versions.Select(x => new IdentifyableObjectDescriptor(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)))
-                                   .ToArray();
+                throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
-            while (versionsResponse.IsTruncated);
+
+            while (response.IsTruncated)
+            {
+                response = await listVersions(response.NextVersionIdMarker);
+            }
+
             return versions;
         }
 
