@@ -37,15 +37,14 @@ build:app:
     - dotnet restore
     - dotnet test VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
     - dotnet publish VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
-  tags: [ docker-engine, io ]
+  tags: [ 2gis, docker ]
   artifacts:
-    name: "${APPLICATION}_${CI_TAG}"
+    name: "${APPLICATION}_${CI_BUILD_REF_NAME}"
     expire_in: '1 week'
     paths:
       - publish/vstore/
 
 build:image:
-  image: $REGISTRY/2gis/docker:1.11.2
   services:
     - docker:dind
   stage: build:image
