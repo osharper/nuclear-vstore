@@ -2,9 +2,9 @@ variables:
   APPLICATION: "ams-vstore"
   REGISTRY: "docker-hub.2gis.ru"
   IMAGE: "ams/vstore"
-  DEIS_CONTROLLER_PROD_N3: "http://????????????????????????????????????????????????"
-  DEIS_CONTROLLER_PROD_M1: "http://????????????????????????????????????????????????"
-  DEIS_CONTROLLER_PROD_D1: "http://????????????????????????????????????????????????"
+  DEIS_CONTROLLER_PROD_N3: "http://deis.k8s.n3.nato"
+  DEIS_CONTROLLER_PROD_M1: "http://deis.k8s.m1.nato"
+  DEIS_CONTROLLER_PROD_D1: "http://deis.k8s.d1.nato"
   DEIS_MEMORY_LIMITS_PROD_N3: "cmd=256M/512M"
   DEIS_MEMORY_LIMITS_PROD_M1: "cmd=256M/512M"
   DEIS_MEMORY_LIMITS_PROD_D1: "cmd=256M/512M"
@@ -71,7 +71,7 @@ deploy:staging-01:
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis2-pull
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-scale
     - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-info
-    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-processes-check
   tags:
     - 2gis
     - docker
@@ -88,12 +88,12 @@ deploy:staging-02:
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS2_USERNAME=$DEIS2_STAGE_USERNAME DEIS2_TOKEN=$DEIS2_STAGE_TOKEN make deis2-config-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-create
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" make deis2-memory-limits-set
-    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-cpu-limits-set
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-cpu-limits-set
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging DEIS2_ENV_FILE=env/staging.ini make deis2-config-push
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis2-pull
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-scale
     - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-info
-    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-02" DEIS_PROFILE=staging make deis2-processes-check
   tags:
     - 2gis
     - docker
@@ -110,12 +110,12 @@ deploy:staging-03:
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS2_USERNAME=$DEIS2_STAGE_USERNAME DEIS2_TOKEN=$DEIS2_STAGE_TOKEN make deis2-config-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-create
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" make deis2-memory-limits-set
-    - DEIS_APPLICATION="${APPLICATION}-01" DEIS_PROFILE=staging make deis2-cpu-limits-set
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-cpu-limits-set
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging DEIS2_ENV_FILE=env/staging.ini make deis2-config-push
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis2-pull
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-scale
     - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-info
-    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-apps-check
+    - DEIS_APPLICATION="${APPLICATION}-03" DEIS_PROFILE=staging make deis2-processes-check
   tags:
     - 2gis
     - docker
@@ -136,7 +136,7 @@ deploy:production-n3:
     - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_BUILD_REF_NAME make deis2-pull
     - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis2-scale
     - DEIS_PROFILE=production-n3 make deis2-info
-    - DEIS_PROFILE=production-n3 make deis2-apps-check
+    - DEIS_PROFILE=production-n3 make deis2-processes-check
   tags:
     - 2gis
     - docker
