@@ -1,4 +1,6 @@
-﻿APPLICATION ?= $$(basename "$(CURDIR)")
+﻿SHELL := env PATH=$(PATH) /bin/bash
+
+APPLICATION ?= $$(basename "$(CURDIR)")
 DOCKER_FILE ?= Dockerfile
 DOCKER_BUILD_CONTEXT ?= .
 DOCKER_BUILD_ARG ?=
@@ -36,10 +38,14 @@ DEIS2_APPLICATION_FILTER = $(shell echo $(DEIS_APPLICATION) | tr '[:upper:]' '[:
 
 TAG_FILTER = $(shell echo $(TAG) | tr '[:upper:]' '[:lower:]' | sed -e 's/\//-/g' )
 
+APPLICATION_PATH ?= $(abspath .)
+WORKDIR ?=
+DOCKER_RUN_ARGS ?= -i --rm
+DOCKER_RUN_VOLUMES ?=
+DOCKER_RUN_APP_PATH ?= /vstore
+DOCKER_RUN_WORKDIR ?= $(DOCKER_RUN_APP_PATH)/$(WORKDIR)
 
-.PHONY: help
-help:
-	@echo "Specify target explicitly"
+run-in-docker = docker run -w $(DOCKER_RUN_WORKDIR) $(DOCKER_RUN_ARGS) $(DOCKER_RUN_VOLUMES) $(REGISTRY)/$(IMAGE):$(TAG) $1
 
 
 #
@@ -62,6 +68,20 @@ docker-clean-images:
 docker-push:
 	docker push "$(REGISTRY)/$(IMAGE):$(TAG_FILTER)"
 
+.PHONY: docker-pull
+docker-pull:
+	docker pull "$(REGISTRY)/$(IMAGE):$(TAG)"
+
+
+# docker-run-deis-client allow run deis cli in clean Linux
+# Example:
+# 	make docker-run-deis-client deis-info DEIS_PROFILE=dev
+.PHONY: docker-run-deis-client
+docker-run-deis-client: override IMAGE = 2gis-io/deis-client
+docker-run-deis-client: override TAG = latest
+docker-run-deis-client: DOCKER_RUN_VOLUMES = -v $(APPLICATION_PATH):$(DOCKER_RUN_APP_PATH):ro
+docker-run-deis-client: docker-pull
+	$(call run-in-docker,make $(filter-out $@,$(MAKECMDGOALS)) $(MAKEOVERRIDES) )
 
 #
 # Deis commands
@@ -75,12 +95,12 @@ docker-push:
 deis2-common: DEIS2_ERROR_SKIP ?= changed nothing - release stopped
 deis2-common:
 	printf "$(DEIS2_CMD)..."
-	# @status=0 ; err=$$(($(DEIS2_CMD)) 2>&1) || status=$$? ; \
-	# message="ok." ; \
-	# if [[ $$err =~ "$(DEIS2_ERROR_SKIP)" ]]; then err=""; message="already done, skipped." ; status=0; fi; \
-	# if [ $$status -ne 0 ]; then message="fail"; fi; \
-	# printf "$$message\n$$err\n" ; \
-	# exit $$status
+	@status=0 ; err=$$(($(DEIS2_CMD)) 2>&1) || status=$$? ; \
+	message="ok." ; \
+	if [[ $$err =~ "$(DEIS2_ERROR_SKIP)" ]]; then err=""; message="already done, skipped." ; status=0; fi; \
+	if [ $$status -ne 0 ]; then message="fail"; fi; \
+	printf "$$message\n$$err\n" ; \
+	exit $$status
 
 .PHONY: deis2-create
 deis2-create: DEIS2_ERROR_SKIP = Application with this id already exists
@@ -216,3 +236,7 @@ endif
 	$(EDITOR) $(TMPFILE) && \
 	INPUT=$(TMPFILE) OUTPUT=$(TARGET) $(MAKE) gpg-encrypt
 	rm -f $(TMPFILE)
+
+# Source url: http://stackoverflow.com/questions/2214575/passing-arguments-to-make-run
+%:
+	@:
