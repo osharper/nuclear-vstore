@@ -75,12 +75,12 @@ docker-push:
 deis2-common: DEIS2_ERROR_SKIP ?= changed nothing - release stopped
 deis2-common:
 	printf "$(DEIS2_CMD)..."
-	@status=0 ; err=$$(($(DEIS2_CMD)) 2>&1) || status=$$? ; \
-	message="ok." ; \
-	if [[ $$err =~ "$(DEIS2_ERROR_SKIP)" ]]; then err=""; message="already done, skipped." ; status=0; fi; \
-	if [ $$status -ne 0 ]; then message="fail"; fi; \
-	printf "$$message\n$$err\n" ; \
-	exit $$status
+	# @status=0 ; err=$$(($(DEIS2_CMD)) 2>&1) || status=$$? ; \
+	# message="ok." ; \
+	# if [[ $$err =~ "$(DEIS2_ERROR_SKIP)" ]]; then err=""; message="already done, skipped." ; status=0; fi; \
+	# if [ $$status -ne 0 ]; then message="fail"; fi; \
+	# printf "$$message\n$$err\n" ; \
+	# exit $$status
 
 .PHONY: deis2-create
 deis2-create: DEIS2_ERROR_SKIP = Application with this id already exists
