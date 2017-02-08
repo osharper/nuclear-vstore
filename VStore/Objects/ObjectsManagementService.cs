@@ -301,7 +301,7 @@ namespace NuClear.VStore.Objects
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
-            var elementVersions = objectVersions.Where(x => !x.Key.EndsWith(Tokens.ObjectPostfix)).ToArray();
+            var elementVersions = objectVersions.Where(x => !x.Id.EndsWith(Tokens.ObjectPostfix)).ToArray();
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
                                                   {
                                                       TemplateId = objectDescriptor.TemplateId,
@@ -330,7 +330,7 @@ namespace NuClear.VStore.Objects
             await _amazonS3.PutObjectAsync(putRequest);
 
             objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
-            return objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+            return objectVersions.Where(x => x.Id.EndsWith(Tokens.ObjectPostfix))
                                  .Select(x => x.VersionId)
                                  .Single();
         }

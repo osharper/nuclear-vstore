@@ -43,7 +43,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
         public async Task<IActionResult> List()
         {
             try

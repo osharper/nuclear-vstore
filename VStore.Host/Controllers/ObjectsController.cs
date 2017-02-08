@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
@@ -31,6 +33,20 @@ namespace NuClear.VStore.Host.Controllers
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;
             _objectsManagementService = objectsManagementService;
+        }
+
+        [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
+        public async Task<IActionResult> List1([FromQuery]string startAfter)
+        {
+            try
+            {
+                return Json(await _objectsStorageReader.GetObjectMetadatas(startAfter));
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while listing objects");
+            }
         }
 
         [HttpGet("{id}/{versionId}/template")]
