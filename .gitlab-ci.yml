@@ -20,7 +20,6 @@ stages:
 
 before_script:
   - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
-  - export APPLICATION=`make -s print-APPLICATION`
   - export BRANCH_NAME=`DEIS_APPLICATION="${CI_BUILD_REF_NAME}" make -s print-DEIS_APPLICATION_FILTER`
   - export GIT_SHA=`git rev-parse HEAD | cut -c1-8`
   - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
@@ -50,6 +49,8 @@ build:image:
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
+  dependencies:
+    - build:app
 
 # ================ Deploy =================
 
@@ -70,8 +71,9 @@ deploy:staging-01:
       deis2-cpu-limits-set
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
-      deis2-processes-check deis2-info
+      deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
+  dependencies: []
 
 deploy:staging-02:
   stage: deploy
@@ -90,8 +92,9 @@ deploy:staging-02:
       deis2-cpu-limits-set
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
-      deis2-processes-check deis2-info
+      deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
+  dependencies: []
 
 deploy:staging-03:
   stage: deploy
@@ -110,8 +113,9 @@ deploy:staging-03:
       deis2-cpu-limits-set
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
-      deis2-processes-check deis2-info
+      deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
+  dependencies: []
 
 deploy:production-n3:
   stage: deploy
@@ -131,3 +135,4 @@ deploy:production-n3:
       deis2-scale DEIS2_SCALE="${DEIS_SCALE_PROD_N3}"
       deis2-processes-check deis2-info
   tags: [ docker-engine, io ]
+  dependencies: []
