@@ -71,7 +71,6 @@ deploy:staging-01:
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
-    - echo "Deploy to stage 01 done"
   tags: [ docker-engine, io ]
 
 deploy:staging-02:
@@ -92,7 +91,6 @@ deploy:staging-02:
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
-    - echo "Deploy to stage 02 done"
   tags: [ docker-engine, io ]
 
 deploy:staging-03:
@@ -113,7 +111,6 @@ deploy:staging-03:
       deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
       deis2-scale
       deis2-processes-check deis2-info
-    - echo "Deploy to stage 03 done"
   tags: [ docker-engine, io ]
 
 deploy:production-n3:
@@ -123,13 +120,14 @@ deploy:production-n3:
   only:
     - master
   script:
-    - DEIS_PROFILE=production-n3 DEIS_CONTROLLER=$DEIS_CONTROLLER_PROD_N3 DEIS2_USERNAME=$DEIS2_PROD_N3_USERNAME DEIS2_TOKEN=$DEIS2_PROD_N3_TOKEN make deis2-config-create
-    - DEIS_PROFILE=production-n3 make deis2-create
-    - DEIS_PROFILE=production-n3 DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" make deis2-memory-limits-set
-    - DEIS_PROFILE=production-n3 make deis2-cpu-limits-set
-    - DEIS_PROFILE=production-n3 DEIS2_ENV_FILE=env/prod_n3.ini make deis2-config-push
-    - DEIS_PROFILE=production-n3 REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG make deis2-pull
-    - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis2-scale
-    - DEIS_PROFILE=production-n3 make deis2-info
-    - DEIS_PROFILE=production-n3 make deis2-processes-check
+    - >
+      make docker-run-deis-client
+      deis2-config-create DEIS_PROFILE=production-n3 DEIS2_CONTROLLER=${DEIS_CONTROLLER_PROD_N3} DEIS2_USERNAME=${DEIS2_PROD_N3_USERNAME} DEIS2_TOKEN=${DEIS2_PROD_N3_TOKEN}
+      deis2-create
+      deis2-config-push DEIS2_ENV_FILE=env/prod_n3.ini
+      deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" 
+      deis2-cpu-limits-set
+      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
+      deis2-scale DEIS2_SCALE="${DEIS_SCALE_PROD_N3}"
+      deis2-processes-check deis2-info
   tags: [ docker-engine, io ]
