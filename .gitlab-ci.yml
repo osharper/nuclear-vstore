@@ -31,7 +31,6 @@ before_script:
 build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
   stage: build:app
-  environment: test
   when: always
   script:
     - dotnet restore
@@ -45,10 +44,7 @@ build:app:
       - publish/vstore/
 
 build:image:
-  services:
-    - docker:dind
   stage: build:image
-  environment: test
   when: manual
   script:
     - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
@@ -58,7 +54,6 @@ build:image:
 # ================ Deploy =================
 
 deploy:staging-01:
-  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: staging
   when: manual
@@ -80,7 +75,6 @@ deploy:staging-01:
   tags: [ docker-engine, io ]
 
 deploy:staging-02:
-  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: staging
   when: manual
@@ -123,7 +117,6 @@ deploy:staging-03:
   tags: [ docker-engine, io ]
 
 deploy:production-n3:
-  image: $REGISTRY/2gis-io/deis-client:latest
   stage: deploy
   environment: production
   when: manual
@@ -139,6 +132,4 @@ deploy:production-n3:
     - DEIS_PROFILE=production-n3 DEIS_SCALE="${DEIS_SCALE_PROD_N3}" make deis2-scale
     - DEIS_PROFILE=production-n3 make deis2-info
     - DEIS_PROFILE=production-n3 make deis2-processes-check
-  tags:
-    - 2gis
-    - docker
+  tags: [ docker-engine, io ]
