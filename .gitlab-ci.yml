@@ -1,5 +1,4 @@
 variables:
-  APPLICATION: "vstore"
   REGISTRY: "docker-hub.2gis.ru"
   DEIS_CONTROLLER_PROD_N3: "http://deis.k8s.n3.nato"
   DEIS_CONTROLLER_PROD_M1: "http://deis.k8s.m1.nato"
@@ -37,7 +36,7 @@ build:app:
     - dotnet publish VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
   tags: [ 2gis, docker ]
   artifacts:
-    name: "${APPLICATION}_${CI_BUILD_REF_NAME}"
+    name: "${CI_BUILD_REF_NAME}"
     expire_in: '1 week'
     paths:
       - publish/vstore/
