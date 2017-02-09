@@ -12,6 +12,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
@@ -43,6 +44,38 @@ namespace NuClear.VStore.Objects
         {
             ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
+        }
+
+        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor>> GetAllObjectRootVersions(long id)
+        {
+            var versions = new List<IdentifyableObjectDescriptor>();
+
+            Func<string, Task<ListVersionsResponse>> listVersions =
+                async nextVersionIdMarker =>
+                    {
+                        var versionsResponse = await _amazonS3.ListVersionsAsync(
+                                                   new ListVersionsRequest
+                                                       {
+                                                           BucketName = _bucketName,
+                                                           Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                                                           VersionIdMarker = nextVersionIdMarker
+                                                       });
+                        versions.AddRange(versionsResponse.Versions.Select(x => new IdentifyableObjectDescriptor(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)));
+                        return versionsResponse;
+                    };
+
+            var response = await listVersions(null);
+            if (versions.Count == 0)
+            {
+                throw new ObjectNotFoundException($"Object '{id}' not found.");
+            }
+
+            while (response.IsTruncated)
+            {
+                response = await listVersions(response.NextVersionIdMarker);
+            }
+
+            return versions;
         }
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
@@ -85,7 +118,7 @@ namespace NuClear.VStore.Objects
                         var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
                         var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
 
-                        elementDescriptor.Id = objectVersion.Key.AsObjectId();
+                        elementDescriptor.Id = objectVersion.Key.AsSubObjectId();
                         elementDescriptor.VersionId = objectVersion.VersionId;
                         elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
 

@@ -17,9 +17,15 @@ namespace NuClear.VStore.S3
             return string.Join(Separator, new[] { id.ToString() }.Concat(components));
         }
 
-        public static long AsObjectId(this string key)
+        public static long AsRootObjectId(this string key)
         {
-            var separatorIndex = key.LastIndexOf(Separator, StringComparison.Ordinal);
+            var separatorIndex = key.IndexOf(Separator, StringComparison.Ordinal);
+            return long.Parse(key.Substring(0, separatorIndex));
+        }
+
+        public static long AsSubObjectId(this string key)
+        {
+            var separatorIndex = key.IndexOf(Separator, StringComparison.Ordinal);
             return long.Parse(key.Substring(separatorIndex + 1));
         }
     }
