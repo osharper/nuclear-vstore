@@ -1,7 +1,6 @@
 variables:
-  APPLICATION: "ams-vstore"
+  APPLICATION: "vstore"
   REGISTRY: "docker-hub.2gis.ru"
-  IMAGE: "ams/vstore"
   DEIS_CONTROLLER_PROD_N3: "http://deis.k8s.n3.nato"
   DEIS_CONTROLLER_PROD_M1: "http://deis.k8s.m1.nato"
   DEIS_CONTROLLER_PROD_D1: "http://deis.k8s.d1.nato"
@@ -20,6 +19,7 @@ stages:
 
 before_script:
   - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
+  - export APPLICATION=`make -s print-APPLICATION`
   - export BRANCH_NAME=`DEIS_APPLICATION="${CI_BUILD_REF_NAME}" make -s print-DEIS_APPLICATION_FILTER`
   - export GIT_SHA=`git rev-parse HEAD | cut -c1-8`
   - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
@@ -46,8 +46,8 @@ build:image:
   stage: build:image
   when: manual
   script:
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG make docker-push
+    - TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app
@@ -69,7 +69,7 @@ deploy:staging-01:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
+      deis2-pull TAG=$CI_TAG
       deis2-scale
       deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
@@ -90,7 +90,7 @@ deploy:staging-02:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
+      deis2-pull TAG=$CI_TAG
       deis2-scale
       deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
@@ -111,7 +111,7 @@ deploy:staging-03:
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
+      deis2-pull TAG=$CI_TAG
       deis2-scale
       deis2-info deis2-processes-check
   tags: [ docker-engine, io ]
@@ -131,7 +131,7 @@ deploy:production-n3:
       deis2-config-push DEIS2_ENV_FILE=env/prod_n3.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" 
       deis2-cpu-limits-set
-      deis2-pull REGISTRY=$REGISTRY IMAGE=$IMAGE TAG=$CI_TAG
+      deis2-pull TAG=$CI_TAG
       deis2-scale DEIS2_SCALE="${DEIS_SCALE_PROD_N3}"
       deis2-processes-check deis2-info
   tags: [ docker-engine, io ]
