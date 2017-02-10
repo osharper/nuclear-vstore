@@ -1,0 +1,184 @@
+variables:
+  DEIS_CONTROLLER_PROD_N3: "http://deis.n3.nato/"
+  DEIS_CONTROLLER_PROD_M1: "http://deis.m1.nato/"
+  DEIS_CONTROLLER_PROD_D1: "http://deis.d1.nato/"
+  DEIS_MEMORY_LIMITS_PROD_N3: "cmd=256M"
+  DEIS_MEMORY_LIMITS_PROD_M1: "cmd=256M"
+  DEIS_MEMORY_LIMITS_PROD_D1: "cmd=256M"
+  DEIS_SCALE_PROD_N3: "cmd=2"
+  DEIS_SCALE_PROD_M1: "cmd=2"
+  DEIS_SCALE_PROD_D1: "cmd=2"
+  MAX_ATTEMPTS_DEPLOY: "3"
+  MAX_TIME_EXECUTION_APP_INSTALL: "60"
+  MAX_TIME_EXECUTION_APP_TEST: "60"
+  MAX_TIME_EXECUTION_APP_LINT: "60"
+  MAX_TIME_EXECUTION_APP_BENCH: "60"
+  MAX_TIME_EXECUTION_BUILD_PUSH: "60"
+  MAX_TIME_EXECUTION_DEPLOY_STAGE: "240"
+  MAX_TIME_EXECUTION_DEPLOY_N3: "600"
+  MAX_TIME_EXECUTION_DEPLOY_M1: "600"
+  MAX_TIME_EXECUTION_DEPLOY_D1: "600"
+
+stages:
+  - test
+  - test:functional
+  - deploy
+  - end
+
+before_script:
+  - 'if [[ ! -e ./ci-starter-kit ]]; then echo "This line for ci-starter-kit only! Remove it in real project!"; ln -s . ./ci-starter-kit ; cd ./test ; ln -s ../ ./ci-starter-kit; fi;'
+  - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
+  - export APPLICATION=`make -s print-APPLICATION`
+  - export BRANCH_NAME=`DEIS_APPLICATION="${CI_BUILD_REF_NAME}" make -s print-DEIS_APPLICATION_FILTER`
+  - export GIT_SHA=`git rev-parse HEAD | cut -c1-8`
+  - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
+  - export CI_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "master-${GIT_SHA}"`
+
+# ================= Tests =================
+
+.test: &test_template
+  stage: test
+  tags: [ docker-engine, io ]
+
+test:unit:
+  <<: *test_template
+  script:
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_APP_TEST} make docker-app-test TAG=${CI_DEV_TAG}
+
+test:lint:
+  <<: *test_template
+  script:
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_APP_LINT} make docker-app-lint TAG=${CI_DEV_TAG}
+
+test:bench:
+  <<: *test_template
+  script:
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_APP_BENCH} make docker-app-bench TAG=${CI_DEV_TAG}
+
+build:
+  <<: *test_template
+  environment: build
+  script:
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_APP_INSTALL} make docker-app-install TAG=${CI_DEV_TAG}
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_BUILD_PUSH} make docker-build-prod-image docker-push TAG=${CI_TAG}
+    - sed -i.bak '/ENTRYPOINT/d' Dockerfile # TODO: remove after remove deis v1
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_BUILD_PUSH} make docker-build-prod-image docker-push TAG="${CI_TAG}-deis-v1"  # TODO: remove after remove deis v1
+  artifacts:
+    name: $APPLICATION
+    expire_in: '1 week'
+    paths:
+      - $CI_PROJECT_DIR/$INIT_WORKDIR/bin
+      #- $CI_PROJECT_DIR/cmd/$APPLICATION/bin/$APPLICATION
+
+# ================= Tests:functional =================
+
+healthcheck:
+  stage: test:functional
+  script:
+    - make docker-pull docker-healthcheck TAG=${CI_TAG}
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+# ================ Deploy =================
+
+deploy:deis-v1-staging:
+  stage: deploy
+  environment: staging
+  only:
+    - master
+  script:
+    - >
+      retry.sh ${MAX_ATTEMPTS_DEPLOY} check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_STAGE}
+      make docker-run-deis-v1-client
+      deis-config-create DEIS_PROFILE=staging DEIS_USERNAME=${DEIS_STAGE_USERNAME} DEIS_TOKEN=${DEIS_STAGE_TOKEN}
+      deis-create deis-config-push deis-pull deis-scale deis-info deis-apps-check DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging TAG="${CI_TAG}-deis-v1"
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+deploy:deis-v2-staging:
+  stage: deploy
+  environment: staging
+  only:
+    - master
+  script:
+    - >
+      retry.sh ${MAX_ATTEMPTS_DEPLOY} check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_STAGE}
+      make docker-run-deis-client
+      deis2-config-create DEIS_PROFILE=staging DEIS2_USERNAME=${DEIS2_STAGE_USERNAME} DEIS2_TOKEN=${DEIS2_STAGE_TOKEN}
+      deis2-create deis2-config-push
+      deis2-perms-create
+      deis2-memory-limits-set deis2-cpu-limits-set deis2-healthchecks-set
+      deis2-pull deis2-scale
+      deis2-info deis2-config-list deis2-perms-list deis2-limits-list deis2-healthchecks-list deis2-processes-check DEIS_PROFILE=staging DEIS2_ENV_FILE=env/staging TAG=${CI_TAG}
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_STAGE} make docker-pull TAG=${CI_TAG}
+    - check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_STAGE} make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=latest
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+.deploy:production_template: &deploy_production_template
+  stage: deploy
+  environment: production
+  when: manual
+  only:
+    - master
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+deploy:prod-n3:
+  <<: *deploy_production_template
+  script:
+    - make gpg-decrypt PASSPHRASE=${GPG_PASSWORD} INPUT=env/prod_n3.gpg OUTPUT=env/prod_n3
+    - >
+      check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_N3}
+      make docker-run-deis-v1-client
+      deis-config-create DEIS_PROFILE=production-n3 DEIS_CONTROLLER=${DEIS_CONTROLLER_PROD_N3} DEIS_USERNAME=${DEIS_PROD_N3_USERNAME} DEIS_TOKEN=${DEIS_PROD_N3_TOKEN}
+      deis-create deis-memory-limits-set DEIS_PROFILE=production-n3 DEIS_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}"
+      deis-config-push deis-pull deis-scale deis-info deis-apps-check DEIS_PROFILE=production-n3 DEIS_ENV_FILE=env/prod_n3 TAG="${CI_TAG}-deis-v1" DEIS_SCALE="${DEIS_SCALE_PROD_N3}"
+
+deploy:prod-m1:
+  <<: *deploy_production_template
+  script:
+    - make gpg-decrypt PASSPHRASE=${GPG_PASSWORD} INPUT=env/prod_m1.gpg OUTPUT=env/prod_m1
+    - >
+      check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_M1}
+      make docker-run-deis-v1-client
+      deis-config-create DEIS_PROFILE=production-m1 DEIS_CONTROLLER=${DEIS_CONTROLLER_PROD_M1} DEIS_USERNAME=${DEIS_PROD_M1_USERNAME} DEIS_TOKEN=${DEIS_PROD_M1_TOKEN}
+      deis-create deis-memory-limits-set DEIS_PROFILE=production-m1 DEIS_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_M1}"
+      deis-config-push deis-pull deis-scale deis-info deis-apps-check DEIS_PROFILE=production-m1 DEIS_ENV_FILE=env/prod_m1 TAG="${CI_TAG}-deis-v1" DEIS_SCALE="${DEIS_SCALE_PROD_M1}"
+
+deploy:prod-d1:
+  <<: *deploy_production_template
+  script:
+    - make gpg-decrypt PASSPHRASE=${GPG_PASSWORD} INPUT=env/prod_d1.gpg OUTPUT=env/prod_d1
+    - >
+      check-time-execution.sh ${MAX_TIME_EXECUTION_DEPLOY_D1}
+      make docker-run-deis-v1-client
+      deis-config-create DEIS_PROFILE=production-d1 DEIS_CONTROLLER=${DEIS_CONTROLLER_PROD_D1} DEIS_USERNAME=${DEIS_PROD_D1_USERNAME} DEIS_TOKEN=${DEIS_PROD_D1_TOKEN}
+      deis-create deis-memory-limits-set DEIS_PROFILE=production-d1 DEIS_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_D1}"
+      deis-config-push deis-pull deis-scale deis-info deis-apps-check DEIS_PROFILE=production-d1 DEIS_ENV_FILE=env/prod_d1 TAG="${CI_TAG}-deis-v1" DEIS_SCALE="${DEIS_SCALE_PROD_D1}"
+
+# ================= End =================
+
+cleanup:registry:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+cleanup:runner:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-containers-cleanup
+    - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
+    - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=345600 # 4 days
+    - make docker-images-cleanup TAG="dev-" TIME_LIFE_IMAGE=345600 # 4 days
+  dependencies: []
+  tags: [ docker-engine, io ]

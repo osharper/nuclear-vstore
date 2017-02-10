@@ -1,0 +1,18 @@
+APPLICATION_PATH ?= $(abspath .)
+WORKDIR ?=
+BUILD_PATH ?= bin
+CI_STARTER_KIT_DIR ?= ci-starter-kit
+
+include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.common
+include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.docker
+ifeq ($(findstring docker-run-deis-v1-client,$(MAKECMDGOALS)),)
+	include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.deis
+endif
+ifeq ($(findstring docker-run-deis-client,$(MAKECMDGOALS)),)
+	include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.deis2
+endif
+include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.encrypt
+
+# Source url: http://stackoverflow.com/questions/2214575/passing-arguments-to-make-run
+%:
+	@:
