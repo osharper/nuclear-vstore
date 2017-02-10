@@ -38,21 +38,14 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
-        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(long startAfter)
+        public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(string continuationToken)
         {
-            var listResponse = await _amazonS3.ListObjectsV2Async(
-                                   new ListObjectsV2Request
-                                       {
-                                           BucketName = _bucketName,
-                                           StartAfter = startAfter.ToString() + "/" + Tokens.ObjectPostfix
-                                       });
+            var descriptors = new List<IdentifyableObjectDescriptor<long>>();
 
-            var descriptors = new ConcurrentBag<IdentifyableObjectDescriptor<long>>();
-            Parallel.ForEach(
-                listResponse.S3Objects.FindAll(x => x.Key.EndsWith(Tokens.ObjectPostfix)),
-                obj => descriptors.Add(new IdentifyableObjectDescriptor<long>(obj.Key.AsRootObjectId(), obj.LastModified)));
+            var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
+            descriptors.AddRange(listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(x.Key.AsRootObjectId(), x.LastModified)));
 
-            return descriptors.OrderBy(x => x.LastModified).ToArray();
+            return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
         }
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)

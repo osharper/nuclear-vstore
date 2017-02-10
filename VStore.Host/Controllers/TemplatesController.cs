@@ -44,11 +44,18 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
-        public async Task<IActionResult> List()
+        public async Task<IActionResult> List([FromHeader(Name = Headers.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
             try
             {
-                return Json(await _templatesStorageReader.GetTemplateMetadatas());
+                var container = await _templatesStorageReader.GetTemplateMetadatas(continuationToken?.Trim('"'));
+
+                if (!string.IsNullOrEmpty(container.ContinuationToken))
+                {
+                    Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
+                }
+
+                return Json(container.Collection);
             }
             catch (Exception ex)
             {
