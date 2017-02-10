@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Linq;
 
 using Amazon.S3;
 using Amazon.S3.Model;
 
 using Newtonsoft.Json;
+
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Locks
 {
@@ -38,10 +41,11 @@ namespace NuClear.VStore.Locks
                 new ListObjectsV2Request
                     {
                         BucketName = _bucketName,
-                        Prefix = _rootObjectId
+                        Prefix = _rootObjectId,
+                        MaxKeys = 1
                     });
 
-            if (responseTask.Result.S3Objects.Count > 0)
+            if (responseTask.Result.S3Objects.SingleOrDefault(o => o.Key == _rootObjectId) != null)
             {
                 throw new SessionLockAlreadyExistsException(_rootObjectId);
             }
@@ -53,7 +57,7 @@ namespace NuClear.VStore.Locks
                                 {
                                     BucketName = _bucketName,
                                     Key = _rootObjectId,
-                                    ContentType = "application/json",
+                                    ContentType = ContentType.Json,
                                     ContentBody = content,
                                     CannedACL = S3CannedACL.PublicRead
                                 })

@@ -13,12 +13,13 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Templates
 {
-    public sealed class TemplateManagementService
+    public sealed class TemplatesManagementService
     {
         private static readonly IReadOnlyCollection<FileFormat> ImageFileFormats =
             new[] { FileFormat.Bmp, FileFormat.Gif, FileFormat.Png };
@@ -27,18 +28,18 @@ namespace NuClear.VStore.Templates
             new[] { FileFormat.Chm };
 
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
 
-        public TemplateManagementService(
+        public TemplatesManagementService(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader,
+            TemplatesStorageReader templatesStorageReader,
             LockSessionFactory lockSessionFactory)
         {
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
+            _templatesStorageReader = templatesStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.TemplatesBucketName;
         }
@@ -56,7 +57,7 @@ namespace NuClear.VStore.Templates
                        };
         }
 
-        public async Task<string> CreateTemplate(long id, ITemplateDescriptor templateDescriptor)
+        public async Task<string> CreateTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -65,19 +66,19 @@ namespace NuClear.VStore.Templates
 
             using (_lockSessionFactory.CreateLockSession(id))
             {
-                if (await _templateStorageReader.IsTemplateExists(id))
+                if (await _templatesStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{id}' already exists");
+                    throw new ObjectAlreadyExistsException(id);
                 }
 
-                await PutTemplate(id, templateDescriptor);
+                await PutTemplate(id, author, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
-                return await _templateStorageReader.GetTemplateLatestVersion(id);
+                return await _templatesStorageReader.GetTemplateLatestVersion(id);
             }
         }
 
-        public async Task<string> ModifyTemplate(long id, string versionId, ITemplateDescriptor templateDescriptor)
+        public async Task<string> ModifyTemplate(long id, string versionId, string author, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -91,23 +92,21 @@ namespace NuClear.VStore.Templates
 
             using (_lockSessionFactory.CreateLockSession(id))
             {
-                if (!await _templateStorageReader.IsTemplateExists(id))
+                if (!await _templatesStorageReader.IsTemplateExists(id))
                 {
-                    throw new InvalidOperationException($"Template '{id}' does not exist");
+                    throw new ObjectNotFoundException($"Template '{id}' does not exist");
                 }
 
-                var latestVersionId = await _templateStorageReader.GetTemplateLatestVersion(id);
+                var latestVersionId = await _templatesStorageReader.GetTemplateLatestVersion(id);
                 if (!versionId.Equals(latestVersionId, StringComparison.Ordinal))
                 {
-                    throw new InvalidOperationException($"Template '{id}' cannot be modified. " +
-                                                        $"Reason: version '{versionId}' has been overwritten. " +
-                                                        $"Latest versionId is '{latestVersionId}'");
+                    throw new ConcurrencyException(id, versionId, latestVersionId);
                 }
 
-                await PutTemplate(id, templateDescriptor);
+                await PutTemplate(id, author, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
-                return await _templateStorageReader.GetTemplateLatestVersion(id);
+                return await _templatesStorageReader.GetTemplateLatestVersion(id);
             }
         }
 
@@ -229,8 +228,7 @@ namespace NuClear.VStore.Templates
                           "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
             }
 
-            if (elementDescriptor.Type != ElementDescriptorType.Text &&
-                textElementConstraints.IsFormatted)
+            if (elementDescriptor.Type != ElementDescriptorType.Text && textElementConstraints.IsFormatted)
             {
                 throw new TemplateInconsistentException(templateId, "Only text element can be formatted");
             }
@@ -251,7 +249,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private async Task PutTemplate(long id, ITemplateDescriptor templateDescriptor)
+        private async Task PutTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
             VerifyElementDescriptorsConsistency(id, templateDescriptor.Elements);
 
@@ -263,6 +261,9 @@ namespace NuClear.VStore.Templates
                     ContentBody = JsonConvert.SerializeObject(templateDescriptor, SerializerSettings.Default),
                     CannedACL = S3CannedACL.PublicRead,
                 };
+            var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
+            metadataWrapper.Write(MetadataElement.Author, author);
+
             await _amazonS3.PutObjectAsync(putRequest);
         }
     }

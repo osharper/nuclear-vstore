@@ -9,6 +9,8 @@
         TemplateVersionId,
         ExpiresAt,
         Filename,
-        Title
+        Title,
+        Author,
+        ModifiedElements
     }
 }

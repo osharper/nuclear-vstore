@@ -13,7 +13,7 @@ using NuClear.VStore.Options;
 namespace NuClear.VStore.Host.Controllers
 {
     [Route("dev")]
-    public sealed class DevController : Controller
+    public sealed class DevController : VStoreController
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly IOptions<CephOptions> _cephOptions;

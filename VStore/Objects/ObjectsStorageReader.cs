@@ -12,6 +12,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
@@ -23,58 +24,65 @@ using S3ObjectVersion = NuClear.VStore.S3.S3ObjectVersion;
 
 namespace NuClear.VStore.Objects
 {
-    public sealed class ObjectStorageReader
+    public sealed class ObjectsStorageReader
     {
         private readonly IAmazonS3 _amazonS3;
-        private readonly TemplateStorageReader _templateStorageReader;
+        private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
 
-        public ObjectStorageReader(
+        public ObjectsStorageReader(
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
-            TemplateStorageReader templateStorageReader)
+            TemplatesStorageReader templatesStorageReader)
         {
             _amazonS3 = amazonS3;
-            _templateStorageReader = templateStorageReader;
+            _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
         }
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            var listResponse = await _amazonS3.ListObjectsV2Async(
-                                   new ListObjectsV2Request
-                                       {
-                                           BucketName = _bucketName,
-                                           Prefix = id.AsS3ObjectKey(Tokens.TemplatePostfix)
-                                       });
-            if (listResponse.S3Objects.Count == 0)
+            ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
+            return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
+        }
+
+        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor>> GetAllObjectRootVersions(long id)
+        {
+            var versions = new List<IdentifyableObjectDescriptor>();
+
+            Func<string, Task<ListVersionsResponse>> listVersions =
+                async nextVersionIdMarker =>
+                    {
+                        var versionsResponse = await _amazonS3.ListVersionsAsync(
+                                                   new ListVersionsRequest
+                                                       {
+                                                           BucketName = _bucketName,
+                                                           Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                                                           VersionIdMarker = nextVersionIdMarker
+                                                       });
+                        versions.AddRange(versionsResponse.Versions.Select(x => new IdentifyableObjectDescriptor(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)));
+                        return versionsResponse;
+                    };
+
+            var response = await listVersions(null);
+            if (versions.Count == 0)
             {
-                throw new ObjectNotFoundException($"Template for the object '{id}' not found.");
+                throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
 
-            if (listResponse.S3Objects.Count > 1)
+            while (response.IsTruncated)
             {
-                throw new ObjectInconsistentException(id, $"More than one template found for the object '{id}'.");
+                response = await listVersions(response.NextVersionIdMarker);
             }
 
-            var templateId = listResponse.S3Objects[0].Key.AsObjectId();
-
-            var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
-            var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-            var templateVersionId = metadataWrapper.Read<string>(MetadataElement.TemplateVersionId);
-
-            if (string.IsNullOrEmpty(templateVersionId))
-            {
-                throw new ObjectInconsistentException(id, "Template version cannot be determined.");
-            }
-
-            return await _templateStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
+            return versions;
         }
 
         public async Task<IReadOnlyCollection<S3ObjectVersion>> GetObjectLatestVersions(long id)
         {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString() + "/");
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id + "/");
             return versionsResponse.Versions.FindAll(x => x.IsLatest)
+                                   .Where(x => !x.Key.EndsWith("/"))
                                    .Select(x => new S3ObjectVersion { Key = x.Key, VersionId = x.VersionId, LastModified = x.LastModified })
                                    .ToArray();
         }
@@ -85,14 +93,13 @@ namespace NuClear.VStore.Objects
             if (string.IsNullOrEmpty(versionId))
             {
                 var objectVersions = await GetObjectLatestVersions(id);
-                objectVersionId = objectVersions
-                    .Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
-                    .Select(x => x.VersionId)
-                    .SingleOrDefault();
+                objectVersionId = objectVersions.Where(x => x.Key.EndsWith(Tokens.ObjectPostfix))
+                                                .Select(x => x.VersionId)
+                                                .SingleOrDefault();
 
                 if (objectVersionId == null)
                 {
-                    throw new ObjectNotFoundException($"Object '{id}' not found");
+                    throw new ObjectNotFoundException($"Object '{id}' not found.");
                 }
             }
             else
@@ -101,7 +108,7 @@ namespace NuClear.VStore.Objects
             }
 
             var persistenceDescriptorWrapper = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
-            var persistenceDescriptor = persistenceDescriptorWrapper.Object;
+            var persistenceDescriptor = (ObjectPersistenceDescriptor)persistenceDescriptorWrapper;
 
             var elements = new ConcurrentBag<IObjectElementDescriptor>();
             Parallel.ForEach(
@@ -109,9 +116,9 @@ namespace NuClear.VStore.Objects
                 objectVersion =>
                     {
                         var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Key, objectVersion.VersionId).Result;
-                        var elementDescriptor = elementDescriptorWrapper.Object;
+                        var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
 
-                        elementDescriptor.Id = objectVersion.Key.AsObjectId();
+                        elementDescriptor.Id = objectVersion.Key.AsSubObjectId();
                         elementDescriptor.VersionId = objectVersion.VersionId;
                         elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
 
@@ -126,6 +133,7 @@ namespace NuClear.VStore.Objects
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
+                                     Author = persistenceDescriptorWrapper.Author,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -138,12 +146,13 @@ namespace NuClear.VStore.Objects
                                    new ListObjectsV2Request
                                    {
                                        BucketName = _bucketName,
-                                       Prefix = id.ToString()
+                                       MaxKeys = 1,
+                                       Prefix = id.ToString() + "/" + Tokens.ObjectPostfix
                                    });
             return listResponse.S3Objects.Count != 0;
         }
 
-        private async Task<LastModifiedWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
+        private async Task<ObjectWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -152,8 +161,11 @@ namespace NuClear.VStore.Objects
             }
             catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new ObjectNotFoundException($"Object '{key}' version '{versionId}' not found");
+                throw new ObjectNotFoundException($"Object '{key}' with versionId '{versionId}' not found.");
             }
+
+            var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
 
             string content;
             using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
@@ -162,19 +174,27 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return new LastModifiedWrapper<T>(obj, getObjectResponse.LastModified);
+            return new ObjectWrapper<T>(obj, author, getObjectResponse.LastModified);
         }
 
-        private class LastModifiedWrapper<T>
+        private class ObjectWrapper<T>
         {
-            public LastModifiedWrapper(T @object, DateTime lastModified)
+            private readonly T _object;
+
+            public ObjectWrapper(T @object, string author, DateTime lastModified)
             {
-                Object = @object;
+                _object = @object;
+                Author = author;
                 LastModified = lastModified;
             }
 
-            public T Object { get; }
+            public string Author { get; }
             public DateTime LastModified { get; }
+
+            public static implicit operator T(ObjectWrapper<T> wrapper)
+            {
+                return wrapper._object;
+            }
         }
     }
 }
