@@ -79,10 +79,6 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                EnsureAllBinariesExist(id, objectDescriptor.Elements);
-
-                RetrieveBinariesFilenames(objectDescriptor.Elements);
-
                 return await PutObject(id, author, objectDescriptor);
             }
         }
@@ -117,7 +113,6 @@ namespace NuClear.VStore.Objects
                 }
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
-                EnsureAllBinariesExist(id, modifiedObjectDescriptor.Elements);
 
                 return await PutObject(id, author, modifiedObjectDescriptor);
             }
@@ -261,22 +256,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private void EnsureAllBinariesExist(long id, IEnumerable<IObjectElementDescriptor> objectElements)
-        {
-            Parallel.ForEach(objectElements,
-                             objectElement =>
-                             {
-                                 var binaryValue = objectElement.Value as IBinaryElementValue;
-                                 if (!string.IsNullOrEmpty(binaryValue?.Raw) && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
-                                 {
-                                     throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
-                                 }
-                             });
-        }
-
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -337,25 +320,44 @@ namespace NuClear.VStore.Objects
                                  .Single();
         }
 
-        private void RetrieveBinariesFilenames(IEnumerable<IObjectElementDescriptor> objectElements)
+        private void RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            Parallel.ForEach(objectElements,
-                             objectElement =>
-                             {
-                                 var imageValue = objectElement.Value as ImageElementValue;
-                                 if (imageValue != null)
-                                 {
-                                     imageValue.Filename = _sessionStorageReader.GetBinaryFilename(imageValue.Raw).Result;
-                                 }
-                                 else
-                                 {
-                                     var articleValue = objectElement.Value as ArticleElementValue;
-                                     if (articleValue != null)
-                                     {
-                                         articleValue.Filename = _sessionStorageReader.GetBinaryFilename(articleValue.Raw).Result;
-                                     }
-                                 }
-                             });
+            Parallel.ForEach(
+                objectElements,
+                objectElement =>
+                    {
+                        var binaryElementValue = objectElement.Value as IBinaryElementValue;
+                        if (binaryElementValue == null)
+                        {
+                            return;
+                        }
+
+                        if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                        {
+                            throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                        }
+
+                        try
+                        {
+                            binaryElementValue.Filename = _sessionStorageReader.GetBinaryFilename(binaryElementValue.Raw).Result;
+
+                            var imageElementValue = binaryElementValue as IImageElementValue;
+                            if (imageElementValue != null)
+                            {
+                                imageElementValue.PreviewUri = _sessionStorageReader.GetImagePreviewUrl(binaryElementValue.Raw).Result;
+                            }
+                        }
+                        catch (AggregateException ex)
+                        {
+                            var baseException = ex.GetBaseException();
+                            if (baseException is ObjectNotFoundException)
+                            {
+                                throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, baseException);
+                            }
+
+                            throw;
+                        }
+                    });
         }
     }
 }

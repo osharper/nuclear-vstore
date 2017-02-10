@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
 using NuClear.VStore.S3;
@@ -161,7 +162,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{sessionId}/upload/{templateCode}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
-        [ProducesResponseType(typeof(UploadedFileInfo), 201)]
+        [ProducesResponseType(typeof(UploadedFileValue), 201)]
         [ProducesResponseType(typeof(string), 400)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
@@ -213,14 +214,7 @@ namespace NuClear.VStore.Host.Controllers
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
-                return Created(
-                    uploadedFileInfo.PreviewUri,
-                    new
-                        {
-                            uploadedFileInfo.Id,
-                            uploadedFileInfo.Filename,
-                            uploadedFileInfo.PreviewUri
-                        });
+                return Created(uploadedFileInfo.PreviewUri, new UploadedFileValue(uploadedFileInfo.Id));
             }
             catch (Exception ex)
             {
@@ -231,6 +225,16 @@ namespace NuClear.VStore.Host.Controllers
 
                 return InternalServerError(ex, "Unexpected error while file uploading");
             }
+        }
+
+        private sealed class UploadedFileValue : IObjectElementRawValue
+        {
+            public UploadedFileValue(string raw)
+            {
+                Raw = raw;
+            }
+
+            public string Raw { get; }
         }
     }
 }

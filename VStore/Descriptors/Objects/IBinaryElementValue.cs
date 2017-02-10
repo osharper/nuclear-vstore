@@ -2,6 +2,6 @@
 {
     public interface IBinaryElementValue : IObjectElementRawValue
     {
-        string Filename { get; }
+        string Filename { get; set; }
     }
 }

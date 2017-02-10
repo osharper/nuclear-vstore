@@ -30,7 +30,7 @@ namespace NuClear.VStore.S3
                 return default(T);
             }
 
-            if (metadataElement == MetadataElement.Name || metadataElement == MetadataElement.Title || metadataElement == MetadataElement.Filename)
+            if (metadataElement == MetadataElement.Filename)
             {
                 value = _defaultEncoding.GetString(Convert.FromBase64String(value));
             }
@@ -42,7 +42,7 @@ namespace NuClear.VStore.S3
         {
             var name = AsMetadataKey(metadataElement);
             var valueToWrite = value.ToString();
-            if (metadataElement == MetadataElement.Name || metadataElement == MetadataElement.Title || metadataElement == MetadataElement.Filename)
+            if (metadataElement == MetadataElement.Filename)
             {
                 valueToWrite = Convert.ToBase64String(_defaultEncoding.GetBytes(valueToWrite));
             }

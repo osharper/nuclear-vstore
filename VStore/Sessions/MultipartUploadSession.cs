@@ -7,16 +7,14 @@ namespace NuClear.VStore.Sessions
     {
         private readonly List<FilePart> _parts = new List<FilePart>();
 
-        public MultipartUploadSession(Guid sessionId, string fileName, string fileKey, string uploadId)
+        public MultipartUploadSession(Guid sessionId, string fileKey, string uploadId)
         {
             SessionId = sessionId;
-            FileName = fileName;
             FileKey = fileKey;
             UploadId = uploadId;
         }
 
         public Guid SessionId { get; }
-        public string FileName { get; }
         public string FileKey { get; }
         public string UploadId { get; }
         public int NextPartNumber => _parts.Count + 1;
