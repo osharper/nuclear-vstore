@@ -28,10 +28,10 @@ namespace NuClear.VStore.Descriptors
                 return true;
             }
 
-            return Id.Equals(other.Id);
+            return Equals(other);
         }
 
-        public bool Equals(IdentifyableObjectDescriptor<TId> other) => other.Equals(this);
+        public bool Equals(IdentifyableObjectDescriptor<TId> other) => Id.Equals(other.Id);
 
         public override int GetHashCode() => Id.GetHashCode();
     }

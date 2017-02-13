@@ -31,10 +31,11 @@ namespace NuClear.VStore.Descriptors
                 return true;
             }
 
-            return Id.Equals(other.Id) && (VersionId?.Equals(other.VersionId, StringComparison.OrdinalIgnoreCase) ?? false);
+            return Equals(other);
         }
 
-        public bool Equals(VersionedObjectDescriptor<TId> other) => other.Equals(this);
+        public bool Equals(VersionedObjectDescriptor<TId> other) =>
+            Id.Equals(other.Id) && (VersionId?.Equals(other.VersionId, StringComparison.OrdinalIgnoreCase) ?? true);
 
         public override int GetHashCode()
         {
