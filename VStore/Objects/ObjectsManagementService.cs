@@ -339,12 +339,14 @@ namespace NuClear.VStore.Objects
 
                         try
                         {
-                            binaryElementValue.Filename = _sessionStorageReader.GetBinaryFilename(binaryElementValue.Raw).Result;
+                            var binaryMetadata = _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw).Result;
+                            binaryElementValue.Filename = binaryMetadata.Filename;
+                            binaryElementValue.Filesize = binaryMetadata.Filesize;
 
                             var imageElementValue = binaryElementValue as IImageElementValue;
                             if (imageElementValue != null)
                             {
-                                imageElementValue.PreviewUri = _sessionStorageReader.GetImagePreviewUrl(binaryElementValue.Raw).Result;
+                                imageElementValue.PreviewUri = binaryMetadata.PreviewUri;
                             }
                         }
                         catch (AggregateException ex)

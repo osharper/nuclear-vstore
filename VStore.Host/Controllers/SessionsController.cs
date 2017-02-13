@@ -202,7 +202,6 @@ namespace NuClear.VStore.Host.Controllers
                                             sessionId,
                                             fileSection.FileName,
                                             section.ContentType,
-                                            contentLength.Value,
                                             templateCode);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
@@ -214,6 +213,7 @@ namespace NuClear.VStore.Host.Controllers
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
+
                 return Created(uploadedFileInfo.PreviewUri, new UploadedFileValue(uploadedFileInfo.Id));
             }
             catch (Exception ex)

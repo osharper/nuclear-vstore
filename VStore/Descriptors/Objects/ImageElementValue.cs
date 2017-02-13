@@ -6,6 +6,7 @@ namespace NuClear.VStore.Descriptors.Objects
     {
         public string Raw { get; set; }
         public string Filename { get; set; }
+        public long Filesize { get; set; }
         public Uri PreviewUri { get; set; }
     }
 }

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 using Amazon.S3;
 
+using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Sessions
@@ -19,28 +20,16 @@ namespace NuClear.VStore.Sessions
             _amazonS3 = amazonS3;
         }
 
-        public async Task<string> GetBinaryFilename(string key)
+        public async Task<BinaryMetadata> GetBinaryMetadata(string key)
         {
             try
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-                return metadataWrapper.Read<string>(MetadataElement.Filename);
-            }
-            catch (AmazonS3Exception ex) when(ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new ObjectNotFoundException($"Binary with the key '{key}' not found.");
-            }
-        }
-
-        public async Task<Uri> GetImagePreviewUrl(string key)
-        {
-            try
-            {
-                var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
-                var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+                var filename = metadataWrapper.Read<string>(MetadataElement.Filename);
                 var previewUrl = metadataWrapper.Read<string>(MetadataElement.PreviewUrl);
-                return new Uri(previewUrl);
+
+                return new BinaryMetadata(filename, metadataResponse.ContentLength, previewUrl != null ? new Uri(previewUrl) : null);
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {

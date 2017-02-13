@@ -104,7 +104,6 @@ namespace NuClear.VStore.Sessions
             Guid sessionId,
             string fileName,
             string contentType,
-            long contentLength,
             int templateCode)
         {
             if (!await IsSessionExists(sessionId))
