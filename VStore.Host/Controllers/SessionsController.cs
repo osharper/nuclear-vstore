@@ -164,6 +164,8 @@ namespace NuClear.VStore.Host.Controllers
         [MultipartBodyLengthLimit(1024)]
         [ProducesResponseType(typeof(UploadedFileValue), 201)]
         [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(object), 422)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -216,14 +218,40 @@ namespace NuClear.VStore.Host.Controllers
 
                 return Created(uploadedFileInfo.PreviewUri, new UploadedFileValue(uploadedFileInfo.Id));
             }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidTemplateException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (FilesizeMismatchException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ImageIncorrectException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ArticleIncorrectException ex)
+            {
+                return Unprocessable(ex);
+            }
             catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while file uploading");
+            }
+            finally
             {
                 if (uploadSession != null)
                 {
                     await _sessionManagementService.AbortMultipartUpload(uploadSession);
                 }
-
-                return InternalServerError(ex, "Unexpected error while file uploading");
             }
         }
 

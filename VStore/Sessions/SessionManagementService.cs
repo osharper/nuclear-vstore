@@ -108,7 +108,7 @@ namespace NuClear.VStore.Sessions
         {
             if (!await IsSessionExists(sessionId))
             {
-                throw new InvalidOperationException($"Session '{sessionId}' does not exist");
+                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
 
             SessionDescriptor sessionDescriptor = await GetSessionDescriptor(sessionId);
