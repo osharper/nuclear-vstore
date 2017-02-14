@@ -141,9 +141,11 @@ deploy:production-n3:
 
 cleanup:registry:
   stage: end
-  when: manual
+  when: always
+  only:
+    - master
   script:
-    - make docker-registry-images-cleanup TAG="master" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
     - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
     - make docker-registry-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=604800 # 7 days
   dependencies: []
@@ -151,10 +153,12 @@ cleanup:registry:
 
 cleanup:runner:
   stage: end
-  when: manual
+  when: always
+  only:
+    - master
   script:
     - make docker-containers-cleanup
-    - make docker-images-cleanup TAG="master" TIME_LIFE_IMAGE=86400 # 1 day
+    - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
     - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=345600 # 4 days
     - make docker-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=345600 # 4 days
   dependencies: []
