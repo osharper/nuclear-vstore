@@ -15,6 +15,7 @@ stages:
   - build:app
   - build:image
   - deploy
+  - end
 
 before_script:
   - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
@@ -24,7 +25,7 @@ before_script:
   - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
   - export CI_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "master-${GIT_SHA}"`
 
-# ================= Build =================
+# ================= Test & Build =================
 
 build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
@@ -135,3 +136,39 @@ deploy:production-n3:
       deis2-processes-check deis2-info
   tags: [ docker-engine, io ]
   dependencies: []
+
+# ================= End =================
+
+tag:latest:
+  stage: end
+  only:
+    - master
+  script:
+    - make docker-pull TAG=${CI_TAG}
+    - make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=latest
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+cleanup:registry:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+cleanup:runner:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-containers-cleanup
+    - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
+    - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=345600 # 4 days
+    - make docker-images-cleanup TAG="dev-" TIME_LIFE_IMAGE=345600 # 4 days
+  dependencies: []
+  tags: [ docker-engine, io ]
