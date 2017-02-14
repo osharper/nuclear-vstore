@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -30,16 +28,12 @@ namespace NuClear.VStore.Templates
             _bucketName = cephOptions.TemplatesBucketName;
         }
 
-        public async Task<IReadOnlyCollection<IdentifyableObjectDescriptor>> GetTemplateMetadatas()
+        public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetTemplateMetadatas(string continuationToken)
         {
-            var listVersionsResponse = await _amazonS3.ListVersionsAsync(_bucketName);
+            var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var descriptors = new ConcurrentBag<IdentifyableObjectDescriptor>();
-            Parallel.ForEach(
-                listVersionsResponse.Versions.FindAll(x => x.IsLatest && !x.IsDeleteMarker),
-                obj => descriptors.Add(new IdentifyableObjectDescriptor(obj.Key, obj.VersionId, obj.LastModified)));
-
-            return descriptors.OrderBy(x => x.LastModified).ToArray();
+            var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(long.Parse(x.Key), x.LastModified)).ToArray();
+            return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
         }
 
         public async Task<TemplateDescriptor> GetTemplateDescriptor(long id, string versionId)

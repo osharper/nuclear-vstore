@@ -2,29 +2,22 @@
 
 namespace NuClear.VStore.Descriptors
 {
-    public sealed class IdentifyableObjectDescriptor : IIdentifyable<long>, IVersioned, IEquatable<IdentifyableObjectDescriptor>
+    public sealed class IdentifyableObjectDescriptor<TId> : IIdentifyable<TId>, IEquatable<IdentifyableObjectDescriptor<TId>>
+        where TId : IEquatable<TId>
     {
-        public IdentifyableObjectDescriptor(long id, string versionId, DateTime lastModified)
+        public IdentifyableObjectDescriptor(TId id, DateTime lastModified)
         {
             Id = id;
-            VersionId = versionId;
             LastModified = lastModified;
         }
 
-        public IdentifyableObjectDescriptor(string id, string versionId, DateTime lastModified)
-            : this(long.Parse(id), versionId, lastModified)
-        {
-        }
-
-        public long Id { get; }
-
-        public string VersionId { get; }
+        public TId Id { get; }
 
         public DateTime LastModified { get; }
 
         public override bool Equals(object obj)
         {
-            var other = obj as IdentifyableObjectDescriptor;
+            var other = obj as IdentifyableObjectDescriptor<TId>;
             if (other == null)
             {
                 return false;
@@ -35,17 +28,11 @@ namespace NuClear.VStore.Descriptors
                 return true;
             }
 
-            return Id == other.Id && (VersionId?.Equals(other.VersionId, StringComparison.OrdinalIgnoreCase) ?? false);
+            return Equals(other);
         }
 
-        public bool Equals(IdentifyableObjectDescriptor other) => other.Equals(this);
+        public bool Equals(IdentifyableObjectDescriptor<TId> other) => Id.Equals(other.Id);
 
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (Id.GetHashCode() * 397) ^ (VersionId?.GetHashCode() ?? 0);
-            }
-        }
+        public override int GetHashCode() => Id.GetHashCode();
     }
 }
