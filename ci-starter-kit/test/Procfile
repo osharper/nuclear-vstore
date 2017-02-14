@@ -1,2 +1,0 @@
-cmd: make run
-worker: sleep 600

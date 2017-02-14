@@ -15,16 +15,17 @@ stages:
   - build:app
   - build:image
   - deploy
+  - end
 
 before_script:
-  - export PATH=${CI_PROJECT_DIR}/ci-starter-kit/utils/:$PATH
   - export APPLICATION=`make -s print-APPLICATION`
-  - export BRANCH_NAME=`DEIS_APPLICATION="${CI_BUILD_REF_NAME}" make -s print-DEIS_APPLICATION_FILTER`
-  - export GIT_SHA=`git rev-parse HEAD | cut -c1-8`
-  - export CI_DEV_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "dev-${BRANCH_NAME}-${GIT_SHA}" || echo "dev-${GIT_SHA}"`
-  - export CI_TAG=`[[ "${CI_BUILD_REF_NAME}" != "master" ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "master-${GIT_SHA}"`
+  - source ${CI_PROJECT_DIR}/ci-starter-kit/utils.sh
+  - export BRANCH_NAME=`echo ${CI_BUILD_REF_NAME} | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g'`
+  - export GIT_SHA=`git rev-parse --short=8 HEAD`
+  - export CI_DEV_TAG="dev-${BRANCH_NAME}-${GIT_SHA}"
+  - export CI_TAG="branch-${BRANCH_NAME}-${GIT_SHA}"
 
-# ================= Build =================
+# ================= Test & Build =================
 
 build:app:
   image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
@@ -135,3 +136,30 @@ deploy:production-n3:
       deis2-processes-check deis2-info
   tags: [ docker-engine, io ]
   dependencies: []
+
+# ================= End =================
+
+cleanup:registry:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=604800 # 7 days
+  dependencies: []
+  tags: [ docker-engine, io ]
+
+cleanup:runner:
+  stage: end
+  when: always
+  only:
+    - master
+  script:
+    - make docker-containers-cleanup
+    - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
+    - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=345600 # 4 days
+    - make docker-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=345600 # 4 days
+  dependencies: []
+  tags: [ docker-engine, io ]

@@ -20,7 +20,7 @@ DOCKER_RUN_WORKDIR ?= $(DOCKER_RUN_APP_PATH)/$(WORKDIR)
 DOCKER_RUN_ENV ?=
 DOCKER_RUN_VOLUMES ?=
 DOCKER_RUN_PORT ?= 5000
-DOCKER_HEALTHCHECK_WAIT ?= 15
+DOCKER_HEALTHCHECK_WAIT ?= 15s
 DOCKER_HEALTHCHECK_ENV_FILE ?= $(APPLICATION_PATH)/$(WORKDIR)/env/staging
 DOCKER_SAVE_IMAGE ?= image.tar
 DOCKER_LOAD_IMAGE ?= $(DOCKER_SAVE_IMAGE)
@@ -33,17 +33,7 @@ run-in-docker = docker run -w $(DOCKER_RUN_WORKDIR) $(DOCKER_RUN_ARGS) $(DOCKER_
 #docker-run-example:
 	#$(call run-in-docker,echo \"Hi! It s docker-run-example was run!\")
 
-UNAME := $(shell uname)
-ifeq ($(UNAME),Linux)
-	JQ := $(CI_STARTER_KIT_DIR)/utils/jq/jq-linux64
-endif
-ifeq ($(UNAME),Darwin)
-	JQ := $(CI_STARTER_KIT_DIR)/utils/jq/jq-osx-amd64
-endif
-ifeq ($(UNAME),Windows)
-	JQ := $(CI_STARTER_KIT_DIR)/utils/jq/jq-win64.exe
-endif
-
+JQ := docker run -i --rm $(REGISTRY)/2gis/jq:1.5
 
 .PHONY: docker-build
 docker-build:
@@ -105,30 +95,19 @@ docker-load:
 	docker load -i $(DOCKER_LOAD_IMAGE)
 
 .PHONY: docker-healthcheck
-docker-healthcheck: DOCKER_RUN_ARGS = -i -d --cidfile=$@_cidfile.txt --env-file=$(DOCKER_HEALTHCHECK_ENV_FILE)
+docker-healthcheck: DOCKER_RUN_ARGS = -i -d --env-file=$(DOCKER_HEALTHCHECK_ENV_FILE) --name=$(CONTAINER_NAME) --network=$(NETWORK_NAME)
+docker-healthcheck: IMAGE_DOCKERIZE = $(REGISTRY)/2gis/dockerize:0.3.0
 docker-healthcheck:
-	set -ex; rm -f ./$@_cidfile.txt ; \
-	$(call run-in-docker,) ; \
-	cid=`cat ./$@_cidfile.txt` ; \
-	i=1 ; \
-	exitCode=1 ; \
-	while [[ $$i -le $(DOCKER_HEALTHCHECK_WAIT) ]]; \
-	do \
-		echo -e "\n------------------------------------$$i-------------------------------------------" ; \
-		echo -e "Docker logs:" ; \
-		docker logs $${cid} ; \
-		echo -e "Docker inspect .State.Health:" ; \
-		docker inspect --format='{{json .State.Health }}' $${cid} | $(APPLICATION_PATH)/$(JQ) --color-output --ascii-output . ; \
-		status=`docker inspect --format='{{ .State.Health.Status }}' $${cid}` ; \
-		if [ -z "$${status#healthy}" ]; then \
-			exitCode=0 ; \
-			break ; \
-		fi ; \
-		((i = i + 1)) ; \
-		sleep 2 ; \
-	done ; \
-	docker rm -f -v $${cid} &> /dev/null ; \
-	exit $$exitCode ;
+	$(eval HASH=$(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1))
+	$(eval CONTAINER_NAME=docker-healthcheck-app-$(HASH))
+	$(eval NETWORK_NAME=docker-healthcheck-isolated-nw-$(HASH))
+	docker network create -d bridge $(NETWORK_NAME) 1> /dev/null
+	$(call run-in-docker,) 1> /dev/null
+	docker run -i --network=$(NETWORK_NAME) $(IMAGE_DOCKERIZE) dockerize -wait http://$(CONTAINER_NAME):$(DOCKER_RUN_PORT)$(HEALTHCHECK_PATH) -timeout $(DOCKER_HEALTHCHECK_WAIT) ; \
+	exitCode=$$? ; \
+	  docker rm -f -v $(CONTAINER_NAME) 1> /dev/null ; \
+	  docker network rm $(NETWORK_NAME) 1> /dev/null ; \
+	exit $$exitCode;
 
 .PHONY: docker-registry-rmi
 docker-registry-rmi:
@@ -142,13 +121,13 @@ docker-registry-rmi:
 .PHONY: docker-registry-image-tags-list
 docker-registry-image-tags-list:
 	@curl -sS -X GET \
-		https://$(REGISTRY)/v2/$(IMAGE)/tags/list --stderr - | $(APPLICATION_PATH)/$(JQ) '.tags|.[]' --raw-output
+		https://$(REGISTRY)/v2/$(IMAGE)/tags/list --stderr - | $(JQ) '.tags|.[]' --raw-output
 
 .PHONY: docker-registry-image-creation
 docker-registry-image-creation:
 	@curl -sS -X GET \
 		-H "Accept: application/vnd.docker.distribution.manifest.v1+json" \
-		https://$(REGISTRY)/v2/$(IMAGE)/manifests/$(TAG) --stderr - | $(APPLICATION_PATH)/$(JQ) '.history[0].v1Compatibility|fromjson|.created' --raw-output
+		https://$(REGISTRY)/v2/$(IMAGE)/manifests/$(TAG) --stderr - | $(JQ) '.history[0].v1Compatibility|fromjson|.created' --raw-output
 
 .PHONY: docker-registry-images-cleanup
 docker-registry-images-cleanup:
