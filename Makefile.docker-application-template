@@ -24,10 +24,6 @@ docker-run-app-test:
 docker-run-app-lint:
 	$(call run-in-docker,bash -c "make lint")
 
-.PHONY: docker-run-app-bench
-docker-run-app-bench:
-	$(call run-in-docker,bash -c "make bench")
-
 # ================ docker-build-* =================
 
 .PHONY: docker-build-dev-image
@@ -43,7 +39,8 @@ docker-build-prod-image: DOCKER_BUILD_CONTEXT = .
 docker-build-prod-image: DOCKER_BUILD_ARG += \
 	--build-arg SOURCE_PATH=$(DOCKER_RUN_WORKDIR) \
 	--build-arg BUILD_PATH=$(BUILD_PATH) \
-	--build-arg PORT=$(DOCKER_RUN_PORT)
+	--build-arg PORT=$(DOCKER_RUN_PORT) \
+	--build-arg HEALTHCHECK=$(HEALTHCHECK_PATH)
 docker-build-prod-image: docker-build
 
 # ================ docker-app-* =================
@@ -56,9 +53,6 @@ docker-app-test: docker-build-dev-image docker-run-app-test
 
 .PHONY: docker-app-lint
 docker-app-lint: docker-build-dev-image docker-run-app-lint
-
-.PHONY: docker-app-bench
-docker-app-bench: docker-build-dev-image docker-run-app-bench
 
 .PHONY: docker-app-run
 docker-app-run: DOCKER_RUN_ARGS = -it --rm -p $(DOCKER_RUN_PORT):$(DOCKER_RUN_PORT)
