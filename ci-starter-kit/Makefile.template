@@ -1,7 +1,7 @@
 # Имя приложения, например bss-buffer
-APPLICATION = 
+APPLICATION =
 # Группа, в которую входит приложение, обычно название команды, например, webapi
-VENDOR = 
+VENDOR =
 # Путь к корню проекта относительно главного Makefile-а, в котором он определяется
 # abspath обязателен
 APPLICATION_PATH ?= $(abspath .)
@@ -13,7 +13,7 @@ CI_STARTER_KIT_DIR ?= ci-starter-kit
 
 SHELL := env PATH=$(PATH) /bin/bash
 
-DEIS2_PERMS_CREATE_USERS = 
+DEIS2_PERMS_CREATE_USERS =
 
 -include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.ci
 -include $(APPLICATION_PATH)/Makefile.docker-application
