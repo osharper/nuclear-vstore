@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
 using NuClear.VStore.S3;
@@ -161,8 +162,10 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPost("{sessionId}/upload/{templateCode}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
-        [ProducesResponseType(typeof(UploadedFileInfo), 201)]
+        [ProducesResponseType(typeof(UploadedFileValue), 201)]
         [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(object), 422)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -201,7 +204,6 @@ namespace NuClear.VStore.Host.Controllers
                                             sessionId,
                                             fileSection.FileName,
                                             section.ContentType,
-                                            contentLength.Value,
                                             templateCode);
                         _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
                     }
@@ -213,24 +215,54 @@ namespace NuClear.VStore.Host.Controllers
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
-                return Created(
-                    uploadedFileInfo.PreviewUri,
-                    new
-                        {
-                            uploadedFileInfo.Id,
-                            uploadedFileInfo.Filename,
-                            uploadedFileInfo.PreviewUri
-                        });
+
+                return Created(uploadedFileInfo.PreviewUri, new UploadedFileValue(uploadedFileInfo.Id));
+            }
+            catch (ObjectNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidTemplateException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (FilesizeMismatchException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ImageIncorrectException ex)
+            {
+                return Unprocessable(ex);
+            }
+            catch (ArticleIncorrectException ex)
+            {
+                return Unprocessable(ex);
             }
             catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while file uploading");
+            }
+            finally
             {
                 if (uploadSession != null)
                 {
                     await _sessionManagementService.AbortMultipartUpload(uploadSession);
                 }
-
-                return InternalServerError(ex, "Unexpected error while file uploading");
             }
+        }
+
+        private sealed class UploadedFileValue : IObjectElementRawValue
+        {
+            public UploadedFileValue(string raw)
+            {
+                Raw = raw;
+            }
+
+            public string Raw { get; }
         }
     }
 }

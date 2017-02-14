@@ -79,8 +79,6 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                EnsureAllBinariesExist(id, objectDescriptor.Elements);
-
                 return await PutObject(id, author, objectDescriptor);
             }
         }
@@ -115,7 +113,6 @@ namespace NuClear.VStore.Objects
                 }
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
-                EnsureAllBinariesExist(id, modifiedObjectDescriptor.Elements);
 
                 return await PutObject(id, author, modifiedObjectDescriptor);
             }
@@ -259,22 +256,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private void EnsureAllBinariesExist(long id, IEnumerable<IObjectElementDescriptor> objectElements)
-        {
-            Parallel.ForEach(objectElements,
-                             objectElement =>
-                             {
-                                 var binaryValue = objectElement.Value as IBinaryElementValue;
-                                 if (!string.IsNullOrEmpty(binaryValue?.Raw) && !_sessionStorageReader.IsBinaryExists(binaryValue.Raw).Result)
-                                 {
-                                     throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryValue.Raw) });
-                                 }
-                             });
-        }
-
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -333,6 +318,48 @@ namespace NuClear.VStore.Objects
             return objectVersions.Where(x => x.Id.EndsWith(Tokens.ObjectPostfix))
                                  .Select(x => x.VersionId)
                                  .Single();
+        }
+
+        private void RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
+        {
+            Parallel.ForEach(
+                objectElements,
+                objectElement =>
+                    {
+                        var binaryElementValue = objectElement.Value as IBinaryElementValue;
+                        if (binaryElementValue == null)
+                        {
+                            return;
+                        }
+
+                        if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                        {
+                            throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                        }
+
+                        try
+                        {
+                            var binaryMetadata = _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw).Result;
+                            binaryElementValue.Filename = binaryMetadata.Filename;
+                            binaryElementValue.Filesize = binaryMetadata.Filesize;
+
+                            var imageElementValue = binaryElementValue as IImageElementValue;
+                            if (imageElementValue != null)
+                            {
+                                imageElementValue.PreviewUri = binaryMetadata.PreviewUri;
+                            }
+                        }
+                        catch (AggregateException ex)
+                        {
+                            var baseException = ex.GetBaseException();
+                            if (baseException is ObjectNotFoundException)
+                            {
+                                throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, baseException);
+                            }
+
+                            throw;
+                        }
+                    });
         }
     }
 }

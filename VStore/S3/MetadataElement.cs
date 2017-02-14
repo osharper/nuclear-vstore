@@ -2,15 +2,10 @@
 {
     public enum MetadataElement
     {
-        Name = 1,
-        Id,
-        VersionId,
-        TemplateId,
-        TemplateVersionId,
-        ExpiresAt,
+        ExpiresAt = 1,
         Filename,
-        Title,
         Author,
-        ModifiedElements
+        ModifiedElements,
+        PreviewUrl
     }
 }

@@ -104,12 +104,11 @@ namespace NuClear.VStore.Sessions
             Guid sessionId,
             string fileName,
             string contentType,
-            long contentLength,
             int templateCode)
         {
             if (!await IsSessionExists(sessionId))
             {
-                throw new InvalidOperationException($"Session '{sessionId}' does not exist");
+                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
 
             SessionDescriptor sessionDescriptor = await GetSessionDescriptor(sessionId);
@@ -133,7 +132,7 @@ namespace NuClear.VStore.Sessions
 
             var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
 
-            return new MultipartUploadSession(sessionId, fileName, fileKey, uploadResponse.UploadId);
+            return new MultipartUploadSession(sessionId, fileKey, uploadResponse.UploadId);
         }
 
         public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, int templateCode)
@@ -202,17 +201,28 @@ namespace NuClear.VStore.Sessions
                 }
 
                 var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
+                var previewUrl = new Uri(_fileStorageEndpointUri, fileKey);
+
                 var copyRequest = new CopyObjectRequest
                                       {
                                           SourceBucket = _filesBucketName,
                                           SourceKey = uploadKey,
                                           DestinationBucket = _filesBucketName,
                                           DestinationKey = fileKey,
+                                          MetadataDirective = S3MetadataDirective.REPLACE,
                                           CannedACL = S3CannedACL.PublicRead
                                       };
+                foreach (var metadataKey in getResponse.Metadata.Keys)
+                {
+                    copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
+                }
+
+                var metadataWrapper = MetadataCollectionWrapper.For(copyRequest.Metadata);
+                metadataWrapper.Write(MetadataElement.PreviewUrl, previewUrl);
+
                 await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new UploadedFileInfo(fileKey, uploadSession.FileName, new Uri(_fileStorageEndpointUri, fileKey));
+                return new UploadedFileInfo(fileKey, previewUrl);
             }
             finally
             {

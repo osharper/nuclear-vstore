@@ -165,7 +165,7 @@ namespace NuClear.VStore.Objects
             {
                 getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key, versionId);
             }
-            catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new ObjectNotFoundException($"Object '{key}' with versionId '{versionId}' not found.");
             }
