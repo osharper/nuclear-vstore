@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +35,27 @@ namespace NuClear.VStore.Host.Controllers
             _objectsManagementService = objectsManagementService;
         }
 
+        [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
+        public async Task<IActionResult> List([FromHeader(Name = Headers.HeaderNames.AmsContinuationToken)]string continuationToken)
+        {
+            try
+            {
+                var container = await _objectsStorageReader.GetObjectMetadatas(continuationToken?.Trim('"'));
+
+                if (!string.IsNullOrEmpty(container.ContinuationToken))
+                {
+                    Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
+                }
+
+                return Json(container.Collection);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex, "Unexpected error while listing objects");
+            }
+        }
+
         [HttpGet("{id}/{versionId}/template")]
         [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(IVersionedTemplateDescriptor), 200)]
@@ -61,7 +81,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/versions")]
-        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<VersionedObjectDescriptor<long>>), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersions(long id)
         {
