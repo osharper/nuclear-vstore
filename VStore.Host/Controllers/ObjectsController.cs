@@ -81,7 +81,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id}/versions")]
-        [ProducesResponseType(typeof(IReadOnlyCollection<VersionedObjectDescriptor<long>>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ModifiedObjectDescriptor>), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersions(long id)
         {
