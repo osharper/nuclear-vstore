@@ -131,10 +131,10 @@ deis2-tags-set:
 .PHONY: deis2-tags-list
 deis2-tags-list:
 	@$(MAKE) -s deis2-common DEIS2_CMD="$(DEIS) tags:list -a $(DEIS2_APPLICATION_FILTER)"
-	
+
 .PHONY: deis2-perms-create
 deis2-perms-create:
-	$(foreach USER, $(DEIS2_PERMS_CREATE_USERS), $(DEIS) perms:create $(USER) -a $(DEIS2_APPLICATION_FILTER); )
+	@$(MAKE) -s deis2-common DEIS2_CMD="$(foreach USER, $(DEIS2_PERMS_CREATE_USERS), $(DEIS) perms:create $(USER) -a $(DEIS2_APPLICATION_FILTER); )"
 
 .PHONY: deis2-perms-list
 deis2-perms-list:
