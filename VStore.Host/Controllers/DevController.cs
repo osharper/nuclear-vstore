@@ -36,7 +36,7 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<JsonResult> List()
         {
             var response = await _amazonS3.ListVersionsAsync(_cephOptions.Value.ObjectsBucketName);
-            return Json(response.Versions.FindAll(x => !x.IsDeleteMarker).Select(x => new { x.Key, x.VersionId, x.IsLatest }));
+            return Json(response.Versions.Where(x => !x.IsDeleteMarker).Select(x => new { x.Key, x.VersionId, x.IsLatest }));
         }
 
         [HttpGet("throw")]

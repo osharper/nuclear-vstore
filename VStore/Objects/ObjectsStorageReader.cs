@@ -77,7 +77,7 @@ namespace NuClear.VStore.Objects
                                                            VersionIdMarker = nextVersionIdMarker
                                                        });
                         var versionInfos = versionsResponse.Versions
-                                                           .FindAll(x => !x.IsDeleteMarker)
+                                                           .Where(x => !x.IsDeleteMarker)
                                                            .Select(x => new { x.Key, x.VersionId, x.LastModified })
                                                            .ToArray();
 
@@ -117,7 +117,7 @@ namespace NuClear.VStore.Objects
         {
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id + "/");
             return versionsResponse.Versions
-                                   .FindAll(x => !x.IsDeleteMarker && x.IsLatest && !x.Key.EndsWith("/"))
+                                   .Where(x => !x.IsDeleteMarker && x.IsLatest && !x.Key.EndsWith("/"))
                                    .Select(x => new VersionedObjectDescriptor<string>(x.Key, x.VersionId, x.LastModified))
                                    .ToArray();
         }
