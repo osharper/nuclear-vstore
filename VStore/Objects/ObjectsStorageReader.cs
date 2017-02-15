@@ -42,7 +42,7 @@ namespace NuClear.VStore.Objects
         {
             var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(x.Key.AsRootObjectId(), x.LastModified)).ToArray();
+            var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(x.Key.AsRootObjectId(), x.LastModified)).Distinct().ToArray();
             return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
         }
 
@@ -52,9 +52,19 @@ namespace NuClear.VStore.Objects
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
-        public async Task<IReadOnlyCollection<VersionedObjectDescriptor<long>>> GetAllObjectRootVersions(long id)
+        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetAllObjectRootVersions(long id)
         {
-            var versions = new List<VersionedObjectDescriptor<long>>();
+            var versions = new List<ModifiedObjectDescriptor>();
+
+            Func<string, string, Task<IReadOnlyCollection<int>>> getModifiedElements =
+                async (key, versionId) =>
+                    {
+                        var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, key, versionId);
+
+                        var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+                        var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
+                        return modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                    };
 
             Func<string, Task<ListVersionsResponse>> listVersions =
                 async nextVersionIdMarker =>
@@ -66,7 +76,26 @@ namespace NuClear.VStore.Objects
                                                            Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
                                                            VersionIdMarker = nextVersionIdMarker
                                                        });
-                        versions.AddRange(versionsResponse.Versions.Select(x => new VersionedObjectDescriptor<long>(x.Key.AsRootObjectId(), x.VersionId, x.LastModified)));
+                        var versionInfos = versionsResponse.Versions
+                                                           .Where(x => !x.IsDeleteMarker)
+                                                           .Select(x => new { x.Key, x.VersionId, x.LastModified })
+                                                           .ToArray();
+
+                        var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
+                        Parallel.ForEach(
+                            versionInfos,
+                            (versionInfo, state, index) =>
+                                {
+                                    var modifiedElements = getModifiedElements(versionInfo.Key, versionInfo.VersionId).Result;
+                                    descriptors[index] = new ModifiedObjectDescriptor(
+                                        versionInfo.Key.AsRootObjectId(),
+                                        versionInfo.VersionId,
+                                        versionInfo.LastModified,
+                                        modifiedElements);
+                                });
+
+                        versions.AddRange(descriptors);
+
                         return versionsResponse;
                     };
 
@@ -87,8 +116,8 @@ namespace NuClear.VStore.Objects
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
         {
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id + "/");
-            return versionsResponse.Versions.FindAll(x => x.IsLatest)
-                                   .Where(x => !x.Key.EndsWith("/"))
+            return versionsResponse.Versions
+                                   .Where(x => !x.IsDeleteMarker && x.IsLatest && !x.Key.EndsWith("/"))
                                    .Select(x => new VersionedObjectDescriptor<string>(x.Key, x.VersionId, x.LastModified))
                                    .ToArray();
         }

@@ -13,5 +13,6 @@
         public const string VersionIdToken = "versionId";
         public const string ValueToken = "value";
         public const string ErrorsToken = "errors";
+        public const char ModifiedElementsDelimiter = ';';
     }
 }

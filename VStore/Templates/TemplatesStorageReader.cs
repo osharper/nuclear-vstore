@@ -68,7 +68,7 @@ namespace NuClear.VStore.Templates
         public async Task<string> GetTemplateLatestVersion(long id)
         {
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString());
-            var version = versionsResponse.Versions.Find(x => x.IsLatest);
+            var version = versionsResponse.Versions.Find(x => !x.IsDeleteMarker && x.IsLatest);
             if (version == null)
             {
                 throw new ObjectNotFoundException($"Template '{id}' versions not found");

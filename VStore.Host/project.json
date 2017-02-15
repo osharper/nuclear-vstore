@@ -1,5 +1,5 @@
 {
-  "version": "0.0.4",
+  "version": "0.1.0",
   "dependencies": {
     "AWSSDK.S3": "3.3.5.4",
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.2",
@@ -24,7 +24,7 @@
     "System.Runtime.Serialization.Formatters": "4.3.0",
     "Swashbuckle.AspNetCore": "1.0.0-rc1",
     "VStore": {
-        "target": "project"
+      "target": "project"
     }
   },
   "frameworks": {
