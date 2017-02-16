@@ -1,4 +1,4 @@
-﻿# Имя приложения, например bss-buffer
+# Имя приложения, например bss-buffer
 APPLICATION = vstore
 # Группа, в которую входит приложение, обычно название команды, например, webapi
 VENDOR = ams
@@ -13,6 +13,14 @@ CI_STARTER_KIT_DIR ?= ci-starter-kit
 
 SHELL := env PATH=$(PATH) /bin/bash
 
-DEIS2_PERMS_CREATE_USERS = 
+DOCKER_RUN_PORT = 5000
+
+HEALTHCHECK_PATH = /healthcheck
+DEIS2_HEALTHCHECK_PATH = $(HEALTHCHECK_PATH)
+DEIS2_HEALTHCHECK_PORT = $(DOCKER_RUN_PORT)
+DEIS2_PERMS_CREATE_USERS =
+
+INSTALL_ARGS ?=
+DOCKER_INSTALL_ARGS ?= $(INSTALL_ARGS)
 
 -include $(APPLICATION_PATH)/$(CI_STARTER_KIT_DIR)/Makefile.ci

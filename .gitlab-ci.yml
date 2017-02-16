@@ -23,7 +23,7 @@ before_script:
   - export BRANCH_NAME=`echo ${CI_BUILD_REF_NAME} | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g'`
   - export GIT_SHA=`git rev-parse --short=8 HEAD`
   - export CI_DEV_TAG="dev-${BRANCH_NAME}-${GIT_SHA}"
-  - export CI_TAG="branch-${BRANCH_NAME}-${GIT_SHA}"
+  - export CI_TAG=`[[ -z ${CI_BUILD_TAG} ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "${CI_BUILD_TAG}"`
 
 # ================= Test & Build =================
 
