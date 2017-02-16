@@ -23,7 +23,7 @@ before_script:
   - export BRANCH_NAME=`echo ${CI_BUILD_REF_NAME} | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g'`
   - export GIT_SHA=`git rev-parse --short=8 HEAD`
   - export CI_DEV_TAG="dev-${BRANCH_NAME}-${GIT_SHA}"
-  - export CI_TAG="branch-${BRANCH_NAME}-${GIT_SHA}"
+  - export CI_TAG=`[[ -z ${CI_BUILD_TAG} ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "${CI_BUILD_TAG}"`
 
 # ================= Test & Build =================
 
@@ -141,13 +141,12 @@ deploy:production-n3:
 
 tag:latest:
   stage: end
-  # only:
-  #   - master
+  only:
+    - master
+    - tags
   script:
-    # Make this step only when pushing tag:
-    - if [ -z "$CI_BUILD_TAG" ]; then exit 0; fi
     - make docker-pull TAG=${CI_TAG}
-    - make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=${CI_BUILD_TAG}
+    - make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=latest
   dependencies: []
   tags: [ docker-engine, io ]
 
