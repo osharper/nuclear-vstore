@@ -139,6 +139,18 @@ deploy:production-n3:
 
 # ================= End =================
 
+tag:latest:
+  stage: end
+  only:
+    - master
+  script:
+    # Make this step only when pushing tag:
+    - if [ -z "$CI_BUILD_TAG" ]; then exit 0; fi
+    - make docker-pull TAG=${CI_TAG}
+    - make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=${CI_BUILD_TAG}
+  dependencies: []
+  tags: [ docker-engine, io ]
+
 cleanup:registry:
   stage: end
   when: always
