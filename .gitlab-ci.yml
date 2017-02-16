@@ -148,7 +148,8 @@ tag:latest:
     - if [ -z "$CI_BUILD_TAG" ]; then exit 0; fi
     - make docker-pull TAG=${CI_TAG}
     - make docker-tag docker-push TAG_ORIG=${CI_TAG} TAG=${CI_BUILD_TAG}
-  dependencies: []
+  dependencies:
+    - build:image
   tags: [ docker-engine, io ]
 
 cleanup:registry:
