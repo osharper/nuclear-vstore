@@ -141,8 +141,8 @@ deploy:production-n3:
 
 tag:latest:
   stage: end
-  only:
-    - master
+  # only:
+  #   - master
   script:
     # Make this step only when pushing tag:
     - if [ -z "$CI_BUILD_TAG" ]; then exit 0; fi
