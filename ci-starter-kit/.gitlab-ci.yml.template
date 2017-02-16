@@ -59,31 +59,17 @@ healthcheck:
 
 # ================ Deploy =================
 
-deploy:deis-v1-staging:
+deploy:deis-staging:
   stage: deploy
   environment: staging
   only:
     - master
   variables:
-    RETRY_COUNT: "3"
+    TIME_LIMIT_DEPLOY_STAGING: "240"
   script:
     - >
-      retry ${RETRY_COUNT} make docker-run-deis-v1-client
-      deis-config-create DEIS_PROFILE=staging DEIS_USERNAME=${DEIS_STAGE_USERNAME} DEIS_TOKEN=${DEIS_STAGE_TOKEN}
-      deis-create deis-config-push deis-pull deis-scale deis-info deis-apps-check DEIS_PROFILE=staging DEIS_ENV_FILE=env/staging TAG="${CI_TAG}-deis-v1"
-  dependencies: []
-  tags: [ docker-engine, io ]
-
-deploy:deis-v2-staging:
-  stage: deploy
-  environment: staging
-  only:
-    - master
-  variables:
-    RETRY_COUNT: "3"
-  script:
-    - >
-      retry ${RETRY_COUNT} make docker-run-deis-client
+      time-limit ${TIME_LIMIT_DEPLOY_STAGING}
+      make docker-run-deis-client
       deis2-config-create DEIS_PROFILE=staging DEIS2_USERNAME=${DEIS2_STAGE_USERNAME} DEIS2_TOKEN=${DEIS2_STAGE_TOKEN}
       deis2-create deis2-config-push
       deis2-perms-create
@@ -109,7 +95,6 @@ deploy:prod-n3:
     DEIS_MEMORY_LIMITS_PROD_N3: "cmd=256M"
     DEIS_SCALE_PROD_N3: "cmd=2"
   script:
-    - make gpg-decrypt PASSPHRASE=${GPG_PASSWORD} INPUT=env/prod_n3.gpg OUTPUT=env/prod_n3
     - >
       make docker-run-deis-v1-client
       deis-config-create DEIS_PROFILE=production-n3 DEIS_CONTROLLER=${DEIS_CONTROLLER_PROD_N3} DEIS_USERNAME=${DEIS_PROD_N3_USERNAME} DEIS_TOKEN=${DEIS_PROD_N3_TOKEN}

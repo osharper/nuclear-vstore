@@ -2,16 +2,16 @@
 
 .PHONY: docker-run-app-install
 docker-run-app-install: DOCKER_RUN_ARGS = -i --cidfile=$@_cidfile.txt
-docker-run-app-install: DOCKER_RUN_ENV = -e INSTALL_ENV="$(DOCKER_INSTALL_ENV)"
+docker-run-app-install: DOCKER_RUN_ENV = -e INSTALL_ARGS="$(DOCKER_INSTALL_ARGS)"
 docker-run-app-install:
 	@rm -f ./$@_cidfile.txt ; \
-	$(call run-in-docker,bash -c "set -ex && \
+	$(call run-in-docker,bash -c 'set -ex && \
 		rm -rf $(BUILD_PATH) && mkdir $(BUILD_PATH) && \
-		make build"); \
+		make build'); \
 	status=$$?; \
 	cid=`cat ./$@_cidfile.txt` ; \
 	if [ $$status -eq 0 ]; then \
-		docker cp $${cid}:$(DOCKER_RUN_WORKDIR)/$(BUILD_PATH) .; \
+		docker cp --follow-link $${cid}:$(DOCKER_RUN_WORKDIR)/$(BUILD_PATH) .; \
 	fi; \
 	docker rm -f -v $${cid} &> /dev/null; \
 	exit $$status
