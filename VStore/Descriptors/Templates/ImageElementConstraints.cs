@@ -12,6 +12,8 @@ namespace NuClear.VStore.Descriptors.Templates
         public IEnumerable<ImageSize> SupportedImageSizes { get; set; }
         public bool IsAlphaChannelRequired { get; set; }
 
+        public bool BinaryExists => true;
+
         public bool Equals(ImageElementConstraints other)
         {
             if (ReferenceEquals(null, other))

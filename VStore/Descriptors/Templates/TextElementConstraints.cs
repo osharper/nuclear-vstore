@@ -9,6 +9,10 @@ namespace NuClear.VStore.Descriptors.Templates
         public int? MaxLines { get; set; }
         public bool IsFormatted { get; set; }
 
+        public bool WithoutControlСhars { get; } = true;
+
+        public bool WithoutNonBreakingSpace { get; } = true;
+
         public bool Equals(TextElementConstraints other)
         {
             if (ReferenceEquals(null, other))
