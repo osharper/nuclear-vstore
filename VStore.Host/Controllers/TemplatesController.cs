@@ -11,7 +11,6 @@ using Newtonsoft.Json.Linq;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
-using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
@@ -270,10 +269,9 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        private static JObject GenerateTemplateErrorJson(AggregateException ex)
+        private static JToken GenerateTemplateErrorJson(AggregateException ex)
         {
-            var errors = new JArray(ex.InnerExceptions.Select(inner => inner.Message));
-            return new JObject { [Tokens.ErrorsToken] = errors };
+            return new JArray(ex.InnerExceptions.Select(inner => inner.Message));
         }
     }
 }
