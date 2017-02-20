@@ -47,7 +47,9 @@
   "publishOptions": {
     "include": [
       "dockerfile",
-      "appsettings.json"
+      "appsettings.json",
+      "appsettings.stage.json",
+      "appsettings.production.json"
     ]
   }
 }

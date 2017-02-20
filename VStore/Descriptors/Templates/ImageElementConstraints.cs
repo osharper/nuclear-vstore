@@ -14,6 +14,8 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public bool BinaryExists => true;
 
+        public bool ValidImage => true;
+
         public bool Equals(ImageElementConstraints other)
         {
             if (ReferenceEquals(null, other))

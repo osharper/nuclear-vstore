@@ -2,6 +2,6 @@
 {
     public class NestedListError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.NestedList;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.NoNestedLists;
     }
 }

@@ -12,6 +12,8 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public bool BinaryExists => true;
 
+        public bool ValidArticle => true;
+
         public bool Equals(ArticleElementConstraints other)
         {
             if (ReferenceEquals(null, other))

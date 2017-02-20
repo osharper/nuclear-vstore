@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
+using Newtonsoft.Json.Linq;
+
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
@@ -142,7 +146,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                _templatesManagementService.VerifyElementDescriptorsConsistency(null, elementDescriptors);
+                _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
             }
             catch (Exception ex)
@@ -157,7 +161,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                _templatesManagementService.VerifyElementDescriptorsConsistency(id, elementDescriptors);
+                _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
             }
             catch (Exception ex)
@@ -170,6 +174,7 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(object), 400)]
         [ProducesResponseType(409)]
+        [ProducesResponseType(typeof(object), 422)]
         public async Task<IActionResult> Create(
             long id,
             [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
@@ -197,6 +202,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Conflict();
             }
+            catch (AggregateException ex)
+            {
+                return Unprocessable(GenerateTemplateErrorJson(ex));
+            }
             catch (Exception ex)
             {
                 return InternalServerError(ex, "Unexpected error while template creation with id '{id}'", id);
@@ -209,6 +218,7 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(404)]
         [ProducesResponseType(409)]
         [ProducesResponseType(412)]
+        [ProducesResponseType(typeof(object), 422)]
         public async Task<IActionResult> Modify(
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
@@ -242,6 +252,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
+            catch (AggregateException ex)
+            {
+                return Unprocessable(GenerateTemplateErrorJson(ex));
+            }
             catch (SessionLockAlreadyExistsException)
             {
                 return Conflict();
@@ -254,6 +268,12 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return InternalServerError(ex, "Unexpected error while template modification with id '{id}'", id);
             }
+        }
+
+        private static JObject GenerateTemplateErrorJson(AggregateException ex)
+        {
+            var errors = new JArray(ex.InnerExceptions.Select(inner => inner.Message));
+            return new JObject { [Tokens.ErrorsToken] = errors };
         }
     }
 }

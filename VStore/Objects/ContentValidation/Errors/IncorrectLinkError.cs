@@ -2,6 +2,6 @@
 {
     public sealed class IncorrectLinkError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.IncorrectLink;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.ValidLink;
     }
 }

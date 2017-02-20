@@ -15,15 +15,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public IReadOnlyCollection<string> UnsupportedAttributes { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.UnsupportedAttributes;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.SupportedAttributes;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-            {
-                [Tokens.TypeToken] = "unsupportedAttributes",
-                [Tokens.ValueToken] = new JArray(UnsupportedAttributes)
-            };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = new JArray(UnsupportedAttributes);
+            return ret;
         }
     }
 }

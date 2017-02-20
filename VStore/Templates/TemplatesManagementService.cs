@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -48,12 +49,13 @@ namespace NuClear.VStore.Templates
         {
             return new IElementDescriptor[]
                        {
-                           new ElementDescriptor(ElementDescriptorType.Text, 1, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new TextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Image, 2, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ImageElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Article, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.FasComment, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new TextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Date, 5, new JObject(), null),
-                           new ElementDescriptor(ElementDescriptorType.Link, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new TextElementConstraints()) }))
+                           new ElementDescriptor(ElementDescriptorType.Text, 1, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new FormattedTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Text, 2, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Image, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ImageElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Article, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.FasComment, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Date, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))
                        };
         }
 
@@ -110,12 +112,18 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        public void VerifyElementDescriptorsConsistency(long? templateId, IEnumerable<IElementDescriptor> elementDescriptors)
+        public void VerifyElementDescriptorsConsistency(IEnumerable<IElementDescriptor> elementDescriptors)
         {
+            var codes = new ConcurrentDictionary<int, bool>();
             Parallel.ForEach(
                 elementDescriptors,
                 elementDescriptor =>
                     {
+                        if (!codes.TryAdd(elementDescriptor.TemplateCode, true))
+                        {
+                            throw new TemplateInconsistentException(elementDescriptor.TemplateCode, "Template code must be unique within the template");
+                        }
+
                         foreach (var constraints in elementDescriptor.Constraints)
                         {
                             TextElementConstraints textElementConstraints;
@@ -123,135 +131,123 @@ namespace NuClear.VStore.Templates
                             ArticleElementConstraints articleElementConstraints;
                             if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
                             {
-                                VerifyTextConstraints(templateId, textElementConstraints, elementDescriptor);
+                                VerifyTextConstraints(elementDescriptor.TemplateCode, textElementConstraints, elementDescriptor);
                             }
                             else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
                             {
-                                VerifyImageConstraints(templateId, imageElementConstraints);
+                                VerifyImageConstraints(elementDescriptor.TemplateCode, imageElementConstraints);
                             }
                             else if ((articleElementConstraints = constraints.ElementConstraints as ArticleElementConstraints) != null)
                             {
-                                VerifyArticleConstraints(templateId, articleElementConstraints);
+                                VerifyArticleConstraints(elementDescriptor.TemplateCode, articleElementConstraints);
                             }
                         }
                     });
         }
 
-        private static void VerifyArticleConstraints(long? templateId, ArticleElementConstraints articleElementConstraints)
+        // ReSharper disable once UnusedParameter.Local
+        private static void VerifyBinaryConstraints(int templateCode, IBinaryElementConstraints binaryElementConstraints)
         {
-            if (articleElementConstraints.SupportedFileFormats == null)
+            if (binaryElementConstraints.SupportedFileFormats == null)
             {
                 throw new TemplateInconsistentException(
-                          templateId,
-                          "Supported file formats constraints cannot be null");
+                    templateCode,
+                    "Supported file formats constraints cannot be null");
             }
 
-            if (!articleElementConstraints.SupportedFileFormats.Any())
+            if (!binaryElementConstraints.SupportedFileFormats.Any())
             {
                 throw new TemplateInconsistentException(
-                          templateId,
-                          "Supported file formats constraints must be set");
+                    templateCode,
+                    "Supported file formats constraints must be set");
             }
+
+            if (binaryElementConstraints.MaxFilenameLength <= 0)
+            {
+                throw new TemplateInconsistentException(templateCode, "MaxFilenameLength must be positive");
+            }
+
+            if (binaryElementConstraints.MaxSize <= 0)
+            {
+                throw new TemplateInconsistentException(templateCode, "MaxSize must be positive");
+            }
+        }
+
+        // ReSharper disable once SuggestBaseTypeForParameter
+        private static void VerifyArticleConstraints(int templateCode, ArticleElementConstraints articleElementConstraints)
+        {
+            VerifyBinaryConstraints(templateCode, articleElementConstraints);
 
             if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
             {
                 throw new TemplateInconsistentException(
-                          templateId,
-                          $"Supported file formats for articles are: {string.Join(",", ArticleFileFormats)}");
-            }
-
-            if (articleElementConstraints.MaxFilenameLength <= 0)
-            {
-                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
-            }
-
-            if (articleElementConstraints.MaxSize <= 0)
-            {
-                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
+                          templateCode,
+                          $"Supported file formats for articles are: {string.Join(", ", ArticleFileFormats)}");
             }
         }
 
-        private static void VerifyImageConstraints(long? templateId, ImageElementConstraints imageElementConstraints)
+        private static void VerifyImageConstraints(int templateCode, ImageElementConstraints imageElementConstraints)
         {
-            if (imageElementConstraints.SupportedFileFormats == null)
-            {
-                throw new TemplateInconsistentException(
-                          templateId,
-                          "Supported file formats constraints cannot be null");
-            }
-
-            if (!imageElementConstraints.SupportedFileFormats.Any())
-            {
-                throw new TemplateInconsistentException(
-                          templateId,
-                          "Supported file formats constraints must be set");
-            }
+            VerifyBinaryConstraints(templateCode, imageElementConstraints);
 
             if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
             {
                 throw new TemplateInconsistentException(
-                          templateId,
-                          $"Supported file formats for images are: {string.Join(",", ImageFileFormats)}");
+                          templateCode,
+                          $"Supported file formats for images are: {string.Join(", ", ImageFileFormats)}");
             }
 
             if (imageElementConstraints.SupportedImageSizes == null)
             {
-                throw new TemplateInconsistentException(
-                          templateId,
-                          "Supported image sizes constraints must be set");
+                throw new TemplateInconsistentException(templateCode, "Supported image sizes constraints must be set");
             }
 
             if (imageElementConstraints.SupportedImageSizes.Contains(ImageSize.Empty))
             {
                 throw new TemplateInconsistentException(
-                          templateId,
+                          templateCode,
                           $"Supported image sizes constraints cannot contain '{ImageSize.Empty}' value");
             }
 
-            if (imageElementConstraints.MaxFilenameLength <= 0)
+            if (imageElementConstraints.SupportedImageSizes.Any(x => x.Height < 0 || x.Width < 0))
             {
-                throw new TemplateInconsistentException(templateId, "MaxFilenameLength must be positive");
-            }
-
-            if (imageElementConstraints.MaxSize <= 0)
-            {
-                throw new TemplateInconsistentException(templateId, "MaxSize must be positive");
+                throw new TemplateInconsistentException(templateCode, "Image size constraints cannot be negative");
             }
         }
 
-        private static void VerifyTextConstraints(long? templateId, TextElementConstraints textElementConstraints, IElementDescriptor elementDescriptor)
+        private static void VerifyTextConstraints(int templateCode, TextElementConstraints textElementConstraints, IElementDescriptor elementDescriptor)
         {
             if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
             {
                 throw new TemplateInconsistentException(
-                          templateId,
+                          templateCode,
                           "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
             }
 
             if (elementDescriptor.Type != ElementDescriptorType.Text && textElementConstraints.IsFormatted)
             {
-                throw new TemplateInconsistentException(templateId, "Only text element can be formatted");
+                throw new TemplateInconsistentException(templateCode, "Only text element can be formatted");
             }
 
             if (textElementConstraints.MaxSymbols <= 0)
             {
-                throw new TemplateInconsistentException(templateId, "MaxSymbols must be positive");
+                throw new TemplateInconsistentException(templateCode, "MaxSymbols must be positive");
             }
 
             if (textElementConstraints.MaxSymbolsPerWord <= 0)
             {
-                throw new TemplateInconsistentException(templateId, "MaxSymbolsPerWord must be positive");
+                throw new TemplateInconsistentException(templateCode, "MaxSymbolsPerWord must be positive");
             }
 
             if (textElementConstraints.MaxLines <= 0)
             {
-                throw new TemplateInconsistentException(templateId, "MaxLines must be positive");
+                throw new TemplateInconsistentException(templateCode, "MaxLines must be positive");
             }
         }
 
         private async Task PutTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
-            VerifyElementDescriptorsConsistency(id, templateDescriptor.Elements);
+            VerifyElementDescriptorsConsistency(templateDescriptor.Elements);
 
             var putRequest = new PutObjectRequest
                 {

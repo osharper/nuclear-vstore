@@ -2,6 +2,6 @@
 {
     public class InvalidHtmlError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.InvalidHtml;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.ValidHtml;
     }
 }
