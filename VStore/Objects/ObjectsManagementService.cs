@@ -109,7 +109,7 @@ namespace NuClear.VStore.Objects
                 var modifiedTemplateIds = new HashSet<long>(modifiedObjectDescriptor.Elements.Select(x => x.Id));
                 if (!modifiedTemplateIds.IsSubsetOf(currentTemplateIds))
                 {
-                    throw new ObjectInconsistentException(id, "Modified object contains non existing elements.");
+                    throw new ObjectInconsistentException(id, "Modified object contains non-existing elements.");
                 }
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);

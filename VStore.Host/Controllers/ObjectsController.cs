@@ -314,10 +314,10 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        private static JToken GenerateErrorJsonResult(AggregateException ex)
+        private JToken GenerateErrorJsonResult(AggregateException ex)
         {
             var content = new JArray();
-            foreach (var exception in ex.InnerExceptions)
+            ex.Handle(exception =>
             {
                 var invalidObjectException = exception as InvalidObjectElementException;
                 if (invalidObjectException != null)
@@ -330,12 +330,16 @@ namespace NuClear.VStore.Host.Controllers
 
                     content.Add(
                         new JObject
-                        {
-                            [Tokens.IdToken] = invalidObjectException.ElementId,
-                            [Tokens.ErrorsToken] = errors
-                        });
+                            {
+                                [Tokens.IdToken] = invalidObjectException.ElementId,
+                                [Tokens.ErrorsToken] = errors
+                            });
+                    return true;
                 }
-            }
+
+                _logger.LogError(new EventId(), exception, "Unknown exception in generating validation errors JSON");
+                return false;
+            });
 
             return content;
         }

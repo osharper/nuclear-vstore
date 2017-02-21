@@ -121,7 +121,7 @@ namespace NuClear.VStore.Templates
                     {
                         if (!codes.TryAdd(elementDescriptor.TemplateCode, true))
                         {
-                            throw new TemplateInconsistentException(elementDescriptor.TemplateCode, "Template code must be unique within the template");
+                            throw new TemplateValidationException(elementDescriptor.TemplateCode, TemplateElementValidationErrors.NonUniqueTemplateCode);
                         }
 
                         foreach (var constraints in elementDescriptor.Constraints)
@@ -150,26 +150,26 @@ namespace NuClear.VStore.Templates
         {
             if (binaryElementConstraints.SupportedFileFormats == null)
             {
-                throw new TemplateInconsistentException(
+                throw new TemplateValidationException(
                     templateCode,
-                    "Supported file formats constraints cannot be null");
+                    TemplateElementValidationErrors.EmptySupportedFileFormats);
             }
 
             if (!binaryElementConstraints.SupportedFileFormats.Any())
             {
-                throw new TemplateInconsistentException(
+                throw new TemplateValidationException(
                     templateCode,
-                    "Supported file formats constraints must be set");
+                    TemplateElementValidationErrors.EmptySupportedFileFormats);
             }
 
             if (binaryElementConstraints.MaxFilenameLength <= 0)
             {
-                throw new TemplateInconsistentException(templateCode, "MaxFilenameLength must be positive");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxFilenameLength);
             }
 
             if (binaryElementConstraints.MaxSize <= 0)
             {
-                throw new TemplateInconsistentException(templateCode, "MaxSize must be positive");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSize);
             }
         }
 
@@ -180,9 +180,9 @@ namespace NuClear.VStore.Templates
 
             if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
             {
-                throw new TemplateInconsistentException(
+                throw new TemplateValidationException(
                           templateCode,
-                          $"Supported file formats for articles are: {string.Join(", ", ArticleFileFormats)}");
+                          TemplateElementValidationErrors.UnsupportedArticleFileFormat);
             }
         }
 
@@ -192,26 +192,24 @@ namespace NuClear.VStore.Templates
 
             if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
             {
-                throw new TemplateInconsistentException(
+                throw new TemplateValidationException(
                           templateCode,
-                          $"Supported file formats for images are: {string.Join(", ", ImageFileFormats)}");
+                          TemplateElementValidationErrors.UnsupportedImageFileFormat);
             }
 
             if (imageElementConstraints.SupportedImageSizes == null)
             {
-                throw new TemplateInconsistentException(templateCode, "Supported image sizes constraints must be set");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.EmptySupportedImageSizes);
             }
 
             if (imageElementConstraints.SupportedImageSizes.Contains(ImageSize.Empty))
             {
-                throw new TemplateInconsistentException(
-                          templateCode,
-                          $"Supported image sizes constraints cannot contain '{ImageSize.Empty}' value");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.InvalidImageSize);
             }
 
             if (imageElementConstraints.SupportedImageSizes.Any(x => x.Height < 0 || x.Width < 0))
             {
-                throw new TemplateInconsistentException(templateCode, "Image size constraints cannot be negative");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeImageSizeDimension);
             }
         }
 
@@ -219,29 +217,24 @@ namespace NuClear.VStore.Templates
         {
             if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
             {
-                throw new TemplateInconsistentException(
+                throw new TemplateValidationException(
                           templateCode,
-                          "MaxSymbols must be equal or greater than MaxSymbolsPerWord");
-            }
-
-            if (elementDescriptor.Type != ElementDescriptorType.Text && textElementConstraints.IsFormatted)
-            {
-                throw new TemplateInconsistentException(templateCode, "Only text element can be formatted");
+                          TemplateElementValidationErrors.InvalidMaxSymblosPerWord);
             }
 
             if (textElementConstraints.MaxSymbols <= 0)
             {
-                throw new TemplateInconsistentException(templateCode, "MaxSymbols must be positive");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSymbols);
             }
 
             if (textElementConstraints.MaxSymbolsPerWord <= 0)
             {
-                throw new TemplateInconsistentException(templateCode, "MaxSymbolsPerWord must be positive");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSymbolsPerWord);
             }
 
             if (textElementConstraints.MaxLines <= 0)
             {
-                throw new TemplateInconsistentException(templateCode, "MaxLines must be positive");
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxLines);
             }
         }
 

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
@@ -22,11 +22,13 @@ namespace NuClear.VStore.Host.Controllers
     [Route("api/{version:apiVersion}/templates")]
     public class TemplatesController : VStoreController
     {
+        private readonly ILogger<TemplatesController> _logger;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly TemplatesManagementService _templatesManagementService;
 
-        public TemplatesController(TemplatesStorageReader templatesStorageReader, TemplatesManagementService templatesManagementService)
+        public TemplatesController(TemplatesStorageReader templatesStorageReader, TemplatesManagementService templatesManagementService, ILogger<TemplatesController> logger)
         {
+            _logger = logger;
             _templatesStorageReader = templatesStorageReader;
             _templatesManagementService = templatesManagementService;
         }
@@ -148,6 +150,10 @@ namespace NuClear.VStore.Host.Controllers
                 _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
             }
+            catch (AggregateException ex)
+            {
+                return Unprocessable(GenerateTemplateErrorJson(ex));
+            }
             catch (Exception ex)
             {
                 return InternalServerError(ex, "Unexpected error while getting template elements validation");
@@ -162,6 +168,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
+            }
+            catch (AggregateException ex)
+            {
+                return Unprocessable(GenerateTemplateErrorJson(ex));
             }
             catch (Exception ex)
             {
@@ -269,9 +279,23 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        private static JToken GenerateTemplateErrorJson(AggregateException ex)
+        private JToken GenerateTemplateErrorJson(AggregateException ex)
         {
-            return new JArray(ex.InnerExceptions.Select(inner => inner.Message));
+            var errors = new JArray();
+            ex.Handle(exception =>
+            {
+                var templateValidationException = exception as TemplateValidationException;
+                if (templateValidationException != null)
+                {
+                    errors.Add(templateValidationException.SerializeToJson());
+                    return true;
+                }
+
+                _logger.LogError(new EventId(), exception, "Unknown exception in generating validation errors JSON");
+                return false;
+            });
+
+            return errors;
         }
     }
 }
