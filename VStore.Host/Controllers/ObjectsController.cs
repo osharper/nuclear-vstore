@@ -233,6 +233,10 @@ namespace NuClear.VStore.Host.Controllers
                 _logger.LogError(new EventId(0), ex, "Error occured while creating object");
                 return BadRequest(ex.Message);
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (ObjectInconsistentException ex)
             {
                 return BadRequest(ex.Message);
@@ -330,10 +334,10 @@ namespace NuClear.VStore.Host.Controllers
 
                     content.Add(
                         new JObject
-                            {
-                                [Tokens.IdToken] = invalidObjectException.ElementId,
-                                [Tokens.ErrorsToken] = errors
-                            });
+                        {
+                            [Tokens.IdToken] = invalidObjectException.ElementId,
+                            [Tokens.ErrorsToken] = errors
+                        });
                     return true;
                 }
 

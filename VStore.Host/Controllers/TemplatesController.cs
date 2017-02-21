@@ -143,6 +143,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpPost("validate-elements")]
         [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(object), 422)]
         public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
@@ -162,6 +163,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpPost("{id}/validate-elements")]
         [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(object), 422)]
         public IActionResult ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
