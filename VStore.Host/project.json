@@ -1,1 +1,55 @@
-{  "version": "0.1.1",  "dependencies": {    "AWSSDK.S3": "3.3.5.5",    "AWSSDK.Extensions.NETCore.Setup": "3.3.0.3",    "Microsoft.NETCore.Runtime.CoreCLR": "1.1.0",    "Microsoft.NETCore.DotNetHostPolicy": "1.1.0",    "Microsoft.AspNetCore.Diagnostics": "1.1.0",    "Microsoft.AspNetCore.Mvc": "1.1.1",    "Microsoft.AspNetCore.Mvc.Versioning": "1.0.3",    "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",    "Microsoft.Extensions.Configuration.EnvironmentVariables": "1.1.0",    "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",    "Microsoft.Extensions.Configuration.Json": "1.1.0",    "Microsoft.Extensions.Logging": "1.1.0",    "Microsoft.Extensions.Logging.Console": "1.1.0",    "Microsoft.Extensions.Logging.Debug": "1.1.0",    "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.0",    "log4net": "2.0.7",    "Serilog.Extensions.Logging": "1.4.0",    "Serilog.Settings.Configuration": "2.2.0",    "Serilog.Sinks.Console": "2.1.0",    "Serilog.Formatting.Compact": "1.0.0",    "System.Runtime.Serialization.Formatters": "4.3.0",    "Swashbuckle.AspNetCore": "1.0.0-rc1",    "VStore": {        "target": "project"    }  },  "frameworks": {    "netstandard1.6": {}  },  "buildOptions": {    "emitEntryPoint": true,    "debugType": "portable"  },  "runtimes": {    "win10-x64": {},    "ubuntu.14.04-x64": {},    "osx.10.11-x64": {}  },  "runtimeOptions": {    "configProperties": {      "System.GC.Server": true    }  },  "publishOptions": {    "include": [      "dockerfile",      "appsettings.json",      "appsettings.stage.json",      "appsettings.production.json"    ]  }}
+{
+  "version": "0.1.1",
+  "dependencies": {
+    "AWSSDK.S3": "3.3.5.5",
+    "AWSSDK.Extensions.NETCore.Setup": "3.3.0.3",
+    "Microsoft.NETCore.Runtime.CoreCLR": "1.1.0",
+    "Microsoft.NETCore.DotNetHostPolicy": "1.1.0",
+    "Microsoft.AspNetCore.Diagnostics": "1.1.0",
+    "Microsoft.AspNetCore.Mvc": "1.1.1",
+    "Microsoft.AspNetCore.Mvc.Versioning": "1.0.3",
+    "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
+    "Microsoft.Extensions.Configuration.EnvironmentVariables": "1.1.0",
+    "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",
+    "Microsoft.Extensions.Configuration.Json": "1.1.0",
+    "Microsoft.Extensions.Logging": "1.1.0",
+    "Microsoft.Extensions.Logging.Console": "1.1.0",
+    "Microsoft.Extensions.Logging.Debug": "1.1.0",
+    "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.0",
+    "log4net": "2.0.7",
+    "Serilog.Extensions.Logging": "1.4.0",
+    "Serilog.Settings.Configuration": "2.2.0",
+    "Serilog.Sinks.Console": "2.1.0",
+    "Serilog.Formatting.Compact": "1.0.0",
+    "System.Runtime.Serialization.Formatters": "4.3.0",
+    "Swashbuckle.AspNetCore": "1.0.0-rc1",
+    "VStore": {
+        "target": "project"
+    }
+  },
+  "frameworks": {
+    "netstandard1.6": {}
+  },
+  "buildOptions": {
+    "emitEntryPoint": true,
+    "debugType": "portable"
+  },
+  "runtimes": {
+    "win10-x64": {},
+    "ubuntu.14.04-x64": {},
+    "osx.10.11-x64": {}
+  },
+  "runtimeOptions": {
+    "configProperties": {
+      "System.GC.Server": true
+    }
+  },
+  "publishOptions": {
+    "include": [
+      "dockerfile",
+      "appsettings.json",
+      "appsettings.stage.json",
+      "appsettings.production.json"
+    ]
+  }
+}
