@@ -1,6 +1,8 @@
 # Set the default behavior, in case people don't have core.autocrlf set.
 * text=auto
 
+*.cs eol=crlf
+
 Makefile                             text eol=lf
 Makefile.ci                          text eol=lf
 Makefile.deis                        text eol=lf
