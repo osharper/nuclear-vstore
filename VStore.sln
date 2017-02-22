@@ -1,59 +1,1 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.Host", "VStore.Host\VStore.Host.xproj", "{85E18F58-42A8-464B-BBCF-E706994B10F1}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38-6854-4E26-B8EC-4319DED458AC}"
-	ProjectSection(SolutionItems) = preProject
-		.gitlab-ci.yml = .gitlab-ci.yml
-		build.sh = build.sh
-		docker-compose-build.yml = docker-compose-build.yml
-		Makefile = Makefile
-		readme.md = readme.md
-	EndProjectSection
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore", "VStore\VStore.xproj", "{E83BDDB0-29A7-4440-941C-711E0DE356A8}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{420BAC18-0168-4D51-9C8E-C3F465B3F11C}"
-	ProjectSection(SolutionItems) = preProject
-		NuGet.Config = NuGet.Config
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "env", "env", "{B7FE5732-B860-4EA9-8D0B-6C00004B825B}"
-	ProjectSection(SolutionItems) = preProject
-		env\prod_n3.ini = env\prod_n3.ini
-		env\staging.ini = env\staging.ini
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.UnitTests", "VStore.UnitTests\VStore.UnitTests.xproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{56C56716-01D2-45CA-B43E-B4783E630D0E} = {1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}
-	EndGlobalSection
-EndGlobal
+﻿Microsoft Visual Studio Solution File, Format Version 12.00# Visual Studio 14VisualStudioVersion = 14.0.25420.1MinimumVisualStudioVersion = 10.0.40219.1Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.Host", "VStore.Host\VStore.Host.xproj", "{85E18F58-42A8-464B-BBCF-E706994B10F1}"EndProjectProject("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38-6854-4E26-B8EC-4319DED458AC}"	ProjectSection(SolutionItems) = preProject		.gitlab-ci.yml = .gitlab-ci.yml		build.sh = build.sh		docker-compose-build.yml = docker-compose-build.yml		Makefile = Makefile		readme.md = readme.md	EndProjectSectionEndProjectProject("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore", "VStore\VStore.xproj", "{E83BDDB0-29A7-4440-941C-711E0DE356A8}"EndProjectProject("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{420BAC18-0168-4D51-9C8E-C3F465B3F11C}"	ProjectSection(SolutionItems) = preProject		NuGet.Config = NuGet.Config	EndProjectSectionEndProjectProject("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "env", "env", "{B7FE5732-B860-4EA9-8D0B-6C00004B825B}"	ProjectSection(SolutionItems) = preProject		env\prod_n3.ini = env\prod_n3.ini		env\staging.ini = env\staging.ini	EndProjectSectionEndProjectProject("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}"EndProjectProject("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.UnitTests", "VStore.UnitTests\VStore.UnitTests.xproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"EndProjectGlobal	GlobalSection(SolutionConfigurationPlatforms) = preSolution		Debug|Any CPU = Debug|Any CPU		Release|Any CPU = Release|Any CPU	EndGlobalSection	GlobalSection(ProjectConfigurationPlatforms) = postSolution		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Debug|Any CPU.Build.0 = Debug|Any CPU		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Release|Any CPU.ActiveCfg = Release|Any CPU		{85E18F58-42A8-464B-BBCF-E706994B10F1}.Release|Any CPU.Build.0 = Release|Any CPU		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Debug|Any CPU.Build.0 = Debug|Any CPU		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Release|Any CPU.ActiveCfg = Release|Any CPU		{E83BDDB0-29A7-4440-941C-711E0DE356A8}.Release|Any CPU.Build.0 = Release|Any CPU		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Debug|Any CPU.Build.0 = Debug|Any CPU		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Release|Any CPU.ActiveCfg = Release|Any CPU		{56C56716-01D2-45CA-B43E-B4783E630D0E}.Release|Any CPU.Build.0 = Release|Any CPU	EndGlobalSection	GlobalSection(SolutionProperties) = preSolution		HideSolutionNode = FALSE	EndGlobalSection	GlobalSection(NestedProjects) = preSolution		{56C56716-01D2-45CA-B43E-B4783E630D0E} = {1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}	EndGlobalSectionEndGlobal
