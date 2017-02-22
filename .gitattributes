@@ -1,10 +1,2 @@
-*.cs eol=crlf
-
-Makefile                             text eol=lf
-Makefile.ci                          text eol=lf
-Makefile.deis                        text eol=lf
-Makefile.deis2                       text eol=lf
-Makefile.docker                      text eol=lf
-Makefile.docker-application-template text eol=lf
-Makefile.encrypt                     text eol=lf
-Makefile.template                    text eol=lf
+Makefile   text eol=lf
+Makefile.* text eol=lf
