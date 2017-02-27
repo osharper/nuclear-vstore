@@ -21,7 +21,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet]
         [ResponseCache(NoStore = true)]
-        [ProducesResponseType(typeof(IReadOnlyCollection<string>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<long>), 200)]
         public async Task<IActionResult> ListAllCurrentLockSessios()
         {
             try
@@ -37,7 +37,7 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpDelete("{rootObjectId}")]
         [ProducesResponseType(typeof(void), 202)]
-        public async Task<IActionResult> DeleteSessionLock(string rootObjectId)
+        public async Task<IActionResult> DeleteSessionLock(long rootObjectId)
         {
             try
             {
