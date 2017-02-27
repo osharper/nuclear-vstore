@@ -1,7 +1,7 @@
 {
   "version": "0.1.1",
   "dependencies": {
-    "AWSSDK.S3": "3.3.5.5",
+    "AWSSDK.S3": "3.3.5.7",
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.3",
     "Microsoft.NETCore.Runtime.CoreCLR": "1.1.0",
     "Microsoft.NETCore.DotNetHostPolicy": "1.1.0",
