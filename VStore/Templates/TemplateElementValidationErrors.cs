@@ -8,6 +8,7 @@
         NegativeMaxSize,
         NegativeMaxLines,
         NegativeImageSizeDimension,
+        MissingSupportedFileFormats,
         EmptySupportedFileFormats,
         EmptySupportedImageSizes,
         NonUniqueTemplateCode,

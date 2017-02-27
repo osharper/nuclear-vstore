@@ -150,16 +150,12 @@ namespace NuClear.VStore.Templates
         {
             if (binaryElementConstraints.SupportedFileFormats == null)
             {
-                throw new TemplateValidationException(
-                    templateCode,
-                    TemplateElementValidationErrors.EmptySupportedFileFormats);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.MissingSupportedFileFormats);
             }
 
             if (!binaryElementConstraints.SupportedFileFormats.Any())
             {
-                throw new TemplateValidationException(
-                    templateCode,
-                    TemplateElementValidationErrors.EmptySupportedFileFormats);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.EmptySupportedFileFormats);
             }
 
             if (binaryElementConstraints.MaxFilenameLength <= 0)
@@ -180,9 +176,7 @@ namespace NuClear.VStore.Templates
 
             if (articleElementConstraints.SupportedFileFormats.Any(x => !ArticleFileFormats.Contains(x)))
             {
-                throw new TemplateValidationException(
-                          templateCode,
-                          TemplateElementValidationErrors.UnsupportedArticleFileFormat);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.UnsupportedArticleFileFormat);
             }
         }
 
@@ -192,9 +186,7 @@ namespace NuClear.VStore.Templates
 
             if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
             {
-                throw new TemplateValidationException(
-                          templateCode,
-                          TemplateElementValidationErrors.UnsupportedImageFileFormat);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.UnsupportedImageFileFormat);
             }
 
             if (imageElementConstraints.SupportedImageSizes == null)
@@ -217,9 +209,7 @@ namespace NuClear.VStore.Templates
         {
             if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
             {
-                throw new TemplateValidationException(
-                          templateCode,
-                          TemplateElementValidationErrors.InvalidMaxSymblosPerWord);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.InvalidMaxSymblosPerWord);
             }
 
             if (textElementConstraints.MaxSymbols <= 0)
