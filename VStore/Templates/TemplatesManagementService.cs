@@ -191,6 +191,11 @@ namespace NuClear.VStore.Templates
 
             if (imageElementConstraints.SupportedImageSizes == null)
             {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.MissingSupportedImageSizes);
+            }
+
+            if (!imageElementConstraints.SupportedImageSizes.Any())
+            {
                 throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.EmptySupportedImageSizes);
             }
 
