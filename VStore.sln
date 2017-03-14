@@ -31,6 +31,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{1E16C21E-6
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.UnitTests", "VStore.UnitTests\VStore.UnitTests.xproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CA83EA03-82A0-4E15-87EF-31CD857393E3}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
