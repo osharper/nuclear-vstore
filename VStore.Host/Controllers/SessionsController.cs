@@ -58,13 +58,14 @@ namespace NuClear.VStore.Host.Controllers
                         {
                             sessionContext.Language,
                             Template = new
-                                           {
-                                               Id = sessionContext.TemplateId,
-                                               templateDescriptor.VersionId,
-                                               templateDescriptor.Author,
-                                               templateDescriptor.Properties,
-                                               templateDescriptor.Elements
-                                           },
+                                {
+                                    Id = sessionContext.TemplateId,
+                                    templateDescriptor.VersionId,
+                                    templateDescriptor.LastModified,
+                                    templateDescriptor.Author,
+                                    templateDescriptor.Properties,
+                                    templateDescriptor.Elements
+                                },
                             uploadUrls
                         });
             }
