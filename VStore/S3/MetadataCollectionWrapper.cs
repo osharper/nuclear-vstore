@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Globalization;
 using System.Text;
 
 using Amazon.S3.Model;
+using Newtonsoft.Json;
 
 namespace NuClear.VStore.S3
 {
@@ -36,13 +36,13 @@ namespace NuClear.VStore.S3
                 value = _defaultEncoding.GetString(Convert.FromBase64String(value));
             }
 
-            return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
+            return JsonConvert.DeserializeObject<T>(value);
         }
 
         public void Write<T>(MetadataElement metadataElement, T value)
         {
             var name = AsMetadataKey(metadataElement);
-            var valueToWrite = (string)Convert.ChangeType(value, typeof(string), CultureInfo.InvariantCulture);
+            var valueToWrite = JsonConvert.SerializeObject(value);
             if (metadataElement == MetadataElement.Filename)
             {
                 valueToWrite = Convert.ToBase64String(_defaultEncoding.GetBytes(valueToWrite));
