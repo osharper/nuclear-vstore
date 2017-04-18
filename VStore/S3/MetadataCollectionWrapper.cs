@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Text;
 
 using Amazon.S3.Model;
@@ -35,13 +36,13 @@ namespace NuClear.VStore.S3
                 value = _defaultEncoding.GetString(Convert.FromBase64String(value));
             }
 
-            return (T)Convert.ChangeType(value, typeof(T));
+            return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
         }
 
         public void Write<T>(MetadataElement metadataElement, T value)
         {
             var name = AsMetadataKey(metadataElement);
-            var valueToWrite = value.ToString();
+            var valueToWrite = (string)Convert.ChangeType(value, typeof(string), CultureInfo.InvariantCulture);
             if (metadataElement == MetadataElement.Filename)
             {
                 valueToWrite = Convert.ToBase64String(_defaultEncoding.GetBytes(valueToWrite));
