@@ -225,23 +225,23 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (InvalidTemplateException ex)
             {
-                return Unprocessable(ex);
+                return Unprocessable(ex.Message);
             }
             catch (ArgumentOutOfRangeException ex)
             {
-                return Unprocessable(ex);
+                return Unprocessable(ex.Message);
             }
             catch (FilesizeMismatchException ex)
             {
-                return Unprocessable(ex);
+                return Unprocessable(ex.Message);
             }
             catch (ImageIncorrectException ex)
             {
-                return Unprocessable(ex);
+                return Unprocessable(ex.Message);
             }
             catch (ArticleIncorrectException ex)
             {
-                return Unprocessable(ex);
+                return Unprocessable(ex.Message);
             }
             catch (Exception ex)
             {

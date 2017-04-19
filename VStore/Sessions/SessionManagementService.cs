@@ -292,28 +292,27 @@ namespace NuClear.VStore.Sessions
                                                       return result;
                                                   });
 
+            Image image;
             try
             {
-                using (var image = Image.Load(inputStream))
-                {
-                    if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
-                    {
-                        throw new ImageIncorrectException($"Image has an incorrect format. Supported formats are: {string.Join(", ", constraints.SupportedFileFormats)}");
-                    }
-
-                    if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
-                    {
-                        throw new ImageIncorrectException($"Image has an incorrect size. Supported image sizes are: {string.Join(", ", constraints.SupportedImageSizes)}");
-                    }
-                }
-            }
-            catch (ImageIncorrectException)
-            {
-                throw;
+                image = Image.Load(inputStream);
             }
             catch (Exception ex)
             {
                 throw new ImageIncorrectException("Image cannot be loaded from the stream.", ex);
+            }
+
+            using (image)
+            {
+                if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
+                {
+                    throw new ImageIncorrectException($"Image has an incorrect format. Supported formats are: {string.Join(", ", constraints.SupportedFileFormats)}");
+                }
+
+                if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
+                {
+                    throw new ImageIncorrectException($"Image has an incorrect size. Supported image sizes are: {string.Join(", ", constraints.SupportedImageSizes)}");
+                }
             }
         }
 
