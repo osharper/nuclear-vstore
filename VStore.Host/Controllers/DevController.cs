@@ -12,7 +12,7 @@ using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [Route("dev")]
+    [Route("api/{version:apiVersion}/dev")]
     public sealed class DevController : VStoreController
     {
         private readonly IAmazonS3 _amazonS3;

@@ -21,17 +21,28 @@ namespace NuClear.VStore.Locks
             _bucketName = lockOptions.BucketName;
         }
 
-        public async Task<IReadOnlyCollection<string>> GetAllCurrentLockSessions()
+        public async Task<IReadOnlyCollection<long>> GetAllCurrentLockSessions()
         {
             var response = await _amazonS3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName });
-            return response.S3Objects.Select(x => x.Key).ToArray();
+            return response.S3Objects.Select(x => x.Key.AsLockObjectId()).ToArray();
         }
 
-        public async Task DeleteLockSession(string rootObjectKey)
+        public async Task DeleteLockSession(long rootObjectKey)
         {
+            var lockId = rootObjectKey.AsS3LockKey();
             try
             {
-                await _amazonS3.DeleteObjectAsync(new DeleteObjectRequest { BucketName = _bucketName, Key = rootObjectKey });
+                var responseTask = await _amazonS3.ListVersionsAsync(
+                    new ListVersionsRequest
+                    {
+                        BucketName = _bucketName,
+                        Prefix = lockId
+                    });
+
+                foreach (var version in responseTask.Versions)
+                {
+                    await _amazonS3.DeleteObjectAsync(_bucketName, lockId, version.VersionId);
+                }
             }
             catch (AmazonS3Exception ex)
             {
