@@ -281,7 +281,7 @@ namespace NuClear.VStore.Sessions
             Image image;
             try
             {
-                image = new Image(inputStream);
+                image = Image.Load(inputStream);
             }
             catch (Exception ex)
             {
