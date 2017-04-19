@@ -68,10 +68,10 @@ deploy:staging-01:
       deis2-create DEIS_APPLICATION="${APPLICATION}-01"
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set
+      deis2-cpu-limits-set deis2-healthchecks-set
       deis2-pull TAG=$CI_TAG
       deis2-scale
-      deis2-info deis2-processes-check
+      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
   tags: [ docker-engine, io ]
   dependencies: []
 
@@ -89,10 +89,10 @@ deploy:staging-02:
       deis2-create DEIS_APPLICATION="${APPLICATION}-02"
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set
+      deis2-cpu-limits-set deis2-healthchecks-set
       deis2-pull TAG=$CI_TAG
       deis2-scale
-      deis2-info deis2-processes-check
+      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
   tags: [ docker-engine, io ]
   dependencies: []
 
@@ -110,10 +110,10 @@ deploy:staging-03:
       deis2-create DEIS_APPLICATION="${APPLICATION}-03"
       deis2-config-push DEIS2_ENV_FILE=env/staging.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set
+      deis2-cpu-limits-set deis2-healthchecks-set
       deis2-pull TAG=$CI_TAG
       deis2-scale
-      deis2-info deis2-processes-check
+      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
   tags: [ docker-engine, io ]
   dependencies: []
 
@@ -130,10 +130,10 @@ deploy:production-n3:
       deis2-create
       deis2-config-push DEIS2_ENV_FILE=env/prod_n3.ini
       deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" 
-      deis2-cpu-limits-set
+      deis2-cpu-limits-set deis2-healthchecks-set
       deis2-pull TAG=$CI_TAG
       deis2-scale DEIS2_SCALE="${DEIS_SCALE_PROD_N3}"
-      deis2-processes-check deis2-info
+      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
   tags: [ docker-engine, io ]
   dependencies: []
 
