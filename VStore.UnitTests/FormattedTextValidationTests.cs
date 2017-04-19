@@ -32,7 +32,7 @@ namespace VStore.UnitTests
         {
             const int MaxSymbols = 10;
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
-            var constraints = new TextElementConstraints { IsFormatted = true, MaxSymbols = MaxSymbols };
+            var constraints = new FormattedTextElementConstraints { MaxSymbols = MaxSymbols };
 
             var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongError>(
                 value,
@@ -50,7 +50,7 @@ namespace VStore.UnitTests
                 val => val.Raw = "<i><b>" + new string('b', MaxSymbols + 1) + "</b></i>");
             Assert.Equal(MaxSymbols, error.MaxLength);
             Assert.Equal(MaxSymbols + 1, error.ActualLength);
-            Assert.Equal(ElementValidationErrors.TextTooLong, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.MaxSymbols, error.ErrorType);
         }
 
         [Fact]
@@ -58,7 +58,7 @@ namespace VStore.UnitTests
         {
             const int MaxSymbols = 10;
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
-            var constraints = new TextElementConstraints { IsFormatted = true, MaxSymbolsPerWord = MaxSymbols };
+            var constraints = new FormattedTextElementConstraints { MaxSymbolsPerWord = MaxSymbols };
 
             var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongError>(
                 value,
@@ -68,14 +68,14 @@ namespace VStore.UnitTests
             Assert.Equal(MaxSymbols, error.MaxWordLength);
             Assert.Equal(1, error.TooLongWords.Count);
             Assert.Equal(value.Raw, error.TooLongWords.First());
-            Assert.Equal(ElementValidationErrors.WordsTooLong, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.MaxSymbolsPerWord, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckMaxLines()
         {
             var value = new TextElementValue { Raw = "1 <br> 2 <br/> 3 <br /> 4 \n 4" };
-            var constraints = new TextElementConstraints { IsFormatted = true, MaxLines = 4 };
+            var constraints = new FormattedTextElementConstraints { MaxLines = 4 };
 
             var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesError>(
                 value,
@@ -84,7 +84,7 @@ namespace VStore.UnitTests
                 val => val.Raw += "<ul><li> 5 </li></ul>");
             Assert.Equal(constraints.MaxLines, error.MaxLinesCount);
             Assert.Equal(constraints.MaxLines + 1, error.ActualLinesCount);
-            Assert.Equal(ElementValidationErrors.TooManyLines, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.MaxLines, error.ErrorType);
         }
 
         [Fact]
@@ -92,14 +92,14 @@ namespace VStore.UnitTests
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&|_ []{}()<> /*-+=";
             var value = new TextElementValue { Raw = AllChars };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var errorOnSpace = TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolError>(
                 value,
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
-            Assert.Equal(ElementValidationErrors.NonBreakingSpaceSymbol, errorOnSpace.ErrorType);
+            Assert.Equal(ElementConstraintViolations.WithoutNonBreakingSpace, errorOnSpace.ErrorType);
 
             value.Raw = AllChars.ToUpper();
             var errorOnChars = TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextError>(
@@ -107,28 +107,28 @@ namespace VStore.UnitTests
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\r");
-            Assert.Equal(ElementValidationErrors.ControlСharacters, errorOnChars.ErrorType);
+            Assert.Equal(ElementConstraintViolations.WithoutControlСhars, errorOnChars.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckMarkup()
         {
             var value = new TextElementValue { Raw = "<br/><br /><br><ul><li><b><i><strong> text &nbsp; </strong><i/></b></li><em>small</em><li></li></ul>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, InvalidHtmlError>(
                 value,
                 constraints,
                 FormattedTextValidator.CheckValidHtml,
                 val => val.Raw += "<ul>");
-            Assert.Equal(ElementValidationErrors.InvalidHtml, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidHtml, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckTags()
         {
             var value = new TextElementValue { Raw = "<br/><br /><br><ul><li><b><i><strong> text &nbsp; </strong><i/></b></li><em>small</em><li></li></ul>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, UnsupportedTagsError>(
                 value,
@@ -137,14 +137,14 @@ namespace VStore.UnitTests
                 val => val.Raw = "<html><head></head><body><p></p><hr></body></html>");
             Assert.Equal(5, error.UnsupportedTags.Count);
             Assert.Equal(error.UnsupportedTags, new[] { "html", "head", "body", "p", "hr" });
-            Assert.Equal(ElementValidationErrors.UnsupportedTags, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.SupportedTags, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckAttributes()
         {
             var value = new TextElementValue { Raw = "<b></b>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, UnsupportedAttributesError>(
                 value,
@@ -154,14 +154,14 @@ namespace VStore.UnitTests
 
             Assert.Equal(2, error.UnsupportedAttributes.Count);
             Assert.Equal(error.UnsupportedAttributes, new[] { "class", "onclick" });
-            Assert.Equal(ElementValidationErrors.UnsupportedAttributes, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.SupportedAttributes, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckEmptyList()
         {
             var value = new TextElementValue { Raw = "<ul><li></li></ul>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, EmptyListError>(
                 value,
@@ -169,14 +169,14 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckEmptyList,
                 val => val.Raw = "<ul> </ul>");
 
-            Assert.Equal(ElementValidationErrors.EmptyList, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.NoEmptyLists, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckNestedList()
         {
             var value = new TextElementValue { Raw = "<ul><li> list item </li></ul>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, NestedListError>(
                 value,
@@ -184,14 +184,14 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckNestedList,
                 val => val.Raw = "<ul><li> outer list <ul><li> inner list </li></ul> </li></ul>");
 
-            Assert.Equal(ElementValidationErrors.NestedList, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.NoNestedLists, error.ErrorType);
         }
 
         [Fact]
         public void TestTextCheckListElements()
         {
             var value = new TextElementValue { Raw = "<ul><li> list item </li></ul>" };
-            var constraints = new TextElementConstraints { IsFormatted = true };
+            var constraints = new FormattedTextElementConstraints();
 
             var error = TestHelpers.MakeCheck<TextElementValue, UnsupportedListElementsError>(
                 value,
@@ -199,7 +199,7 @@ namespace VStore.UnitTests
                 FormattedTextValidator.CheckUnsupportedListElements,
                 val => val.Raw = "<ul><hr></ul>");
 
-            Assert.Equal(ElementValidationErrors.UnsupportedListElements, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.SupportedListElements, error.ErrorType);
         }
 
         [Theory]
@@ -216,7 +216,7 @@ namespace VStore.UnitTests
         public void TestAllChecks(string text, int? maxLength, int? maxWordLength, int? maxLines, bool containsRestrictedSymbols = true, int expectedErrorsCount = 5)
         {
             IObjectElementValue value = new TextElementValue { Raw = text };
-            var constraints = new TextElementConstraints { IsFormatted = true, MaxLines = maxLines, MaxSymbols = maxLength, MaxSymbolsPerWord = maxWordLength };
+            var constraints = new FormattedTextElementConstraints { MaxLines = maxLines, MaxSymbols = maxLength, MaxSymbolsPerWord = maxWordLength };
 
             TestHelpers.InternalTextChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
 

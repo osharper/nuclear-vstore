@@ -2,12 +2,16 @@
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public class TextElementConstraints : ITextElementConstraints, IEquatable<TextElementConstraints>
+    public abstract class TextElementConstraints : ITextElementConstraints, IEquatable<TextElementConstraints>
     {
         public int? MaxSymbols { get; set; }
         public int? MaxSymbolsPerWord { get; set; }
         public int? MaxLines { get; set; }
-        public bool IsFormatted { get; set; }
+        public abstract bool IsFormatted { get; }
+
+        public bool WithoutControlСhars => true;
+
+        public bool WithoutNonBreakingSpace => true;
 
         public bool Equals(TextElementConstraints other)
         {

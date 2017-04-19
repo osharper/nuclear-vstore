@@ -2,6 +2,6 @@
 {
     public class InvalidDateRangeError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.InvalidDateRange;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.ValidDateRange;
     }
 }

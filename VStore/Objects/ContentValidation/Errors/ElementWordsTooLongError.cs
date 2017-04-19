@@ -18,15 +18,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public IReadOnlyCollection<string> TooLongWords { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.WordsTooLong;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxSymbolsPerWord;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-            {
-                [Tokens.TypeToken] = "maxSymbolsPerWord",
-                [Tokens.ValueToken] = new JArray(TooLongWords)
-            };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = new JArray(TooLongWords);
+            return ret;
         }
     }
 }

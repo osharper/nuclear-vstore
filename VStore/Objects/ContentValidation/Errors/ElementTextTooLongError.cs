@@ -16,15 +16,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public int ActualLength { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.TextTooLong;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxSymbols;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-            {
-                [Tokens.TypeToken] = "maxSymbols",
-                [Tokens.ValueToken] = ActualLength
-            };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = ActualLength;
+            return ret;
         }
     }
 }

@@ -2,6 +2,6 @@
 {
     public class NonBreakingSpaceSymbolError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.NonBreakingSpaceSymbol;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.WithoutNonBreakingSpace;
     }
 }

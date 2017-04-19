@@ -49,11 +49,19 @@ namespace NuClear.VStore.Json
                 var property = (JProperty)item;
                 var language = (Language)Enum.Parse(typeof(Language), property.Name, true);
 
-                IElementConstraints constraints = null;
+                IElementConstraints constraints;
                 switch (descriptorType)
                 {
                     case ElementDescriptorType.Text:
-                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        if (property.Value.Value<bool?>(Tokens.IsFormattedToken) ?? false)
+                        {
+                            constraints = property.Value.ToObject<FormattedTextElementConstraints>();
+                        }
+                        else
+                        {
+                            constraints = property.Value.ToObject<PlainTextElementConstraints>();
+                        }
+
                         break;
                     case ElementDescriptorType.Image:
                         constraints = property.Value.ToObject<ImageElementConstraints>();
@@ -62,12 +70,13 @@ namespace NuClear.VStore.Json
                         constraints = property.Value.ToObject<ArticleElementConstraints>();
                         break;
                     case ElementDescriptorType.FasComment:
-                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        constraints = property.Value.ToObject<PlainTextElementConstraints>();
                         break;
                     case ElementDescriptorType.Link:
-                        constraints = property.Value.ToObject<TextElementConstraints>();
+                        constraints = property.Value.ToObject<LinkElementConstraints>();
                         break;
                     case ElementDescriptorType.Date:
+                        constraints = property.Value.ToObject<DateElementConstraints>();
                         break;
                     default:
                         return null;

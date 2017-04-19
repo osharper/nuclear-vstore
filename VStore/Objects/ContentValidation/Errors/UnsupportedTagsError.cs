@@ -18,15 +18,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public IReadOnlyCollection<string> UnsupportedTags { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.UnsupportedTags;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.SupportedTags;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-            {
-                [Tokens.TypeToken] = "unsupportedTags",
-                [Tokens.ValueToken] = new JArray(UnsupportedTags)
-            };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = new JArray(UnsupportedTags);
+            return ret;
         }
     }
 }

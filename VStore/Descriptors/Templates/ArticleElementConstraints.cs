@@ -10,6 +10,10 @@ namespace NuClear.VStore.Descriptors.Templates
         public int? MaxFilenameLength { get; set; }
         public IEnumerable<FileFormat> SupportedFileFormats { get; set; }
 
+        public bool BinaryExists => true;
+
+        public bool ValidArticle => true;
+
         public bool Equals(ArticleElementConstraints other)
         {
             if (ReferenceEquals(null, other))

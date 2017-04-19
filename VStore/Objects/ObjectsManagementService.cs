@@ -77,6 +77,12 @@ namespace NuClear.VStore.Objects
                         $"Quantity of elements in the object doesn't match to the quantity of elements in the corresponding template with Id '{objectDescriptor.TemplateId}' and versionId '{objectDescriptor.TemplateVersionId}'.");
                 }
 
+                var elementIds = new HashSet<long>(objectDescriptor.Elements.Select(x => x.Id));
+                if (elementIds.Count != objectDescriptor.Elements.Count)
+                {
+                    throw new ObjectInconsistentException(id, "Some elements have non-unique identifiers.");
+                }
+
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
                 return await PutObject(id, author, objectDescriptor);
@@ -109,7 +115,7 @@ namespace NuClear.VStore.Objects
                 var modifiedTemplateIds = new HashSet<long>(modifiedObjectDescriptor.Elements.Select(x => x.Id));
                 if (!modifiedTemplateIds.IsSubsetOf(currentTemplateIds))
                 {
-                    throw new ObjectInconsistentException(id, "Modified object contains non existing elements.");
+                    throw new ObjectInconsistentException(id, "Modified object contains non-existing elements.");
                 }
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
@@ -123,20 +129,20 @@ namespace NuClear.VStore.Objects
             IReadOnlyCollection<IElementDescriptor> referenceElementDescriptors,
             IEnumerable<IElementDescriptor> elementDescriptors)
         {
+            var templateCodes = new HashSet<int>();
             foreach (var elementDescriptor in elementDescriptors)
             {
-                var referenceObjectElements = referenceElementDescriptors.Where(x => x.TemplateCode == elementDescriptor.TemplateCode).ToArray();
-                if (referenceObjectElements.Length == 0)
+                var referenceObjectElement = referenceElementDescriptors.SingleOrDefault(x => x.TemplateCode == elementDescriptor.TemplateCode);
+                if (referenceObjectElement == null)
                 {
-                    throw new ObjectInconsistentException(objectId, $"Element with template code '{elementDescriptor.TemplateCode}' not found in the object.");
+                    throw new ObjectInconsistentException(objectId, $"Element with template code '{elementDescriptor.TemplateCode}' not found in the template.");
                 }
 
-                if (referenceObjectElements.Length > 1)
+                if (!templateCodes.Add(elementDescriptor.TemplateCode))
                 {
                     throw new ObjectInconsistentException(objectId, $"Element with template code '{elementDescriptor.TemplateCode}' must be unique within the object.");
                 }
 
-                var referenceObjectElement = referenceObjectElements[0];
                 if (referenceObjectElement.Type != elementDescriptor.Type)
                 {
                     throw new ObjectInconsistentException(

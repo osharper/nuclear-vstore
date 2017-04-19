@@ -16,15 +16,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public int ActualLinesCount { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.TooManyLines;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxLines;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-            {
-                [Tokens.TypeToken] = "maxLines",
-                [Tokens.ValueToken] = ActualLinesCount
-            };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = ActualLinesCount;
+            return ret;
         }
     }
 }

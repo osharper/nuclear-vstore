@@ -2,6 +2,6 @@
 {
     public class ControlСharactersInTextError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.ControlСharacters;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.WithoutControlСhars;
     }
 }

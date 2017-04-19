@@ -25,7 +25,7 @@ namespace VStore.UnitTests
         {
             const int MaxSymbols = 50;
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = MaxSymbols };
+            var constraints = new PlainTextElementConstraints { MaxSymbols = MaxSymbols };
 
             var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongError>(
                 value,
@@ -41,7 +41,7 @@ namespace VStore.UnitTests
         {
             const int MaxSymbols = 10;
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
+            var constraints = new PlainTextElementConstraints { MaxSymbolsPerWord = MaxSymbols };
 
             var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongError>(
                 value,
@@ -58,7 +58,7 @@ namespace VStore.UnitTests
         {
             const int MaxLines = 10;
             var value = new TextElementValue { Raw = new string('\n', MaxLines - 1) };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
+            var constraints = new PlainTextElementConstraints { MaxLines = MaxLines };
 
             var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesError>(
                 value,
@@ -74,7 +74,7 @@ namespace VStore.UnitTests
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&_ []{}()<> /*-+=";
             var value = new TextElementValue { Raw = AllChars };
-            var constraints = new TextElementConstraints { IsFormatted = false };
+            var constraints = new PlainTextElementConstraints();
 
             TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolError>(
                 value,
@@ -94,7 +94,7 @@ namespace VStore.UnitTests
         public void TestFasCommentCheckLength()
         {
             var value = new FasElementValue { Raw = "custom", Text = "text" };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbols = 5 };
+            var constraints = new PlainTextElementConstraints { MaxSymbols = 5 };
 
             var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongError>(
                 value,
@@ -110,7 +110,7 @@ namespace VStore.UnitTests
         {
             const int MaxSymbols = 4;
             var value = new FasElementValue { Raw = "custom", Text = new string('a', MaxSymbols) };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxSymbolsPerWord = MaxSymbols };
+            var constraints = new PlainTextElementConstraints { MaxSymbolsPerWord = MaxSymbols };
 
             var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongError>(
                 value,
@@ -127,7 +127,7 @@ namespace VStore.UnitTests
         {
             const int MaxLines = 10;
             var value = new FasElementValue { Raw = "custom", Text = new string('\n', MaxLines - 1) };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = MaxLines };
+            var constraints = new PlainTextElementConstraints { MaxLines = MaxLines };
 
             var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesError>(
                 value,
@@ -143,7 +143,7 @@ namespace VStore.UnitTests
         {
             const string AllChars = "abcdefghijklmnopqrstuvwxyz \n\t абвгдеёжзийклмнопрстуфхцчшщьыъэюя 1234567890 \\ \" .,;:~'`!? №@#$%^&|_ []{}()<> /*-+=";
             var value = new FasElementValue { Raw = "custom", Text = AllChars };
-            var constraints = new TextElementConstraints { IsFormatted = false };
+            var constraints = new PlainTextElementConstraints();
 
             TestHelpers.MakeCheck<FasElementValue, NonBreakingSpaceSymbolError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
 
@@ -163,7 +163,7 @@ namespace VStore.UnitTests
         public void TestAllChecks(string text, int? maxLength, int? maxWordLength, int? maxLines, bool containsRestrictedSymbols = true, int expectedErrorsCount = 5)
         {
             IObjectElementValue value = new TextElementValue { Raw = text };
-            var constraints = new TextElementConstraints { IsFormatted = false, MaxLines = maxLines, MaxSymbols = maxLength, MaxSymbolsPerWord = maxWordLength };
+            var constraints = new PlainTextElementConstraints { MaxLines = maxLines, MaxSymbols = maxLength, MaxSymbolsPerWord = maxWordLength };
 
             TestHelpers.InternalTextChecksTest(AllChecks, containsRestrictedSymbols, expectedErrorsCount, value, constraints);
 

@@ -2,6 +2,6 @@
 {
     public class UnsupportedListElementsError : ObjectElementValidationError
     {
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.UnsupportedListElements;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.SupportedListElements;
     }
 }

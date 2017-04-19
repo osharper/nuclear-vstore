@@ -19,7 +19,7 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "http://abc. com");
-            Assert.Equal(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
         }
 
         [Fact]
@@ -32,7 +32,7 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "https://abc. com");
-            Assert.Equal(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
         }
 
         [Fact]
@@ -45,7 +45,7 @@ namespace VStore.UnitTests
                 null,
                 LinkValidator.CheckLink,
                 val => val.Raw = "ftp://дубль-гис.рф");
-            Assert.Equal(ElementValidationErrors.IncorrectLink, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
 
             value.Raw = "http://xn----9sbhbxp9bk7f.xn--p1ai";
             TestHelpers.MakeCheck<TextElementValue, IncorrectLinkError>(

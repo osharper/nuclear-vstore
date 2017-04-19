@@ -233,6 +233,10 @@ namespace NuClear.VStore.Host.Controllers
                 _logger.LogError(new EventId(0), ex, "Error occured while creating object");
                 return BadRequest(ex.Message);
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (ObjectInconsistentException ex)
             {
                 return BadRequest(ex.Message);
@@ -314,10 +318,10 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        private static JToken GenerateErrorJsonResult(AggregateException ex)
+        private JToken GenerateErrorJsonResult(AggregateException ex)
         {
             var content = new JArray();
-            foreach (var exception in ex.InnerExceptions)
+            ex.Handle(exception =>
             {
                 var invalidObjectException = exception as InvalidObjectElementException;
                 if (invalidObjectException != null)
@@ -334,8 +338,12 @@ namespace NuClear.VStore.Host.Controllers
                             [Tokens.IdToken] = invalidObjectException.ElementId,
                             [Tokens.ErrorsToken] = errors
                         });
+                    return true;
                 }
-            }
+
+                _logger.LogError(new EventId(), exception, "Unknown exception in generating validation errors JSON");
+                return false;
+            });
 
             return content;
         }

@@ -20,7 +20,7 @@ namespace VStore.UnitTests
                 null,
                 DateValidator.CheckDate,
                 val => val.EndDate = val.BeginDate?.AddMinutes(-1));
-            Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);
         }
 
         [Fact]
@@ -33,7 +33,7 @@ namespace VStore.UnitTests
                 null,
                 DateValidator.CheckDate,
                 val => val.EndDate = DateTime.Now);
-            Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);
 
             var now = DateTime.UtcNow;
             value = new DateElementValue { BeginDate = now, EndDate = now };
@@ -43,7 +43,7 @@ namespace VStore.UnitTests
                 null,
                 DateValidator.CheckDate,
                 val => val.BeginDate = null);
-            Assert.Equal(ElementValidationErrors.InvalidDateRange, error.ErrorType);
+            Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);
         }
     }
 }

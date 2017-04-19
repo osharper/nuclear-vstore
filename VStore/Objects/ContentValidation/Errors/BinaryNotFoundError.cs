@@ -13,15 +13,13 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public string RawValue { get; }
 
-        public override ElementValidationErrors ErrorType => ElementValidationErrors.BinaryNotFound;
+        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.BinaryExists;
 
         public override JToken SerializeToJson()
         {
-            return new JObject
-                {
-                    [Tokens.TypeToken] = "binaryNotFound",
-                    [Tokens.ValueToken] = RawValue
-                };
+            var ret = base.SerializeToJson();
+            ret[Tokens.ValueToken] = RawValue;
+            return ret;
         }
     }
 }
