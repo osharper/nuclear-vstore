@@ -34,8 +34,8 @@ build:app:
   when: always
   script:
     - dotnet restore
-    - dotnet publish VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
-    - dotnet publish VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
+    - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
+    - dotnet publish tests/VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
   tags: [ 2gis, docker ]
   artifacts:
     name: "${CI_BUILD_REF_NAME}"
@@ -49,8 +49,8 @@ build:run-tests:
   stage: build:run-tests
   when: always
   script:
-    - dotnet restore VStore.UnitTests
-    - dotnet test VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
+    - dotnet restore tests/VStore.UnitTests
+    - dotnet test tests/VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
   tags: [ 2gis, docker ]
   dependencies:
     - build:app
