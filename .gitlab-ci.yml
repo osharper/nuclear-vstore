@@ -45,7 +45,7 @@ build:app:
       - publish/vstore-tests/
 
 build:run-tests:
-  image: $REGISTRY/microsoft/dotnet:1.1.1-sdk
+  image: $REGISTRY/microsoft/dotnet:1.0.4-sdk
   stage: build:run-tests
   when: always
   script:
