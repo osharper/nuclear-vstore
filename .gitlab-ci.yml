@@ -5,7 +5,7 @@ stages:
   - build:app
   - build:run-tests
   - build:image
-  - deploy
+  - deploy:stage
   - end
 
 before_script:
