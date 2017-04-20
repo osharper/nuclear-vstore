@@ -49,7 +49,7 @@ build:run-tests:
   stage: build:run-tests
   when: always
   script:
-    - dotnet test --output publish/vstore-tests --configuration Release --no-build
+    - dotnet test VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
   tags: [ 2gis, docker ]
   dependencies:
     - build:app
