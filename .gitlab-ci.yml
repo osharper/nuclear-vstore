@@ -33,7 +33,7 @@ build:app:
   stage: build:app
   when: always
   script:
-    - dotnet restore --configfile .\.nuget\NuGet.Config
+    - dotnet restore --configfile ./.nuget/NuGet.Config
     - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
     - dotnet publish tests/VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
   tags: [ 2gis, docker ]
@@ -49,7 +49,7 @@ build:run-tests:
   stage: build:run-tests
   when: always
   script:
-    - dotnet restore tests/VStore.UnitTests --configfile .\.nuget\NuGet.Config
+    - dotnet restore tests/VStore.UnitTests --configfile ./.nuget/NuGet.Config
     - dotnet test tests/VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
   tags: [ 2gis, docker ]
   dependencies:
