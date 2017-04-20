@@ -41,8 +41,8 @@ namespace NuClear.VStore.Host
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName?.ToLower()}.json", optional: true)
                 .AddEnvironmentVariables("VSTORE_");
 
             _configuration = builder.Build();
@@ -131,10 +131,6 @@ namespace NuClear.VStore.Host
         {
             loggerFactory.AddSerilog();
 
-#if DEBUG
-            loggerFactory.AddDebug(LogLevel.Debug);
-#endif
-
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
@@ -159,7 +155,7 @@ namespace NuClear.VStore.Host
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
             app.UseMvc();
             app.UseSwagger();
-            app.UseSwaggerUi(
+            app.UseSwaggerUI(
                 c =>
                     {
                         c.SwaggerEndpoint("/swagger/1.0/swagger.json", "VStore API 1.0");
