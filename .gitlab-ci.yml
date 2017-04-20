@@ -91,8 +91,6 @@ deploy:staging-02:
 cleanup:registry:
   stage: end
   when: always
-  only:
-    - master
   script:
     - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
     - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
@@ -103,8 +101,6 @@ cleanup:registry:
 cleanup:runner:
   stage: end
   when: always
-  only:
-    - master
   script:
     - make docker-containers-cleanup
     - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
