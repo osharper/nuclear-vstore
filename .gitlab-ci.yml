@@ -63,6 +63,7 @@ build:image:
     - TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
+    - build:app
     - build:run-tests
 
 # ================ Deploy =================
