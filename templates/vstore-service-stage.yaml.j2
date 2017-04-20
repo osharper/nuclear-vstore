@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vstore-stage-{{ env_index }}
+  annotations:
+    router.deis.io/domains: "vstore-{{ env_index }}"
+    router.deis.io/maintenance: "{{ maintenance | default('False') }}"
+    router.deis.io/ssl.enforce: "{{ ssl_enforce | default('False') }}"
+  labels:
+    router.deis.io/routable: "{{ routable | default("true") }}"
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: {{ vstore_port }}
+  selector:
+    app: {{ app_name }}

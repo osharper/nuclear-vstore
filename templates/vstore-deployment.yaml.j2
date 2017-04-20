@@ -1,0 +1,55 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ app_name }}
+spec:
+  replicas: {{ replicas_count }}
+  strategy:
+    rollingUpdate:
+      maxUnavailable: {{ max_unavailable_vstore }}
+  template:
+    metadata:
+      labels:
+        app: {{ app_name }}
+    spec:
+      nodeSelector:
+        role: worker
+      containers:
+      - name: vstore
+        image: {{ vstore_image_path }}:{{ image_version }}
+        ports:
+        - containerPort: {{ vstore_port }}
+        resources:
+          limits:
+            cpu: {{ backend_app_limits_cpu }}
+            memory: {{ backend_app_limits_memory }}
+          requests:
+            cpu: {{ backend_app_requests_cpu }}
+            memory: {{ backend_app_requests_memory }}
+        readinessProbe:
+          httpGet: { path: '{{ vstore_probe_path }}', port: {{ vstore_port }}, scheme: 'HTTP' }
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        lifecycle: 
+          preStop: {# preStop hook нужен для того, чтобы аккуратно переключить трафик перед выключением контейнера #}
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5"]
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ vstore_env }}
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ ceph_key_id }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ ceph_access_key }}
+        - name: VSTORE_AWS__ServiceURL
+          value: {{ ceph_rgw_url }}
+        - name: VSTORE_Ceph__TemplatesBucketName
+          value: {{ templates_bucket_name }}
+        - name: VSTORE_Ceph__ObjectsBucketNam
+          value: {{ objects_bucket_name }}
+        - name: VSTORE_Ceph__FilesBucketNam
+          value: {{ files_bucket_name }}
+        - name: VSTORE_Ceph__Locks__BucketName
+          value: {{ locks_bucket_name }}
+        - name: VSTORE_VStore__FileStorageEndpoint
+          value: {{ filestorage_endpoint }}

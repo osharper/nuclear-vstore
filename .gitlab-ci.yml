@@ -1,15 +1,5 @@
 variables:
   REGISTRY: "docker-hub.2gis.ru"
-  DEIS_CONTROLLER_PROD_N3: "http://deis.k8s.n3.nato"
-  DEIS_CONTROLLER_PROD_M1: "http://deis.k8s.m1.nato"
-  DEIS_CONTROLLER_PROD_D1: "http://deis.k8s.d1.nato"
-  DEIS_MEMORY_LIMITS_PROD_N3: "cmd=256M/512M"
-  DEIS_MEMORY_LIMITS_PROD_M1: "cmd=256M/512M"
-  DEIS_MEMORY_LIMITS_PROD_D1: "cmd=256M/512M"
-  DEIS_MEMORY_LIMITS_STAGING: "cmd=384M/512M"
-  DEIS_SCALE_PROD_N3: "cmd=1"
-  DEIS_SCALE_PROD_M1: "cmd=1"
-  DEIS_SCALE_PROD_D1: "cmd=1"
 
 stages:
   - build:app
@@ -69,87 +59,32 @@ build:image:
 # ================ Deploy =================
 
 deploy:staging-01:
-  stage: deploy
-  environment: staging
+  stage: deploy:stage
   when: manual
+  image: $REGISTRY/2gis-io/k8s-handle:latest
   script:
-    - sed -i -e 's/{EnvIndex}/01/g' env/staging.ini
-    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
-    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
-    - >
-      make docker-run-deis-client
-      deis2-config-create DEIS_PROFILE=staging DEIS2_USERNAME=${DEIS2_STAGE_USERNAME} DEIS2_TOKEN=${DEIS2_STAGE_TOKEN}
-      deis2-create DEIS_APPLICATION="${APPLICATION}-01"
-      deis2-config-push DEIS2_ENV_FILE=env/staging.ini
-      deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set deis2-healthchecks-set
-      deis2-pull TAG=$CI_TAG
-      deis2-scale
-      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
-  tags: [ docker-engine, io ]
-  dependencies: []
+    - export ENV_INDEX=01
+    - export VSTORE_ENVIRONMENT=Stage
+    - k8s-handle deploy --config config-stage.yaml --section vstore --sync-mode True
+  only:
+    - tags
+  tags: [ 2gis, docker ]
+  dependencies:
+    - build:image
 
 deploy:staging-02:
-  stage: deploy
-  environment: staging
+  stage: deploy:stage
   when: manual
+  image: $REGISTRY/2gis-io/k8s-handle:latest
   script:
-    - sed -i -e 's/{EnvIndex}/02/g' env/staging.ini
-    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
-    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
-    - >
-      make docker-run-deis-client
-      deis2-config-create DEIS_PROFILE=staging DEIS2_USERNAME=${DEIS2_STAGE_USERNAME} DEIS2_TOKEN=${DEIS2_STAGE_TOKEN}
-      deis2-create DEIS_APPLICATION="${APPLICATION}-02"
-      deis2-config-push DEIS2_ENV_FILE=env/staging.ini
-      deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set deis2-healthchecks-set
-      deis2-pull TAG=$CI_TAG
-      deis2-scale
-      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
-  tags: [ docker-engine, io ]
-  dependencies: []
-
-deploy:staging-03:
-  stage: deploy
-  environment: staging
-  when: manual
-  script:
-    - sed -i -e 's/{EnvIndex}/03/g' env/staging.ini
-    - echo "AWS_ACCESS_KEY_ID=${CEPH_STAGING_KEY_ID}" >> env/staging.ini
-    - echo "AWS_SECRET_ACCESS_KEY=${CEPH_STAGING_ACCESS_KEY}" >> env/staging.ini
-    - >
-      make docker-run-deis-client
-      deis2-config-create DEIS_PROFILE=staging DEIS2_USERNAME=${DEIS2_STAGE_USERNAME} DEIS2_TOKEN=${DEIS2_STAGE_TOKEN}
-      deis2-create DEIS_APPLICATION="${APPLICATION}-03"
-      deis2-config-push DEIS2_ENV_FILE=env/staging.ini
-      deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_STAGING}" 
-      deis2-cpu-limits-set deis2-healthchecks-set
-      deis2-pull TAG=$CI_TAG
-      deis2-scale
-      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
-  tags: [ docker-engine, io ]
-  dependencies: []
-
-deploy:production-n3:
-  stage: deploy
-  environment: production
-  when: manual
+    - export ENV_INDEX=02
+    - export VSTORE_ENVIRONMENT=Stage
+    - k8s-handle deploy --config config-stage.yaml --section vstore --sync-mode True
   only:
-    - master
-  script:
-    - >
-      make docker-run-deis-client
-      deis2-config-create DEIS_PROFILE=production-n3 DEIS2_CONTROLLER=${DEIS_CONTROLLER_PROD_N3} DEIS2_USERNAME=${DEIS2_PROD_N3_USERNAME} DEIS2_TOKEN=${DEIS2_PROD_N3_TOKEN}
-      deis2-create
-      deis2-config-push DEIS2_ENV_FILE=env/prod_n3.ini
-      deis2-memory-limits-set DEIS2_MEMORY_LIMITS="${DEIS_MEMORY_LIMITS_PROD_N3}" 
-      deis2-cpu-limits-set deis2-healthchecks-set
-      deis2-pull TAG=$CI_TAG
-      deis2-scale DEIS2_SCALE="${DEIS_SCALE_PROD_N3}"
-      deis2-info deis2-limits-list deis2-healthchecks-list deis2-processes-check
-  tags: [ docker-engine, io ]
-  dependencies: []
+    - tags
+  tags: [ 2gis, docker ]
+  dependencies:
+    - build:image
 
 # ================= End =================
 
