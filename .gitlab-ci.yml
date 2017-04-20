@@ -13,6 +13,7 @@ variables:
 
 stages:
   - build:app
+  - build:run-tests
   - build:image
   - deploy
   - end
@@ -33,7 +34,7 @@ build:app:
   when: always
   script:
     - dotnet restore
-    - dotnet test VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64
+    - dotnet publish VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
     - dotnet publish VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
   tags: [ 2gis, docker ]
   artifacts:
@@ -41,6 +42,17 @@ build:app:
     expire_in: '1 week'
     paths:
       - publish/vstore/
+      - publish/vstore-tests/
+
+build:run-tests:
+  image: $REGISTRY/microsoft/dotnet:1.1.1-runtime
+  stage: build:run-tests
+  when: always
+  script:
+    - dotnet test --output publish/vstore-tests --configuration Release --no-build
+  tags: [ 2gis, docker ]
+  dependencies:
+    - build:app
 
 build:image:
   stage: build:image
@@ -50,7 +62,7 @@ build:image:
     - TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
-    - build:app
+    - build:run-tests
 
 # ================ Deploy =================
 
