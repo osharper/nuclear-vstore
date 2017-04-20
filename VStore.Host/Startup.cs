@@ -152,7 +152,7 @@ namespace NuClear.VStore.Host
                     });
             }
 
-            app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+            app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
             app.UseSwagger();
             app.UseSwaggerUI(
