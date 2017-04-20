@@ -223,6 +223,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
+            catch (SessionExpiredException ex)
+            {
+                return Gone(ex.ExpiredAt);
+            }
             catch (InvalidTemplateException ex)
             {
                 return Unprocessable(ex.Message);
