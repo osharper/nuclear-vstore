@@ -45,10 +45,12 @@ build:app:
       - publish/vstore-tests/
 
 build:run-tests:
-  image: $REGISTRY/microsoft/dotnet:1.0.4-sdk
+  image: $REGISTRY/microsoft/dotnet:1.1.1-runtime
   stage: build:run-tests
   when: always
   script:
+    - export DOTNET_SDK_DOWNLOAD_URL="https://go.microsoft.com/fwlink/?LinkID=835021"
+    - curl -SL $DOTNET_SDK_DOWNLOAD_URL --output dotnet.tar.gz && tar -zxf dotnet.tar.gz -C /usr/share/dotnet && rm dotnet.tar.gz && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
     - dotnet test VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
   tags: [ 2gis, docker ]
   dependencies:
