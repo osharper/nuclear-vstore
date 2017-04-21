@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+  name: {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
   annotations:
     router.deis.io/domains: "{% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}"
     router.deis.io/maintenance: "{{ maintenance | default('False') }}"
@@ -14,4 +14,4 @@ spec:
       port: 80
       targetPort: {{ vstore_port }}
   selector:
-    app: {% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+    app: {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}

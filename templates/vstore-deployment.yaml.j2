@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+  name: {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
 spec:
   replicas: {{ replicas_count }}
   strategy:
@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        app:  {% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+        app:  {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
     spec:
       nodeSelector:
         role: worker
@@ -52,4 +52,4 @@ spec:
         - name: VSTORE_Ceph__Locks__BucketName
           value: {% locks_bucket_name-env_token if vstore_env is 'Stage' else locks_bucket_name %}
         - name: VSTORE_VStore__FileStorageEndpoint
-          value: {% if vstore_env is 'Stage' %} {{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}-{{ env_token }}.{{ ceph_rgw_host }} {% else %}  {{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}.{{ ceph_rgw_host }} {% endif %}
+          value: {% if vstore_env == 'Stage' %} {{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}-{{ env_token }}.{{ ceph_rgw_host }} {% else %}  {{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}.{{ ceph_rgw_host }} {% endif %}
