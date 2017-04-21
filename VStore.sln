@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38
 	ProjectSection(SolutionItems) = preProject
 		.gitlab-ci.yml = .gitlab-ci.yml
 		build\build.sh = build\build.sh
+		config-stage.yaml = config-stage.yaml
 		build\docker-compose-build.yml = build\docker-compose-build.yml
 		Makefile = Makefile
 		readme.md = readme.md
@@ -21,12 +22,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{420BAC
 		.nuget\NuGet.Config = .nuget\NuGet.Config
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "env", "env", "{B7FE5732-B860-4EA9-8D0B-6C00004B825B}"
-	ProjectSection(SolutionItems) = preProject
-		env\prod_n3.ini = env\prod_n3.ini
-		env\staging.ini = env\staging.ini
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.UnitTests", "tests\VStore.UnitTests\VStore.UnitTests.xproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"
@@ -37,6 +32,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{296CC59B-21CF-456D-85E2-7C99DFF9D2C7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{A8C3AC02-38B4-46F4-896A-1C98CDF77B70}"
+	ProjectSection(SolutionItems) = preProject
+		templates\vstore-deployment.yaml.j2 = templates\vstore-deployment.yaml.j2
+		templates\vstore-service-stage.yaml.j2 = templates\vstore-service-stage.yaml.j2
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -64,5 +65,6 @@ Global
 		{85E18F58-42A8-464B-BBCF-E706994B10F1} = {296CC59B-21CF-456D-85E2-7C99DFF9D2C7}
 		{E83BDDB0-29A7-4440-941C-711E0DE356A8} = {296CC59B-21CF-456D-85E2-7C99DFF9D2C7}
 		{56C56716-01D2-45CA-B43E-B4783E630D0E} = {1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}
+		{A8C3AC02-38B4-46F4-896A-1C98CDF77B70} = {C8C4BA38-6854-4E26-B8EC-4319DED458AC}
 	EndGlobalSection
 EndGlobal

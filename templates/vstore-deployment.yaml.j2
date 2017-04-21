@@ -1,0 +1,55 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {% if vstore_env == 'Stage' %}{{ app_name }}-{{ env_token }}{% else %}{{ app_name }}{% endif %}
+spec:
+  replicas: {{ replicas_count }}
+  strategy:
+    rollingUpdate:
+      maxUnavailable: {{ max_unavailable_vstore }}
+  template:
+    metadata:
+      labels:
+        app: {% if vstore_env == 'Stage' %}{{ app_name }}-{{ env_token }}{% else %}{{ app_name }}{% endif %}
+    spec:
+      nodeSelector:
+        role: worker
+      containers:
+      - name: vstore
+        image: {{ vstore_image_path }}:{{ image_version }}
+        ports:
+        - containerPort: {{ vstore_port }}
+        resources:
+          limits:
+            cpu: {{ backend_app_limits_cpu }}
+            memory: {{ backend_app_limits_memory }}
+          requests:
+            cpu: {{ backend_app_requests_cpu }}
+            memory: {{ backend_app_requests_memory }}
+        readinessProbe:
+          httpGet: { path: '{{ vstore_probe_path }}', port: {{ vstore_port }}, scheme: 'HTTP' }
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        lifecycle: 
+          preStop: {# preStop hook нужен для того, чтобы аккуратно переключить трафик перед выключением контейнера #}
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5"]
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ vstore_env }}
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ ceph_key_id }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ ceph_access_key }}
+        - name: VSTORE_AWS__ServiceURL
+          value: {{ ceph_rgw_url_schema }}{ ceph_rgw_host }}
+        - name: VSTORE_Ceph__TemplatesBucketName
+          value: {% if vstore_env == 'Stage' %}{{ templates_bucket_name }}-{{ env_token }}{% else %}{{ templates_bucket_name }}{% endif %}
+        - name: VSTORE_Ceph__ObjectsBucketNam
+          value: {% if vstore_env == 'Stage' %}{{ objects_bucket_name }}-{{ env_token }}{% else %}{{ objects_bucket_name }}{% endif %}
+        - name: VSTORE_Ceph__FilesBucketNam
+          value: {% if vstore_env == 'Stage' %}{{ files_bucket_name }}-{{ env_token }}{% else %}{{ files_bucket_name }}{% endif %}
+        - name: VSTORE_Ceph__Locks__BucketName
+          value: {% if vstore_env == 'Stage' %}{{ locks_bucket_name }}-{{ env_token }}{% else %}{{ locks_bucket_name }}{% endif %}
+        - name: VSTORE_VStore__FileStorageEndpoint
+          value: {% if vstore_env == 'Stage' %}{{ ceph_rgw_url_schema }}{{ files_bucket_name }}-{{ env_token }}.{{ ceph_rgw_host }}{% else %}{{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}.{{ ceph_rgw_host }}{% endif %}
