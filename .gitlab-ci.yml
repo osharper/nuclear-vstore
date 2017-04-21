@@ -63,7 +63,8 @@ deploy:staging:
   when: manual
   image: $REGISTRY/2gis-io/k8s-handle:latest
   script:
-    - export ENV_TOKEN=`echo $CI_BUILD_TAG | sed 's/[^a-z0-9-]/-/g'`
+    #- export ENV_TOKEN=`echo $CI_BUILD_TAG | sed 's/[^a-z0-9-]/-/g'`
+    - export ENV_TOKEN=01
     - export VSTORE_ENVIRONMENT=Stage
     - k8s-handle deploy --config config-stage.yaml --section vstore --sync-mode True
   only:
