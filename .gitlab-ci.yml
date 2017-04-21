@@ -72,20 +72,6 @@ deploy:staging-01:
   dependencies:
     - build:image
 
-deploy:staging-02:
-  stage: deploy:stage
-  when: manual
-  image: $REGISTRY/2gis-io/k8s-handle:latest
-  script:
-    - export ENV_INDEX=02
-    - export VSTORE_ENVIRONMENT=Stage
-    - k8s-handle deploy --config config-stage.yaml --section vstore --sync-mode True
-  only:
-    - tags
-  tags: [ 2gis, docker ]
-  dependencies:
-    - build:image
-
 # ================= End =================
 
 cleanup:registry:
