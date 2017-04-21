@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {% app_name-env_token if vstore_env is 'Stage' else app_name %}
+  name: {% "%s-%s"|format(app_name, env_token) if vstore_env is 'Stage' else app_name %}
 spec:
   replicas: {{ replicas_count }}
   strategy:
@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        app:  {% app_name-env_token if vstore_env is 'Stage' else app_name %}
+        app:  {% "%s-%s"|format(app_name, env_token) if vstore_env is 'Stage' else app_name %}
     spec:
       nodeSelector:
         role: worker
