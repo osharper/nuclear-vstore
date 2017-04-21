@@ -17,7 +17,7 @@ common:
   
   vstore_env: "{{ env='VSTORE_ENVIRONMENT' }}"
 
-  env_token: "{{ env='ENV_INDEX' }}"
+  env_token: "{{ env='ENV_TOKEN' }}"
 
   ceph_rgw_url_schema: "{{ env='CEPH_RGW_URL_SCHEMA' }}"
   ceph_rgw_host: "{{ env='CEPH_RGW_HOST' }}"
@@ -32,10 +32,10 @@ common:
 vstore:
   app_name: "vstore" 
 
-  backend_app_limits_cpu: 500m
+  backend_app_limits_cpu: 200m
   backend_app_requests_cpu: 100m
-  backend_app_limits_memory: 800Mi
-  backend_app_requests_memory: 300Mi
+  backend_app_limits_memory: 256Mi
+  backend_app_requests_memory: 176Mi
 
   kubectl:
   - template: vstore-deployment.yaml.j2
