@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
   annotations:
-    router.deis.io/domains: "{% if vstore_env is 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}"
+    router.deis.io/domains: "{% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}"
     router.deis.io/maintenance: "{{ maintenance | default('False') }}"
     router.deis.io/ssl.enforce: "{{ ssl_enforce | default('False') }}"
   labels:
