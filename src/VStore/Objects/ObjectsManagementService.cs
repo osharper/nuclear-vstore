@@ -265,7 +265,7 @@ namespace NuClear.VStore.Objects
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-            RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
+            await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -328,13 +328,12 @@ namespace NuClear.VStore.Objects
                                  .Single();
         }
 
-        private void RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
+        private async Task RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            Parallel.ForEach(
-                objectElements,
-                objectElement =>
+            var tasks = objectElements.Select(
+                async x =>
                     {
-                        var binaryElementValue = objectElement.Value as IBinaryElementValue;
+                        var binaryElementValue = x.Value as IBinaryElementValue;
                         if (binaryElementValue == null)
                         {
                             return;
@@ -342,12 +341,12 @@ namespace NuClear.VStore.Objects
 
                         if (string.IsNullOrEmpty(binaryElementValue.Raw))
                         {
-                            throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
                         }
 
                         try
                         {
-                            var binaryMetadata = _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw).Result;
+                            var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
                             binaryElementValue.Filename = binaryMetadata.Filename;
                             binaryElementValue.Filesize = binaryMetadata.Filesize;
 
@@ -357,17 +356,12 @@ namespace NuClear.VStore.Objects
                                 imageElementValue.PreviewUri = binaryMetadata.PreviewUri;
                             }
                         }
-                        catch (AggregateException ex)
+                        catch (ObjectNotFoundException ex)
                         {
-                            var baseException = ex.GetBaseException();
-                            if (baseException is ObjectNotFoundException)
-                            {
-                                throw new InvalidObjectElementException(id, objectElement.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, baseException);
-                            }
-
-                            throw;
+                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
                         }
                     });
+            await Task.WhenAll(tasks);
         }
     }
 }

@@ -2,7 +2,6 @@
   "dependencies": {
     "AWSSDK.S3": "3.3.5.12",
     "2GIS.ChmLibCore": "1.0.3",
-    "System.Threading.Tasks.Parallel": "4.3.0",
     "HtmlAgilityPack.NetCore": "1.5.0.1",
     "Newtonsoft.Json": "10.0.2",
     "ImageSharp": "1.0.0-alpha6-00065"
