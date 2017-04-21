@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ app_name }}
+  name: {% app_name-env_token if vstore_env is 'Stage' else app_name %}
 spec:
   replicas: {{ replicas_count }}
   strategy:
@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ app_name }}
+        app:  {% app_name-env_token if vstore_env is 'Stage' else app_name %}
     spec:
       nodeSelector:
         role: worker
@@ -42,14 +42,14 @@ spec:
         - name: AWS_SECRET_ACCESS_KEY
           value: {{ ceph_access_key }}
         - name: VSTORE_AWS__ServiceURL
-          value: {{ ceph_rgw_url }}
+          value: {{ ceph_rgw_url_schema }}://{{ ceph_rgw_host }}
         - name: VSTORE_Ceph__TemplatesBucketName
-          value: {{ templates_bucket_name }}
+          value: {% templates_bucket_name-env_token if vstore_env is 'Stage' else templates_bucket_name %}
         - name: VSTORE_Ceph__ObjectsBucketNam
-          value: {{ objects_bucket_name }}
+          value: {% objects_bucket_name-env_token if vstore_env is 'Stage' else objects_bucket_name %}
         - name: VSTORE_Ceph__FilesBucketNam
-          value: {{ files_bucket_name }}
+          value: {% files_bucket_name-env_token if vstore_env is 'Stage' else files_bucket_name %}
         - name: VSTORE_Ceph__Locks__BucketName
-          value: {{ locks_bucket_name }}
+          value: {% locks_bucket_name-env_token if vstore_env is 'Stage' else locks_bucket_name %}
         - name: VSTORE_VStore__FileStorageEndpoint
-          value: {{ filestorage_endpoint }}
+          value: {% "%s%s-%s.%s"|format(ceph_rgw_url_schema, files_bucket_name, env_token, ceph_rgw_host) if vstore_env is 'Stage' else "%s%s.%s"|format(ceph_rgw_url_schema, files_bucket_name, ceph_rgw_host) %}

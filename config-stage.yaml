@@ -15,23 +15,22 @@ common:
   image_version: "{{ env='CI_TAG' }}"
   vstore_image_path: docker-hub.2gis.ru/ams/vstore
   
-  env_index: "{{ env='ENV_INDEX' }}"
-
   vstore_env: "{{ env='VSTORE_ENVIRONMENT' }}"
 
-  ceph_rgw_url: "{{ env='CEPH_RGW_URL' }}"
+  env_token: "{{ env='ENV_INDEX' }}"
+
+  ceph_rgw_url_schema: "{{ env='CEPH_RGW_URL_SCHEMA' }}"
+  ceph_rgw_host: "{{ env='CEPH_RGW_HOST' }}"
   ceph_key_id: "{{ env='CEPH_STAGING_KEY_ID' }}"
   ceph_access_key: "{{ env='CEPH_STAGING_ACCESS_KEY' }}"
 
-  templates_bucket_name: "vstore-templates-{{ env_index }}"
-  objects_bucket_name: "vstore-objects-{{ env_index }}"
-  files_bucket_name: "vstore-files-{{ env_index }}"
-  locks_bucket_name: "vstore-locks-{{ env_index }}"
-
-  filestorage_endpoint: "http://vstore-files-{{ env_index }}.rgw.n3.hw"
+  templates_bucket_name: "vstore-templates"
+  objects_bucket_name: "vstore-objects"
+  files_bucket_name: "vstore-files"
+  locks_bucket_name: "vstore-locks"
 
 vstore:
-  app_name: "vstore-{{ env_index }}"
+  app_name: "vstore" 
 
   backend_app_limits_cpu: 500m
   backend_app_requests_cpu: 100m
