@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+  name: {% if vstore_env == 'Stage' %}{{ app_name }}-{{ env_token }}{% else %}{{ app_name }}{% endif %}
 spec:
   replicas: {{ replicas_count }}
   strategy:
@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        app:  {% if vstore_env == 'Stage' %} {{ app_name }}-{{ env_token }} {% else %} {{ app_name }} {% endif %}
+        app: {% if vstore_env == 'Stage' %}{{ app_name }}-{{ env_token }}{% else %}{{ app_name }}{% endif %}
     spec:
       nodeSelector:
         role: worker
@@ -44,12 +44,12 @@ spec:
         - name: VSTORE_AWS__ServiceURL
           value: {{ ceph_rgw_url_schema }}{ ceph_rgw_host }}
         - name: VSTORE_Ceph__TemplatesBucketName
-          value: {% if vstore_env == 'Stage' %} {{ templates_bucket_name }}-{{ env_token }} {% else %} {{ templates_bucket_name }} {% endif %}
+          value: {% if vstore_env == 'Stage' %}{{ templates_bucket_name }}-{{ env_token }}{% else %}{{ templates_bucket_name }}{% endif %}
         - name: VSTORE_Ceph__ObjectsBucketNam
-          value: {% if vstore_env == 'Stage' %} {{ objects_bucket_name }}-{{ env_token }} {% else %} {{ objects_bucket_name }} {% endif %}
+          value: {% if vstore_env == 'Stage' %}{{ objects_bucket_name }}-{{ env_token }}{% else %}{{ objects_bucket_name }}{% endif %}
         - name: VSTORE_Ceph__FilesBucketNam
-          value: {% if vstore_env == 'Stage' %} {{ files_bucket_name }}-{{ env_token }} {% else %} {{ files_bucket_name }} {% endif %}
+          value: {% if vstore_env == 'Stage' %}{{ files_bucket_name }}-{{ env_token }}{% else %}{{ files_bucket_name }}{% endif %}
         - name: VSTORE_Ceph__Locks__BucketName
-          value: {% if vstore_env == 'Stage' %} {{ locks_bucket_name }}-{{ env_token }} {% else %} {{ locks_bucket_name }} {% endif %}
+          value: {% if vstore_env == 'Stage' %}{{ locks_bucket_name }}-{{ env_token }}{% else %}{{ locks_bucket_name }}{% endif %}
         - name: VSTORE_VStore__FileStorageEndpoint
-          value: {% if vstore_env == 'Stage' %} {{ ceph_rgw_url_schema }}{{ files_bucket_name }}-{{ env_token }}.{{ ceph_rgw_host }} {% else %}  {{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}.{{ ceph_rgw_host }} {% endif %}
+          value: {% if vstore_env == 'Stage' %}{{ ceph_rgw_url_schema }}{{ files_bucket_name }}-{{ env_token }}.{{ ceph_rgw_host }}{% else %}{{ ceph_rgw_url_schema }}{{ ceph_rgw_url_schema }}.{{ ceph_rgw_host }}{% endif %}
