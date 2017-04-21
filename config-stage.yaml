@@ -23,15 +23,15 @@ common:
   ceph_key_id: "{{ env='CEPH_STAGING_KEY_ID' }}"
   ceph_access_key: "{{ env='CEPH_STAGING_ACCESS_KEY' }}"
 
-  templates_bucket_name: "vstore-templates"+"-{{ env='ENV_INDEX' }}"
-  objects_bucket_name: "vstore-objects"+"-{{ env='ENV_INDEX' }}"
-  files_bucket_name: "vstore-files"+"-{{ env='ENV_INDEX' }}"
-  locks_bucket_name: "vstore-locks"+"-{{ env='ENV_INDEX' }}"
+  templates_bucket_name: "vstore-templates-{{ env_index }}"
+  objects_bucket_name: "vstore-objects-{{ env_index }}"
+  files_bucket_name: "vstore-files-{{ env_index }}"
+  locks_bucket_name: "vstore-locks-{{ env_index }}"
 
-  filestorage_endpoint: "http://vstore-files"+"-{{ env='ENV_INDEX' }}"+".rgw.n3.hw"
+  filestorage_endpoint: "http://vstore-files-{{ env_index }}.rgw.n3.hw"
 
 vstore:
-  app_name: "vstore"+"-{{ env='ENV_INDEX' }}"
+  app_name: "vstore-{{ env_index }}"
 
   backend_app_limits_cpu: 500m
   backend_app_requests_cpu: 100m
