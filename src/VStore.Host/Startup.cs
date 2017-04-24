@@ -3,6 +3,7 @@ using System.Net;
 using System.Reflection;
 
 using Amazon;
+using Amazon.Runtime;
 using Amazon.S3;
 
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,7 @@ using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
+using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
 
@@ -54,9 +56,6 @@ namespace NuClear.VStore.Host
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
-            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
-
             services.AddMvcCore()
                     .AddApiExplorer()
                     .AddAuthorization()
@@ -85,12 +84,38 @@ namespace NuClear.VStore.Host
                     });
 
             services.AddOptions();
-            services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
+
             services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
             services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
             services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
 
-            services.AddAWSService<IAmazonS3>();
+            services.AddSingleton<IAmazonS3>(
+                x =>
+                    {
+                        var options = _configuration.GetAWSOptions();
+
+                        AWSCredentials credentials;
+                        if (options.Credentials != null)
+                        {
+                            credentials = options.Credentials;
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(options.Profile) && StoredProfileAWSCredentials.IsProfileKnown(options.Profile, options.ProfilesLocation))
+                            {
+                                credentials = new StoredProfileAWSCredentials(options.Profile, options.ProfilesLocation);
+                            }
+                            else
+                            {
+                                credentials = FallbackCredentialsFactory.GetCredentials();
+                            }
+                        }
+
+                        var config = options.DefaultClientConfig.ToS3Config();
+                        config.ForcePathStyle = true;
+
+                        return new AmazonS3Client(credentials, config);
+                    });
             services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new TemplatesStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
@@ -165,9 +190,9 @@ namespace NuClear.VStore.Host
                     });
         }
 
-        private static void ConfigureSerilogAppender(string loggerName, string level)
+        private static void AttachToLog4Net(Serilog.ILogger logger, string loggerName, string level)
         {
-            var serilogAppender = new SerilogAppender(Log.Logger);
+            var serilogAppender = new SerilogAppender(logger);
             serilogAppender.ActivateOptions();
             var log = log4net.LogManager.GetLogger(Assembly.GetEntryAssembly(), loggerName);
             var wrapper = (log4net.Repository.Hierarchy.Logger)log.Logger;
@@ -179,17 +204,20 @@ namespace NuClear.VStore.Host
         private void ConfigureLogger()
         {
             var loggerConfiguration = new LoggerConfiguration().ReadFrom.Configuration(_configuration);
-
             Log.Logger = loggerConfiguration.CreateLogger();
 
-            var serilogLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
+            var log4NetLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
                                    : Log.IsEnabled(LogEventLevel.Debug) ? "DEBUG"
                                        : Log.IsEnabled(LogEventLevel.Information) ? "INFO"
                                            : Log.IsEnabled(LogEventLevel.Warning) ? "WARN"
                                                : Log.IsEnabled(LogEventLevel.Error) ? "ERROR"
                                                    : Log.IsEnabled(LogEventLevel.Fatal) ? "FATAL" : "OFF";
 
-            ConfigureSerilogAppender("Amazon", serilogLevel);
+            AttachToLog4Net(Log.Logger, "Amazon", log4NetLevel);
+
+            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
+            AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.OnError;
+            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
         }
     }
 }
