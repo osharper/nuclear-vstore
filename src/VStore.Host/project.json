@@ -15,17 +15,17 @@
     "Microsoft.Extensions.Configuration.FileExtensions": "1.1.1",
     "Microsoft.Extensions.Configuration.Json": "1.1.1",
     "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.1",
-    "AWSSDK.S3": "3.3.5.12",
+    "AWSSDK.S3": "3.3.5.13",
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.3",
     "Serilog": "2.4.0",
     "Serilog.Enrichers.Thread": "3.0.0",
     "Serilog.Extensions.Logging": "1.4.0",
-    "Serilog.Settings.Configuration": "2.2.0",
+    "Serilog.Settings.Configuration": "2.3.1",
     "Serilog.Sinks.Console": "2.1.0",
     "Serilog.Sinks.Literate": "2.1.0",
     "Serilog.Formatting.Compact": "1.0.0",
     "log4net": "2.0.8",
-    "Swashbuckle.AspNetCore": "1.0.0-rc3",
+    "Swashbuckle.AspNetCore": "1.0.0",
     "VStore": {
       "target": "project"
     }
