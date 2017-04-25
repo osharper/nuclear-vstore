@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Net;
 using System.Reflection;
 
 using Amazon;
@@ -7,6 +6,7 @@ using Amazon.Runtime;
 using Amazon.S3;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
@@ -159,23 +160,29 @@ namespace NuClear.VStore.Host
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
-            else
-            {
-                app.UseExceptionHandler(options =>
+            app.UseExceptionHandler(
+                new ExceptionHandlerOptions
                     {
-                        options.Run(
+                        ExceptionHandler =
                             async context =>
                                 {
-                                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                                    var feature = context.Features.Get<IExceptionHandlerFeature>();
+                                    var error = new JObject
+                                                    {
+                                                        { "requestId", context.TraceIdentifier },
+                                                        { "code", "unhandledException" },
+                                                        { "message", feature.Error.Message }
+                                                    };
+
+                                    if (env.IsDevelopment())
+                                    {
+                                        error.Add("details", feature.Error.ToString());
+                                    }
+
                                     context.Response.ContentType = "application/json";
-                                    await context.Response.WriteAsync("error").ConfigureAwait(false);
-                                });
+                                    await context.Response.WriteAsync(new JObject(new JProperty("error", error)).ToString());
+                                }
                     });
-            }
 
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
@@ -216,7 +223,6 @@ namespace NuClear.VStore.Host
             AttachToLog4Net(Log.Logger, "Amazon", log4NetLevel);
 
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
-            AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.OnError;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
         }
     }

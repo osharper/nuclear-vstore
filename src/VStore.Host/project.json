@@ -34,8 +34,7 @@
     "netstandard1.6": {}
   },
   "buildOptions": {
-    "emitEntryPoint": true,
-    "debugType": "portable"
+    "emitEntryPoint": true
   },
   "runtimes": {
     "win10-x64": {},

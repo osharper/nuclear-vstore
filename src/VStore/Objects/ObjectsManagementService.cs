@@ -53,8 +53,11 @@ namespace NuClear.VStore.Objects
         {
             CheckRequredProperties(id, objectDescriptor);
 
-            using (_lockSessionFactory.CreateLockSession(id))
+            LockSession lockSession = null;
+            try
             {
+                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+
                 if (await _objectsStorageReader.IsObjectExists(id))
                 {
                     throw new ObjectAlreadyExistsException(id);
@@ -87,6 +90,13 @@ namespace NuClear.VStore.Objects
 
                 return await PutObject(id, author, objectDescriptor);
             }
+            finally
+            {
+                if (lockSession != null)
+                {
+                    await lockSession.ReleaseAsync();
+                }
+            }
         }
 
         public async Task<string> Modify(long id, string versionId, string author, IObjectDescriptor modifiedObjectDescriptor)
@@ -98,8 +108,11 @@ namespace NuClear.VStore.Objects
                 throw new ArgumentException("Object version must be set", nameof(versionId));
             }
 
-            using (_lockSessionFactory.CreateLockSession(id))
+            LockSession lockSession = null;
+            try
             {
+                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
                 if (objectDescriptor == null)
                 {
@@ -121,6 +134,13 @@ namespace NuClear.VStore.Objects
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
 
                 return await PutObject(id, author, modifiedObjectDescriptor);
+            }
+            finally
+            {
+                if (lockSession != null)
+                {
+                    await lockSession.ReleaseAsync();
+                }
             }
         }
 
@@ -187,26 +207,27 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static void VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private static async Task VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
-            Parallel.ForEach(
-                elementDescriptors,
-                elementDescriptor =>
-                {
-                    var errors = new List<ObjectElementValidationError>();
-                    var constraints = elementDescriptor.Constraints.For(language);
-                    var rules = GetVerificationRules(elementDescriptor, constraints);
+            var tasks = elementDescriptors.Select(
+                async x => await Task.Run(
+                               () =>
+                                   {
+                                       var errors = new List<ObjectElementValidationError>();
+                                       var constraints = x.Constraints.For(language);
+                                       var rules = GetVerificationRules(x, constraints);
 
-                    foreach (var validationRule in rules)
-                    {
-                        errors.AddRange(validationRule(elementDescriptor.Value, constraints));
-                    }
+                                       foreach (var validationRule in rules)
+                                       {
+                                           errors.AddRange(validationRule(x.Value, constraints));
+                                       }
 
-                    if (errors.Count > 0)
-                    {
-                        throw new InvalidObjectElementException(objectId, elementDescriptor.Id, errors);
-                    }
-                });
+                                       if (errors.Count > 0)
+                                       {
+                                           throw new InvalidObjectElementException(objectId, x.Id, errors);
+                                       }
+                                   }));
+            await Task.WhenAll(tasks);
         }
 
         private static IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
@@ -264,7 +285,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
-            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;

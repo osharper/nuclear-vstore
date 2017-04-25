@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 using Amazon.S3;
 
@@ -19,6 +20,7 @@ namespace NuClear.VStore.Locks
             _expirationDate = DateTime.UtcNow.Add(lockOptions.Expiration);
         }
 
-        public LockSession CreateLockSession(long rootObjectId) => new LockSession(_amazonS3, _bucketName, rootObjectId, _expirationDate);
+        public async Task<LockSession> CreateLockSessionAsync(long rootObjectId)
+            => await LockSession.CreateAsync(_amazonS3, _bucketName, rootObjectId, _expirationDate);
     }
 }

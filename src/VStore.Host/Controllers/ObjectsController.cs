@@ -39,21 +39,14 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
         public async Task<IActionResult> List([FromHeader(Name = Headers.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
-            try
-            {
-                var container = await _objectsStorageReader.GetObjectMetadatas(continuationToken?.Trim('"'));
+            var container = await _objectsStorageReader.GetObjectMetadatas(continuationToken?.Trim('"'));
 
-                if (!string.IsNullOrEmpty(container.ContinuationToken))
-                {
-                    Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
-                }
-
-                return Json(container.Collection);
-            }
-            catch (Exception ex)
+            if (!string.IsNullOrEmpty(container.ContinuationToken))
             {
-                return InternalServerError(ex, "Unexpected error while listing objects");
+                Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
             }
+
+            return Json(container.Collection);
         }
 
         [HttpGet("{id}/{versionId}/template")]
@@ -74,10 +67,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting template for the object with id '{id}' and versionId {versionId}", id, versionId);
-            }
         }
 
         [HttpGet("{id}/versions")]
@@ -93,10 +82,6 @@ namespace NuClear.VStore.Host.Controllers
             catch (ObjectNotFoundException)
             {
                 return NotFound();
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Error occured while getting versions for the object with id '{id}'", id);
             }
         }
 
@@ -137,10 +122,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Error occured while getting the object with id '{id}'", id);
-            }
         }
 
         [HttpGet("{id}/{versionId}")]
@@ -178,10 +159,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return BadRequest(ex.Message);
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Error occured while getting the object with id '{id}' and versionId {versionId}", id, versionId);
-            }
         }
 
         [HttpPost("{id}")]
@@ -213,7 +190,7 @@ namespace NuClear.VStore.Host.Controllers
                 Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
                 return Created(url, null);
             }
-            catch (AggregateException ex)
+            catch (InvalidObjectElementException ex)
             {
                 return Unprocessable(GenerateErrorJsonResult(ex));
             }
@@ -240,10 +217,6 @@ namespace NuClear.VStore.Host.Controllers
             catch (ObjectInconsistentException ex)
             {
                 return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unknown error occured while creating object with id '{id}'", id);
             }
         }
 
@@ -283,7 +256,7 @@ namespace NuClear.VStore.Host.Controllers
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";
                 return NoContent(url);
             }
-            catch (AggregateException ex)
+            catch (InvalidObjectElementException ex)
             {
                 return Unprocessable(GenerateErrorJsonResult(ex));
             }
@@ -312,40 +285,24 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return BadRequest(ex.Message);
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unknown error occured while modifying the object with id '{id}' and versionId {ifMatch}", id, ifMatch);
-            }
         }
 
-        private JToken GenerateErrorJsonResult(AggregateException ex)
+        private static JToken GenerateErrorJsonResult(InvalidObjectElementException ex)
         {
-            var content = new JArray();
-            ex.Handle(exception =>
+            var errors = new JArray();
+            foreach (var validationError in ex.Errors)
             {
-                var invalidObjectException = exception as InvalidObjectElementException;
-                if (invalidObjectException != null)
-                {
-                    var errors = new JArray();
-                    foreach (var validationError in invalidObjectException.Errors)
-                    {
-                        errors.Add(validationError.SerializeToJson());
-                    }
+                errors.Add(validationError.SerializeToJson());
+            }
 
-                    content.Add(
-                        new JObject
-                        {
-                            [Tokens.IdToken] = invalidObjectException.ElementId,
-                            [Tokens.ErrorsToken] = errors
-                        });
-                    return true;
-                }
-
-                _logger.LogError(new EventId(), exception, "Unknown exception in generating validation errors JSON");
-                return false;
-            });
-
-            return content;
+            return new JArray
+                       {
+                           new JObject
+                               {
+                                   [Tokens.IdToken] = ex.ElementId,
+                                   [Tokens.ErrorsToken] = errors
+                               }
+                       };
         }
     }
 }

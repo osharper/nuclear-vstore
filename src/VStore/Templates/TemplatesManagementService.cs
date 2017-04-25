@@ -66,8 +66,11 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("Template Id must be set", nameof(id));
             }
 
-            using (_lockSessionFactory.CreateLockSession(id))
+            LockSession lockSession = null;
+            try
             {
+                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+
                 if (await _templatesStorageReader.IsTemplateExists(id))
                 {
                     throw new ObjectAlreadyExistsException(id);
@@ -77,6 +80,13 @@ namespace NuClear.VStore.Templates
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
+            }
+            finally
+            {
+                if (lockSession != null)
+                {
+                    await lockSession.ReleaseAsync();
+                }
             }
         }
 
@@ -92,8 +102,11 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("VersionId must be set", nameof(versionId));
             }
 
-            using (_lockSessionFactory.CreateLockSession(id))
+            LockSession lockSession = null;
+            try
             {
+                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+
                 if (!await _templatesStorageReader.IsTemplateExists(id))
                 {
                     throw new ObjectNotFoundException($"Template '{id}' does not exist");
@@ -110,39 +123,47 @@ namespace NuClear.VStore.Templates
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
             }
+            finally
+            {
+                if (lockSession != null)
+                {
+                    await lockSession.ReleaseAsync();
+                }
+            }
         }
 
-        public void VerifyElementDescriptorsConsistency(IEnumerable<IElementDescriptor> elementDescriptors)
+        public async Task VerifyElementDescriptorsConsistency(IEnumerable<IElementDescriptor> elementDescriptors)
         {
             var codes = new ConcurrentDictionary<int, bool>();
-            Parallel.ForEach(
-                elementDescriptors,
-                elementDescriptor =>
-                    {
-                        if (!codes.TryAdd(elementDescriptor.TemplateCode, true))
-                        {
-                            throw new TemplateValidationException(elementDescriptor.TemplateCode, TemplateElementValidationErrors.NonUniqueTemplateCode);
-                        }
+            var tasks = elementDescriptors.Select(
+                async x => await Task.Run(
+                               () =>
+                                   {
+                                       if (!codes.TryAdd(x.TemplateCode, true))
+                                       {
+                                           throw new TemplateValidationException(x.TemplateCode, TemplateElementValidationErrors.NonUniqueTemplateCode);
+                                       }
 
-                        foreach (var constraints in elementDescriptor.Constraints)
-                        {
-                            TextElementConstraints textElementConstraints;
-                            ImageElementConstraints imageElementConstraints;
-                            ArticleElementConstraints articleElementConstraints;
-                            if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
-                            {
-                                VerifyTextConstraints(elementDescriptor.TemplateCode, textElementConstraints, elementDescriptor);
-                            }
-                            else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
-                            {
-                                VerifyImageConstraints(elementDescriptor.TemplateCode, imageElementConstraints);
-                            }
-                            else if ((articleElementConstraints = constraints.ElementConstraints as ArticleElementConstraints) != null)
-                            {
-                                VerifyArticleConstraints(elementDescriptor.TemplateCode, articleElementConstraints);
-                            }
-                        }
-                    });
+                                       foreach (var constraints in x.Constraints)
+                                       {
+                                           TextElementConstraints textElementConstraints;
+                                           ImageElementConstraints imageElementConstraints;
+                                           ArticleElementConstraints articleElementConstraints;
+                                           if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
+                                           {
+                                               VerifyTextConstraints(x.TemplateCode, textElementConstraints, x);
+                                           }
+                                           else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
+                                           {
+                                               VerifyImageConstraints(x.TemplateCode, imageElementConstraints);
+                                           }
+                                           else if ((articleElementConstraints = constraints.ElementConstraints as ArticleElementConstraints) != null)
+                                           {
+                                               VerifyArticleConstraints(x.TemplateCode, articleElementConstraints);
+                                           }
+                                       }
+                                   }));
+            await Task.WhenAll(tasks);
         }
 
         // ReSharper disable once UnusedParameter.Local
@@ -235,7 +256,7 @@ namespace NuClear.VStore.Templates
 
         private async Task PutTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
         {
-            VerifyElementDescriptorsConsistency(templateDescriptor.Elements);
+            await VerifyElementDescriptorsConsistency(templateDescriptor.Elements);
 
             var putRequest = new PutObjectRequest
                 {
