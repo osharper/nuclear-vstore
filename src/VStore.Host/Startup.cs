@@ -3,6 +3,7 @@ using System.Reflection;
 
 using Amazon;
 using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
 using Microsoft.AspNetCore.Builder;
@@ -102,11 +103,8 @@ namespace NuClear.VStore.Host
                         }
                         else
                         {
-                            if (!string.IsNullOrEmpty(options.Profile) && StoredProfileAWSCredentials.IsProfileKnown(options.Profile, options.ProfilesLocation))
-                            {
-                                credentials = new StoredProfileAWSCredentials(options.Profile, options.ProfilesLocation);
-                            }
-                            else
+                            var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
+                            if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
                             {
                                 credentials = FallbackCredentialsFactory.GetCredentials();
                             }
