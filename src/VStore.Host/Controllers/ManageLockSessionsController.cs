@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -24,30 +23,16 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(IReadOnlyCollection<long>), 200)]
         public async Task<IActionResult> ListAllCurrentLockSessios()
         {
-            try
-            {
-                var keys = await _lockSessionManager.GetAllCurrentLockSessions();
-                return Json(keys);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Error occured while listing session locks");
-            }
+            var keys = await _lockSessionManager.GetAllCurrentLockSessions();
+            return Json(keys);
         }
 
         [HttpDelete("{rootObjectId}")]
         [ProducesResponseType(typeof(void), 202)]
         public async Task<IActionResult> DeleteSessionLock(long rootObjectId)
         {
-            try
-            {
-                await _lockSessionManager.DeleteLockSession(rootObjectId);
-                return Accepted();
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Error occured while deleting session lock");
-            }
+            await _lockSessionManager.DeleteLockSession(rootObjectId);
+            return Accepted();
         }
     }
 }

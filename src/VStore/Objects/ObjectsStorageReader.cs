@@ -82,17 +82,17 @@ namespace NuClear.VStore.Objects
                                                            .ToArray();
 
                         var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
-                        Parallel.ForEach(
-                            versionInfos,
-                            (versionInfo, state, index) =>
+                        var tasks = versionInfos.Select(
+                            async (x, index) =>
                                 {
-                                    var modifiedElements = getModifiedElements(versionInfo.Key, versionInfo.VersionId).Result;
+                                    var modifiedElements = await getModifiedElements(x.Key, x.VersionId);
                                     descriptors[index] = new ModifiedObjectDescriptor(
-                                        versionInfo.Key.AsRootObjectId(),
-                                        versionInfo.VersionId,
-                                        versionInfo.LastModified,
+                                        x.Key.AsRootObjectId(),
+                                        x.VersionId,
+                                        x.LastModified,
                                         modifiedElements);
                                 });
+                        await Task.WhenAll(tasks);
 
                         versions.AddRange(descriptors);
 
@@ -145,20 +145,20 @@ namespace NuClear.VStore.Objects
             var persistenceDescriptorWrapper = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
             var persistenceDescriptor = (ObjectPersistenceDescriptor)persistenceDescriptorWrapper;
 
-            var elements = new ConcurrentBag<IObjectElementDescriptor>();
-            Parallel.ForEach(
-                persistenceDescriptor.Elements,
-                objectVersion =>
+            var elements = new IObjectElementDescriptor[persistenceDescriptor.Elements.Count];
+            var tasks = persistenceDescriptor.Elements.Select(
+                async (x, index) =>
                     {
-                        var elementDescriptorWrapper = GetObjectFromS3<ObjectElementDescriptor>(objectVersion.Id, objectVersion.VersionId).Result;
+                        var elementDescriptorWrapper = await GetObjectFromS3<ObjectElementDescriptor>(x.Id, x.VersionId);
                         var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
 
-                        elementDescriptor.Id = objectVersion.Id.AsSubObjectId();
-                        elementDescriptor.VersionId = objectVersion.VersionId;
+                        elementDescriptor.Id = x.Id.AsSubObjectId();
+                        elementDescriptor.VersionId = x.VersionId;
                         elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
 
-                        elements.Add(elementDescriptor);
+                        elements[index] = elementDescriptor;
                     });
+            await Task.WhenAll(tasks);
 
             var descriptor = new ObjectDescriptor
                                  {

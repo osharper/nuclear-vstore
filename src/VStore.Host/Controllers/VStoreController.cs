@@ -63,11 +63,5 @@ namespace NuClear.VStore.Host.Controllers
         {
             return new BadRequestContentResult(message);
         }
-
-        [NonAction]
-        public InternalServerErrorResult InternalServerError(Exception exception, string message, params object[] args)
-        {
-            return new InternalServerErrorResult(exception, message, args);
-        }
     }
 }

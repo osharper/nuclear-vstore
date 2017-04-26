@@ -1,11 +1,13 @@
 ﻿using System.Globalization;
-using System.Net;
 using System.Reflection;
 
 using Amazon;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
@@ -22,6 +25,7 @@ using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
+using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
 
@@ -54,9 +58,6 @@ namespace NuClear.VStore.Host
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
-            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
-
             services.AddMvcCore()
                     .AddApiExplorer()
                     .AddAuthorization()
@@ -85,12 +86,35 @@ namespace NuClear.VStore.Host
                     });
 
             services.AddOptions();
-            services.AddDefaultAWSOptions(_configuration.GetAWSOptions());
+
             services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
             services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
             services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
 
-            services.AddAWSService<IAmazonS3>();
+            services.AddSingleton<IAmazonS3>(
+                x =>
+                    {
+                        var options = _configuration.GetAWSOptions();
+
+                        AWSCredentials credentials;
+                        if (options.Credentials != null)
+                        {
+                            credentials = options.Credentials;
+                        }
+                        else
+                        {
+                            var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
+                            if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+                            {
+                                credentials = FallbackCredentialsFactory.GetCredentials();
+                            }
+                        }
+
+                        var config = options.DefaultClientConfig.ToS3Config();
+                        config.ForcePathStyle = true;
+
+                        return new AmazonS3Client(credentials, config);
+                    });
             services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
             services.AddScoped(x => new TemplatesStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
@@ -134,23 +158,29 @@ namespace NuClear.VStore.Host
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
-            else
-            {
-                app.UseExceptionHandler(options =>
+            app.UseExceptionHandler(
+                new ExceptionHandlerOptions
                     {
-                        options.Run(
+                        ExceptionHandler =
                             async context =>
                                 {
-                                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                                    var feature = context.Features.Get<IExceptionHandlerFeature>();
+                                    var error = new JObject
+                                                    {
+                                                        { "requestId", context.TraceIdentifier },
+                                                        { "code", "unhandledException" },
+                                                        { "message", feature.Error.Message }
+                                                    };
+
+                                    if (env.IsDevelopment())
+                                    {
+                                        error.Add("details", feature.Error.ToString());
+                                    }
+
                                     context.Response.ContentType = "application/json";
-                                    await context.Response.WriteAsync("error").ConfigureAwait(false);
-                                });
+                                    await context.Response.WriteAsync(new JObject(new JProperty("error", error)).ToString());
+                                }
                     });
-            }
 
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
@@ -165,9 +195,9 @@ namespace NuClear.VStore.Host
                     });
         }
 
-        private static void ConfigureSerilogAppender(string loggerName, string level)
+        private static void AttachToLog4Net(Serilog.ILogger logger, string loggerName, string level)
         {
-            var serilogAppender = new SerilogAppender(Log.Logger);
+            var serilogAppender = new SerilogAppender(logger);
             serilogAppender.ActivateOptions();
             var log = log4net.LogManager.GetLogger(Assembly.GetEntryAssembly(), loggerName);
             var wrapper = (log4net.Repository.Hierarchy.Logger)log.Logger;
@@ -179,17 +209,19 @@ namespace NuClear.VStore.Host
         private void ConfigureLogger()
         {
             var loggerConfiguration = new LoggerConfiguration().ReadFrom.Configuration(_configuration);
-
             Log.Logger = loggerConfiguration.CreateLogger();
 
-            var serilogLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
+            var log4NetLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
                                    : Log.IsEnabled(LogEventLevel.Debug) ? "DEBUG"
                                        : Log.IsEnabled(LogEventLevel.Information) ? "INFO"
                                            : Log.IsEnabled(LogEventLevel.Warning) ? "WARN"
                                                : Log.IsEnabled(LogEventLevel.Error) ? "ERROR"
                                                    : Log.IsEnabled(LogEventLevel.Fatal) ? "FATAL" : "OFF";
 
-            ConfigureSerilogAppender("Amazon", serilogLevel);
+            AttachToLog4Net(Log.Logger, "Amazon", log4NetLevel);
+
+            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
+            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
         }
     }
 }
