@@ -77,10 +77,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Gone(ex.ExpiredAt);
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting session descriptor");
-            }
         }
 
         [HttpPost("{language}/{templateId}")]
@@ -114,10 +110,6 @@ namespace NuClear.VStore.Host.Controllers
             catch (SessionCannotBeCreatedException ex)
             {
                 return Unprocessable(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while setup session");
             }
         }
 
@@ -153,10 +145,6 @@ namespace NuClear.VStore.Host.Controllers
             catch (SessionCannotBeCreatedException ex)
             {
                 return Unprocessable(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while setup session");
             }
         }
 
@@ -246,10 +234,6 @@ namespace NuClear.VStore.Host.Controllers
             catch (ArticleIncorrectException ex)
             {
                 return Unprocessable(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while file uploading");
             }
             finally
             {

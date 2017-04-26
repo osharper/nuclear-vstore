@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
@@ -22,13 +21,11 @@ namespace NuClear.VStore.Host.Controllers
     [Route("api/{version:apiVersion}/templates")]
     public class TemplatesController : VStoreController
     {
-        private readonly ILogger<TemplatesController> _logger;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly TemplatesManagementService _templatesManagementService;
 
-        public TemplatesController(TemplatesStorageReader templatesStorageReader, TemplatesManagementService templatesManagementService, ILogger<TemplatesController> logger)
+        public TemplatesController(TemplatesStorageReader templatesStorageReader, TemplatesManagementService templatesManagementService)
         {
-            _logger = logger;
             _templatesStorageReader = templatesStorageReader;
             _templatesManagementService = templatesManagementService;
         }
@@ -37,35 +34,21 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(IReadOnlyCollection<IElementDescriptor>), 200)]
         public IActionResult GetAvailableElementDescriptors()
         {
-            try
-            {
-                return Json(_templatesManagementService.GetAvailableElementDescriptors());
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting available element descriptors");
-            }
+            return Json(_templatesManagementService.GetAvailableElementDescriptors());
         }
 
         [HttpGet]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
         public async Task<IActionResult> List([FromHeader(Name = Headers.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
-            try
-            {
-                var container = await _templatesStorageReader.GetTemplateMetadatas(continuationToken?.Trim('"'));
+            var container = await _templatesStorageReader.GetTemplateMetadatas(continuationToken?.Trim('"'));
 
-                if (!string.IsNullOrEmpty(container.ContinuationToken))
-                {
-                    Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
-                }
-
-                return Json(container.Collection);
-            }
-            catch (Exception ex)
+            if (!string.IsNullOrEmpty(container.ContinuationToken))
             {
-                return InternalServerError(ex, "Unexpected error while listing templates");
+                Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
             }
+
+            return Json(container.Collection);
         }
 
         [HttpGet("{id}")]
@@ -102,10 +85,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting template with id '{id}'", id);
-            }
         }
 
         [HttpGet("{id}/{versionId}")]
@@ -135,49 +114,37 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting template with id '{id}' and versionId '{versionId}'", id, versionId);
-            }
         }
 
         [HttpPost("validate-elements")]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(object), 422)]
-        public IActionResult ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        public async Task<IActionResult> ValidateElements([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
-                _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
+                await _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
             }
-            catch (AggregateException ex)
+            catch (TemplateValidationException ex)
             {
                 return Unprocessable(GenerateTemplateErrorJson(ex));
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting template elements validation");
             }
         }
 
         [HttpPost("{id}/validate-elements")]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(object), 422)]
-        public IActionResult ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        public async Task<IActionResult> ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
         {
             try
             {
-                _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
+                await _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
                 return Ok();
             }
-            catch (AggregateException ex)
+            catch (TemplateValidationException ex)
             {
                 return Unprocessable(GenerateTemplateErrorJson(ex));
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while getting template elements validation for template with id '{id}'", id);
             }
         }
 
@@ -213,13 +180,9 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Conflict();
             }
-            catch (AggregateException ex)
+            catch (TemplateValidationException ex)
             {
                 return Unprocessable(GenerateTemplateErrorJson(ex));
-            }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while template creation with id '{id}'", id);
             }
         }
 
@@ -263,7 +226,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
-            catch (AggregateException ex)
+            catch (TemplateValidationException ex)
             {
                 return Unprocessable(GenerateTemplateErrorJson(ex));
             }
@@ -275,29 +238,9 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return PreconditionFailed();
             }
-            catch (Exception ex)
-            {
-                return InternalServerError(ex, "Unexpected error while template modification with id '{id}'", id);
-            }
         }
 
-        private JToken GenerateTemplateErrorJson(AggregateException ex)
-        {
-            var errors = new JArray();
-            ex.Handle(exception =>
-            {
-                var templateValidationException = exception as TemplateValidationException;
-                if (templateValidationException != null)
-                {
-                    errors.Add(templateValidationException.SerializeToJson());
-                    return true;
-                }
-
-                _logger.LogError(new EventId(), exception, "Unknown exception in generating validation errors JSON");
-                return false;
-            });
-
-            return errors;
-        }
+        [SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1502:ElementMustNotBeOnSingleLine", Justification = "Reviewed. Suppression is OK here.")]
+        private static JToken GenerateTemplateErrorJson(TemplateValidationException ex) => new JArray { ex.SerializeToJson() };
     }
 }
