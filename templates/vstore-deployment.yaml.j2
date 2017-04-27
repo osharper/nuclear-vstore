@@ -45,9 +45,9 @@ spec:
           value: {{ ceph_rgw_url_schema }}{{ ceph_rgw_host }}
         - name: VSTORE_Ceph__TemplatesBucketName
           value: {% if vstore_env == 'Stage' %}{{ templates_bucket_name }}-{{ env_token }}{% else %}{{ templates_bucket_name }}{% endif %}
-        - name: VSTORE_Ceph__ObjectsBucketNam
+        - name: VSTORE_Ceph__ObjectsBucketName
           value: {% if vstore_env == 'Stage' %}{{ objects_bucket_name }}-{{ env_token }}{% else %}{{ objects_bucket_name }}{% endif %}
-        - name: VSTORE_Ceph__FilesBucketNam
+        - name: VSTORE_Ceph__FilesBucketName
           value: {% if vstore_env == 'Stage' %}{{ files_bucket_name }}-{{ env_token }}{% else %}{{ files_bucket_name }}{% endif %}
         - name: VSTORE_Ceph__Locks__BucketName
           value: {% if vstore_env == 'Stage' %}{{ locks_bucket_name }}-{{ env_token }}{% else %}{{ locks_bucket_name }}{% endif %}
