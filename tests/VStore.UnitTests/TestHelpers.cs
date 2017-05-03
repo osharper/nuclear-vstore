@@ -14,7 +14,7 @@ namespace VStore.UnitTests
     {
         internal delegate IEnumerable<ObjectElementValidationError> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
 
-        internal static TException MakeCheck<TValue, TException>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
+        internal static TException MakeValidationCheck<TValue, TException>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
             where TValue : IObjectElementValue
             where TException : ObjectElementValidationError
         {

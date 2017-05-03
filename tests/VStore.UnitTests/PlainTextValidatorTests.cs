@@ -27,7 +27,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new PlainTextElementConstraints { MaxSymbols = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementTextTooLongError>(
+            var error = TestHelpers.MakeValidationCheck<TextElementValue, ElementTextTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLength,
@@ -43,7 +43,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('a', MaxSymbols) };
             var constraints = new PlainTextElementConstraints { MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, ElementWordsTooLongError>(
+            var error = TestHelpers.MakeValidationCheck<TextElementValue, ElementWordsTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckWordsLength,
@@ -60,7 +60,7 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = new string('\n', MaxLines - 1) };
             var constraints = new PlainTextElementConstraints { MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<TextElementValue, TooManyLinesError>(
+            var error = TestHelpers.MakeValidationCheck<TextElementValue, TooManyLinesError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLinesCount,
@@ -76,14 +76,14 @@ namespace VStore.UnitTests
             var value = new TextElementValue { Raw = AllChars };
             var constraints = new PlainTextElementConstraints();
 
-            TestHelpers.MakeCheck<TextElementValue, NonBreakingSpaceSymbolError>(
+            TestHelpers.MakeValidationCheck<TextElementValue, NonBreakingSpaceSymbolError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
 
             value.Raw = AllChars.ToUpper();
-            TestHelpers.MakeCheck<TextElementValue, ControlСharactersInTextError>(
+            TestHelpers.MakeValidationCheck<TextElementValue, ControlСharactersInTextError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
@@ -96,7 +96,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = "text" };
             var constraints = new PlainTextElementConstraints { MaxSymbols = 5 };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementTextTooLongError>(
+            var error = TestHelpers.MakeValidationCheck<FasElementValue, ElementTextTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLength,
@@ -112,7 +112,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('a', MaxSymbols) };
             var constraints = new PlainTextElementConstraints { MaxSymbolsPerWord = MaxSymbols };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, ElementWordsTooLongError>(
+            var error = TestHelpers.MakeValidationCheck<FasElementValue, ElementWordsTooLongError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckWordsLength,
@@ -129,7 +129,7 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = new string('\n', MaxLines - 1) };
             var constraints = new PlainTextElementConstraints { MaxLines = MaxLines };
 
-            var error = TestHelpers.MakeCheck<FasElementValue, TooManyLinesError>(
+            var error = TestHelpers.MakeValidationCheck<FasElementValue, TooManyLinesError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckLinesCount,
@@ -145,10 +145,10 @@ namespace VStore.UnitTests
             var value = new FasElementValue { Raw = "custom", Text = AllChars };
             var constraints = new PlainTextElementConstraints();
 
-            TestHelpers.MakeCheck<FasElementValue, NonBreakingSpaceSymbolError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
+            TestHelpers.MakeValidationCheck<FasElementValue, NonBreakingSpaceSymbolError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
 
             value.Text = AllChars.ToUpper();
-            TestHelpers.MakeCheck<FasElementValue, ControlСharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
+            TestHelpers.MakeValidationCheck<FasElementValue, ControlСharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
         }
 
         [Theory]
