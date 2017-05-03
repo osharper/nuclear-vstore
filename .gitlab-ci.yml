@@ -5,7 +5,7 @@ stages:
   - build:app
   - build:run-tests
   - build:image
-  - deploy:stage
+  - deploy
   - end
 
 before_script:
@@ -59,7 +59,7 @@ build:image:
 # ================ Deploy =================
 
 deploy:staging:
-  stage: deploy:stage
+  stage: deploy
   when: manual
   image: $REGISTRY/2gis-io/k8s-handle:latest
   script:
@@ -72,8 +72,54 @@ deploy:staging:
   tags: [ 2gis, docker ]
   dependencies:
     - build:image
+  environment:
+    name: vstore-01
+    url: http://${CI_ENVIRONMENT_SLUG}.web-staging.2gis.ru/swagger
+
+deploy:ams-deploy:
+  stage: deploy
+  environment:
+    name: staging
+    url: http://vstore-stage.web-staging.2gis.ru/swagger
+  only:
+    - tags
+  script:
+    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
+  dependencies: []
+  tags: [ io, docker-engine ]
+
+deploy:ams-deploy:review:
+  stage: deploy
+  when: manual
+  environment:
+    name: review/${CI_BUILD_REF_SLUG}
+    url: http://vstore-${CI_BUILD_REF_SLUG}.web-staging.2gis.ru/swagger
+    on_stop: destroy:ams-deploy:stop-review
+  only:
+    - branches
+  except:
+    - master
+  script:
+    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_BUILD_REF_SLUG} -F variables[START_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
+  dependencies: []
+  tags: [ io, docker-engine ]
 
 # ================= End =================
+
+destroy:ams-deploy:stop-review:
+  stage: end
+  when: manual
+  variables:
+    GIT_STRATEGY: none
+  environment:
+    name: review/${CI_BUILD_REF_SLUG}
+    action: stop
+  only:
+    - branches
+  script:
+    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_BUILD_REF_SLUG} -F variables[STOP_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
+  dependencies: []
+  tags: [ io, docker-engine ]
 
 cleanup:registry:
   stage: end
