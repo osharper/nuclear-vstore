@@ -13,6 +13,7 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
+using NuClear.VStore.Objects.ContentPreprocessing;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 using NuClear.VStore.Options;
@@ -285,6 +286,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
+            await PreprocessObjectElements(objectDescriptor.Language, objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
@@ -347,6 +349,40 @@ namespace NuClear.VStore.Objects
             return objectVersions.Where(x => x.Id.EndsWith(Tokens.ObjectPostfix))
                                  .Select(x => x.VersionId)
                                  .Single();
+        }
+
+        private async Task PreprocessObjectElements(Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        {
+            var tasks = elementDescriptors.Select(
+                async descriptor =>
+                    await Task.Run(
+                        () =>
+                            {
+                                var constraints = descriptor.Constraints.For(language);
+                                switch (descriptor.Type)
+                                {
+                                    case ElementDescriptorType.Text:
+                                        ((TextElementValue)descriptor.Value).Raw =
+                                            ((TextElementConstraints)constraints).IsFormatted
+                                                ? ElementTextHarmonizer.ProcessFormatted(((TextElementValue)descriptor.Value).Raw)
+                                                : ElementTextHarmonizer.ProcessPlain(((TextElementValue)descriptor.Value).Raw);
+                                        break;
+                                    case ElementDescriptorType.FasComment:
+                                        ((FasElementValue)descriptor.Value).Text = ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
+                                        break;
+                                    case ElementDescriptorType.Image:
+                                    case ElementDescriptorType.Article:
+                                    case ElementDescriptorType.Date:
+                                    case ElementDescriptorType.Link:
+                                        break;
+                                    default:
+                                        throw new ArgumentOutOfRangeException(nameof(descriptor.Type),
+                                                                              descriptor.Type,
+                                                                              $"Unsupported element descriptor type for descriptor {descriptor.Id}");
+                                }
+                            }));
+
+            await Task.WhenAll(tasks);
         }
 
         private async Task RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)

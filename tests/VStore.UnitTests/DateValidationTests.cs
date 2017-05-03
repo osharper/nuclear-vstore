@@ -15,7 +15,7 @@ namespace VStore.UnitTests
         {
             var value = new DateElementValue { BeginDate = DateTime.Today, EndDate = DateTime.Today.AddDays(1) };
 
-            var error = TestHelpers.MakeCheck<DateElementValue, InvalidDateRangeError>(
+            var error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
                 null,
                 DateValidator.CheckDate,
@@ -28,7 +28,7 @@ namespace VStore.UnitTests
         {
             var value = new DateElementValue { BeginDate = null, EndDate = null };
 
-            var error = TestHelpers.MakeCheck<DateElementValue, InvalidDateRangeError>(
+            var error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
                 null,
                 DateValidator.CheckDate,
@@ -38,7 +38,7 @@ namespace VStore.UnitTests
             var now = DateTime.UtcNow;
             value = new DateElementValue { BeginDate = now, EndDate = now };
 
-            error = TestHelpers.MakeCheck<DateElementValue, InvalidDateRangeError>(
+            error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
                 null,
                 DateValidator.CheckDate,
