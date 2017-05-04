@@ -7,9 +7,6 @@ common:
   k8s_token: "{{ env='K8S_TOKEN_STAGE' }}"
   k8s_ca_base64: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUROVENDQWgyZ0F3SUJBZ0lKQVBnRDRHQ3RTK1dSTUEwR0NTcUdTSWIzRFFFQkN3VUFNQll4RkRBU0JnTlYKQkFNTUMwQXhORGM1TXpVeU5qSTNNQjRYRFRFMk1URXhOekF6TVRjd04xb1hEVEkyTVRFeE5UQXpNVGN3TjFvdwpGakVVTUJJR0ExVUVBd3dMUURFME56a3pOVEkyTWpjd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUJEd0F3CmdnRUtBb0lCQVFDdmgrbnMzajBtWjZZUnZabmlXelBYRmh3YnhmWTNScXFqTnp0d2ZPZDRMc0t1emJLYjJpVVIKKzd3MVlaM3ZtSjhYTFFnRitPZkVzR2U4VjduTCs1Wm1nbkFqMFRaZGJJaEJwRmFZclR1RVI2Q1NPUWpCdXcvbQpUcGZqYlViV254bXh6V01xTm9hVXh3R3NYZTllRnRHM1ZXQjBuT2ZJWFF2M1phZWd0TzFPeFoyOW9hcjliSDRECjB6a2c0S29aZjVUQkFFZW1WNmRpOVZpS1RDT0RrNWY2YlVuNVlBSjF6dEtnbEpWdk1qQUIxNFpadzg5dyttOVkKMTRPRGc1UmROdW0xbEp4aVJHMVVrLyt2eWZRVTdiVzR1c0tIU3E4bHkzeVdxKzRSL0JGNzNhYWpmd0ZzRjI3cApPMHQya3doZVNkZGZIcmVUWG5YSGNPcG9RY1JXd0JwRkFnTUJBQUdqZ1lVd2dZSXdIUVlEVlIwT0JCWUVGRkVWCmZyTUsrbW9LUVd2V0daTjZKQ05YcDgreU1FWUdBMVVkSXdRL01EMkFGRkVWZnJNSyttb0tRV3ZXR1pONkpDTlgKcDgreW9ScWtHREFXTVJRd0VnWURWUVFEREF0QU1UUTNPVE0xTWpZeU40SUpBUGdENEdDdFMrV1JNQXdHQTFVZApFd1FGTUFNQkFmOHdDd1lEVlIwUEJBUURBZ0VHTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFBa3VvQjdNR3l1CnZoUTZZRDhOTWdMT245VldlK0RSRjlidG1PNEZhOEJma2Nsc3BrUEFGYk1MdE5ZSmxLd1NrUitUZG1nb0lwZ0wKSkJ1S29TK2hKbFpGT1VDWTdjR1RjbTBwUHFhSFpVdmlsblBITDZISTVwdDZvWEFUWTEwMTBQVGNtYkh6SnVqSgpPZFo4RUJ1c0diaEJ5UzVpcUhiYUhXc2lrSHZ5c2dVMkdyVlJGVVdXSkovYzRKQ2dhSldpZGhSN09CbzBsYmFyCjJyNU5ZSndUNERKQzkvZ2tkeFBCRXRkWFNwK09Fd2R6aXdDWDJSaE5zR2pmRkpJSjc3aTlKc3AwZ1Q0KzBDMXcKRXZ2NkwxSzNPN0R4VThHUnZTa09sdU5yNmgyR0lZQUQwWGg4SEV0SDhXYXVleFhvb1U5NEpSOGppUkpYajRVSwoxYUVUbFdwL0hsdGwKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo="
   k8s_namespace: ams
-  ssl_enforce: false
-
-  env_token: "standalone"
   
   vstore_env: "{{ env='VSTORE_ENVIRONMENT' }}"
   vstore_port: 5000
@@ -22,25 +19,20 @@ common:
   ceph_key_id: "{{ env='CEPH_STAGING_KEY_ID' }}"
   ceph_access_key: "{{ env='CEPH_STAGING_ACCESS_KEY' }}"
 
-  templates_bucket_name_default: "vstore-templates"
-  objects_bucket_name_default: "vstore-objects"
-  files_bucket_name_default: "vstore-files"
-  locks_bucket_name_default: "vstore-locks"
+  templates_bucket_name: "vstore-templates-standalone"
+  objects_bucket_name: "vstore-objects-standalone"
+  files_bucket_name: "vstore-files-standalone"
+  locks_bucket_name: "vstore-locks-standalone"
 
 vstore:
   app_name: "vstore-{{ env_token }}" 
 
   ssl_enforce: true
 
-  templates_bucket_name: "{{ templates_bucket_name_default }}-{{ env_token }}"
-  objects_bucket_name: "{{ objects_bucket_name_default }}-{{ env_token }}"
-  files_bucket_name: "{{ files_bucket_name_default }}-{{ env_token }}"
-  locks_bucket_name: "{{ locks_bucket_name_default }}-{{ env_token }}"
-
-  backend_app_limits_cpu: 200m
-  backend_app_requests_cpu: 100m
-  backend_app_limits_memory: 256Mi
-  backend_app_requests_memory: 176Mi
+  backend_app_limits_cpu: 500m
+  backend_app_requests_cpu: 200m
+  backend_app_limits_memory: 384Mi
+  backend_app_requests_memory: 256Mi
 
   kubectl:
   - template: vstore-deployment.yaml.j2
