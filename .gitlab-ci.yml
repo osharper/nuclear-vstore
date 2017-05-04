@@ -23,7 +23,7 @@ build:app:
   stage: build:app
   when: always
   script:
-    - dotnet restore --configfile ./.nuget/NuGet.Config
+    - dotnet restore
     - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
     - dotnet publish tests/VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
   tags: [ 2gis, docker ]
@@ -39,7 +39,7 @@ build:run-tests:
   stage: build:run-tests
   when: always
   script:
-    - dotnet restore tests/VStore.UnitTests --configfile ./.nuget/NuGet.Config
+    - dotnet restore tests/VStore.UnitTests
     - dotnet test tests/VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
   tags: [ 2gis, docker ]
   dependencies:
@@ -58,22 +58,18 @@ build:image:
 
 # ================ Deploy =================
 
-deploy:staging:
+deploy:standalone:
   stage: deploy
   when: manual
   image: $REGISTRY/2gis-io/k8s-handle:latest
   script:
-    #- export ENV_TOKEN=`echo $CI_BUILD_TAG | sed 's/[^a-z0-9-]/-/g'`
-    - export ENV_TOKEN=01
     - export VSTORE_ENVIRONMENT=Stage
-    - k8s-handle deploy --config config-stage.yaml --section vstore --sync-mode True
+    - k8s-handle deploy --config config-standalone.yaml --section vstore --sync-mode True
   only:
     - tags
   tags: [ 2gis, docker ]
-  dependencies:
-    - build:image
   environment:
-    name: vstore-01
+    name: vstore-standalone
     url: http://${CI_ENVIRONMENT_SLUG}.web-staging.2gis.ru/swagger
 
 deploy:ams-deploy:

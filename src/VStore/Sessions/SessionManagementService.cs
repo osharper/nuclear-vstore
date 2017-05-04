@@ -201,7 +201,7 @@ namespace NuClear.VStore.Sessions
                 }
 
                 var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
-                var previewUrl = new Uri(_fileStorageEndpointUri, fileKey);
+                var previewUrl = new Uri($"{_fileStorageEndpointUri}/{fileKey}");
 
                 var copyRequest = new CopyObjectRequest
                                       {

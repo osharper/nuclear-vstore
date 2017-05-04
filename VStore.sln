@@ -9,18 +9,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38
 	ProjectSection(SolutionItems) = preProject
 		.gitlab-ci.yml = .gitlab-ci.yml
 		build\build.sh = build\build.sh
-		config-stage.yaml = config-stage.yaml
+		config-standalone.yaml = config-standalone.yaml
 		build\docker-compose-build.yml = build\docker-compose-build.yml
 		Makefile = Makefile
 		readme.md = readme.md
 	EndProjectSection
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore", "src\VStore\VStore.xproj", "{E83BDDB0-29A7-4440-941C-711E0DE356A8}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{420BAC18-0168-4D51-9C8E-C3F465B3F11C}"
-	ProjectSection(SolutionItems) = preProject
-		.nuget\NuGet.Config = .nuget\NuGet.Config
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}"
 EndProject
@@ -29,6 +24,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CA83EA03-82A0-4E15-87EF-31CD857393E3}"
 	ProjectSection(SolutionItems) = preProject
 		global.json = global.json
+		NuGet.Config = NuGet.Config
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{296CC59B-21CF-456D-85E2-7C99DFF9D2C7}"
