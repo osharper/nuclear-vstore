@@ -17,7 +17,7 @@ using NuClear.VStore.Sessions;
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
-    [Route("api/{version:apiVersion}/sessions")]
+    [Route("api/{api-version:apiVersion}/sessions")]
     public sealed class SessionsController : VStoreController
     {
         private readonly SessionManagementService _sessionManagementService;

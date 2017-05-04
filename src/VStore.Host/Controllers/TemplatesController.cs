@@ -18,7 +18,7 @@ using NuClear.VStore.Templates;
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
-    [Route("api/{version:apiVersion}/templates")]
+    [Route("api/{api-version:apiVersion}/templates")]
     public class TemplatesController : VStoreController
     {
         private readonly TemplatesStorageReader _templatesStorageReader;
