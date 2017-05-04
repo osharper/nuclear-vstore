@@ -25,7 +25,7 @@ common:
   locks_bucket_name: "vstore-locks-standalone"
 
 vstore:
-  app_name: "vstore-{{ env_token }}" 
+  app_name: "vstore-standalone" 
 
   ssl_enforce: true
 
