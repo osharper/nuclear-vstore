@@ -21,7 +21,7 @@ using NuClear.VStore.S3;
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
-    [Route("api/{version:apiVersion}/objects")]
+    [Route("api/{api-version:apiVersion}/objects")]
     public sealed class ObjectsController : VStoreController
     {
         private readonly ObjectsStorageReader _objectsStorageReader;

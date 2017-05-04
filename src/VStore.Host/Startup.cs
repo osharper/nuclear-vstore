@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -58,8 +59,14 @@ namespace NuClear.VStore.Host
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddOptions();
+            services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
+            services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
+            services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
+
             services.AddMvcCore()
                     .AddApiExplorer()
+                    .AddVersionedApiExplorer()
                     .AddAuthorization()
                     .AddCors()
                     .AddJsonFormatters()
@@ -76,20 +83,21 @@ namespace NuClear.VStore.Host
                                 settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
                                 settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
                             });
+
             services.AddApiVersioning(options => options.ReportApiVersions = true);
 
             services.AddSwaggerGen(
                 x =>
                     {
-                        x.SwaggerDoc("1.0", new Info { Title = "VStore API", Version = "1.0" });
+                        var provider = services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
+                        foreach (var description in provider.ApiVersionDescriptions)
+                        {
+                            x.SwaggerDoc(description.GroupName, new Info { Title = $"VStore API {description.ApiVersion}", Version = description.ApiVersion.ToString() });
+                        }
+
+                        x.OperationFilter<ImplicitApiVersionParameter>();
                         x.OperationFilter<UploadFileOperationFilter>();
                     });
-
-            services.AddOptions();
-
-            services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
-            services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
-            services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
 
             services.AddSingleton<IAmazonS3>(
                 x =>
@@ -184,15 +192,24 @@ namespace NuClear.VStore.Host
 
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
-            app.UseSwagger();
-            app.UseSwaggerUI(
-                c =>
-                    {
-                        c.SwaggerEndpoint("/swagger/1.0/swagger.json", "VStore API 1.0");
-                        c.DocExpansion("none");
-                        c.EnabledValidator();
-                        c.ShowRequestHeaders();
-                    });
+
+            if (!env.IsProduction())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI(
+                    options =>
+                        {
+                            var provider = app.ApplicationServices.GetRequiredService<IApiVersionDescriptionProvider>();
+                            foreach (var description in provider.ApiVersionDescriptions)
+                            {
+                                options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
+                            }
+
+                            options.DocExpansion("list");
+                            options.EnabledValidator();
+                            options.ShowRequestHeaders();
+                        });
+            }
         }
 
         private static void AttachToLog4Net(Serilog.ILogger logger, string loggerName, string level)

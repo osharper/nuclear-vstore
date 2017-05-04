@@ -8,7 +8,7 @@ using NuClear.VStore.Locks;
 namespace NuClear.VStore.Host.Controllers
 {
     [ApiVersion("1.0")]
-    [Route("api/{version:apiVersion}/mgmt/lock-sessions")]
+    [Route("api/{api-version:apiVersion}/mgmt/lock-sessions")]
     public sealed class ManageLockSessionsController : VStoreController
     {
         private readonly LockSessionManager _lockSessionManager;
