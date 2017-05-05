@@ -51,8 +51,8 @@ build:vstore-image:
   stage: build:image
   when: manual
   script:
-    - TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - TAG=$CI_TAG make docker-push
+    - IMAGE=ams/vstore TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - IMAGE=ams/vstore TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app
@@ -61,8 +61,8 @@ build:vstore-gc-image:
   stage: build:image
   when: manual
   script:
-    - TAG=$CI_TAG DOCKER_FILE=publish/vstore-gc/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore-gc make docker-build
-    - TAG=$CI_TAG make docker-push
+    - IMAGE=ams/vstore-gc TAG=$CI_TAG DOCKER_FILE=publish/vstore-gc/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore-gc make docker-build
+    - IMAGE=ams/vstore-gc TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app
