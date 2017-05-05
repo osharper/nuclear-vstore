@@ -32,7 +32,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{A8C3AC02-38B4-46F4-896A-1C98CDF77B70}"
 	ProjectSection(SolutionItems) = preProject
 		templates\vstore-deployment.yaml.j2 = templates\vstore-deployment.yaml.j2
-		templates\vstore-service-stage.yaml.j2 = templates\vstore-service-stage.yaml.j2
+		templates\vstore-gc-cronjob.yaml.j2 = templates\vstore-gc-cronjob.yaml.j2
+		templates\vstore-service.yaml.j2 = templates\vstore-service.yaml.j2
 	EndProjectSection
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.GC", "src\VStore.GC\VStore.GC.xproj", "{4E5BB357-62FA-414E-86A0-1B26633B4961}"
