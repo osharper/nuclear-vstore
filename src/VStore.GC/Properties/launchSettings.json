@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "VStore.GC": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "VSTORE_GC_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

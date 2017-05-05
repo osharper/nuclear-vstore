@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Amazon;
@@ -19,8 +20,9 @@ namespace NuClear.VStore.GC
         public static void Main(string[] args)
         {
             var env = Environment.GetEnvironmentVariable("VSTORE_GC_ENVIRONMENT") ?? "Production";
+            var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
+                .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json")
                 .AddJsonFile($"appsettings.{env.ToLower()}.json")
                 .AddEnvironmentVariables("VSTORE_GC_")

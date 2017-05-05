@@ -31,7 +31,13 @@
     "osx.10.12-x64": {}
   },
   "buildOptions": {
-    "emitEntryPoint": true
+    "emitEntryPoint": true,
+    "copyToOutput": {
+      "includeFiles": [
+        "appsettings.json",
+        "appsettings.development.json"
+      ]
+    }
   },
   "publishOptions": {
     "include": [
