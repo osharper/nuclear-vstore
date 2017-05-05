@@ -12,8 +12,6 @@ common:
   vstore_port: 5000
   vstore_probe_path: /swagger
   vstore_image_path: docker-hub.2gis.ru/ams/vstore
-  
-  vstore_gc_env: "{{ env='VSTORE_GC_ENVIRONMENT' }}"
   vstore_gc_image_path: docker-hub.2gis.ru/ams/vstore-gc
 
   image_version: "{{ env='CI_TAG' }}"
