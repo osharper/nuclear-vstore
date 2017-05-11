@@ -45,4 +45,4 @@ vstore:
   kubectl:
   - template: vstore-deployment.yaml.j2
   - template: vstore-service.yaml.j2
-#  - template: vstore-gc-cronjob.yaml.j2
+  - template: vstore-gc-cronjob.yaml.j2
