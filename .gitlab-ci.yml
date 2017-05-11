@@ -76,6 +76,7 @@ deploy:standalone:
   script:
     - export VSTORE_ENVIRONMENT=Stage
     - k8s-handle deploy --config config-standalone.yaml --section vstore --sync-mode True
+    #- kubectl create -f ./build/vstore-gc-cronjob.yaml
   only:
     - tags
   tags: [ 2gis, docker ]

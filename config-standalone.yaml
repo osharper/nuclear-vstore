@@ -26,7 +26,7 @@ common:
   locks_bucket_name: "vstore-locks-standalone"
 
 vstore:
-  app_name: "vstore-standalone" 
+  app_name: "vstore-standalone"
 
   ssl_enforce: true
 
@@ -45,4 +45,4 @@ vstore:
   kubectl:
   - template: vstore-deployment.yaml.j2
   - template: vstore-service.yaml.j2
-  - template: vstore-gc-cronjob.yaml.j2
+#  - template: vstore-gc-cronjob.yaml.j2

@@ -1,0 +1,31 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+metadata:
+  name: "vstore-standalone"
+spec:
+  schedule: "*/1 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: "vstore-standalone"
+            image: docker-hub.2gis.ru/ams/vstore-gc:0.4.0-pre3
+            args:
+            - /bin/sh
+            - -c
+            - /app/VStore.GC
+            resources:
+              limits:
+                cpu: 200m
+                memory: 192Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            env:
+            - name: VSTORE_GC_ENVIRONMENT
+              value: Stage
