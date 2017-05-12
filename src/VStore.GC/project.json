@@ -8,6 +8,7 @@
     "Microsoft.Extensions.Configuration.Json": "1.1.1",
     "Microsoft.Extensions.Logging": "1.1.1",
     "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.1",
+    "Microsoft.Extensions.CommandlineUtils": "1.1.1",
     "System.Console": "4.3.0",
     "AWSSDK.S3": "3.3.5.13",
     "AWSSDK.Extensions.NETCore.Setup": "3.3.0.3",

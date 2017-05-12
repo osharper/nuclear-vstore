@@ -2,8 +2,9 @@
   "profiles": {
     "VStore.GC": {
       "commandName": "Project",
+      "commandLineArgs": "collect locks",
       "environmentVariables": {
-        "VSTORE_GC_ENVIRONMENT": "Development"
+        "VSTORE_ENVIRONMENT": "Development"
       }
     }
   }

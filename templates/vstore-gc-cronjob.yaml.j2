@@ -27,7 +27,7 @@ spec:
                 cpu: {{ worker_app_requests_cpu }}
                 memory: {{ worker_app_requests_memory }}
             env:
-            - name: VSTORE_GC_ENVIRONMENT
+            - name: VSTORE_ENVIRONMENT
               value: {{ vstore_env }}
             - name: AWS_ACCESS_KEY_ID
               value: {{ ceph_key_id }}
