@@ -1,10 +1,10 @@
 {
   "dependencies": {
-    "AWSSDK.S3": "3.3.5.13",
+    "AWSSDK.S3": "3.3.6.1",
     "2GIS.ChmLibCore": "1.0.3",
     "HtmlAgilityPack.NetCore": "1.5.0.1",
     "Newtonsoft.Json": "10.0.2",
-    "ImageSharp": "1.0.0-alpha6-00065"
+    "ImageSharp": "1.0.0-alpha9-00040"
   },
 
   "frameworks": {
