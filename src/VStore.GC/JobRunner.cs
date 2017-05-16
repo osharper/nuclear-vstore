@@ -21,9 +21,9 @@ namespace NuClear.VStore.GC
             var job = _jobRegistry.GetJob(jobId);
             if (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Job '{GCJobType}' with id = '{GCJobId}' is starting.", job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{gcJobType}' with id = '{GCJobId}' is starting.", job.GetType().Name, jobId);
                 await job.ExecuteAsync(cancellationToken);
-                _logger.LogInformation("Job '{GCJobType}' with id = '{GCJobId}' finished." , job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{gcJobType}' with id = '{GCJobId}' finished." , job.GetType().Name, jobId);
             }
         }
     }

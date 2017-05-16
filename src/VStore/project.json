@@ -4,7 +4,8 @@
     "2GIS.ChmLibCore": "1.0.3",
     "HtmlAgilityPack.NetCore": "1.5.0.1",
     "Newtonsoft.Json": "10.0.2",
-    "ImageSharp": "1.0.0-alpha6-00065"
+    "ImageSharp": "1.0.0-alpha6-00065",
+    "Microsoft.Extensions.Logging": "1.1.1"
   },
 
   "frameworks": {

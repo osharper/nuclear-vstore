@@ -23,7 +23,7 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(IReadOnlyCollection<long>), 200)]
         public async Task<IActionResult> ListAllCurrentLockSessios()
         {
-            var keys = await _lockSessionManager.GetAllCurrentLockSessions();
+            var keys = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
             return Json(keys);
         }
 
@@ -31,7 +31,7 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(void), 202)]
         public async Task<IActionResult> DeleteSessionLock(long rootObjectId)
         {
-            await _lockSessionManager.DeleteLockSession(rootObjectId);
+            await _lockSessionManager.DeleteLockSessionAsync(rootObjectId);
             return Accepted();
         }
     }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.GC.Jobs;
@@ -29,10 +30,10 @@ namespace NuClear.VStore.GC
             Type jobType;
             if (Registry.TryGetValue(jobId, out jobType))
             {
-                return (AsyncJob)_serviceProvider.GetService(jobType);
+                return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
             }
 
-            _logger.LogCritical("Job with id = '{GCJobId}' has not beed registered.", jobId);
+            _logger.LogCritical("Job with id = '{gcJobId}' has not beed registered.", jobId);
             throw new JobNotFoundException(jobId);
         }
     }

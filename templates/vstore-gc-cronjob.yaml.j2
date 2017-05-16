@@ -18,7 +18,7 @@ spec:
             args:
             - /bin/sh
             - -c
-            - /app/VStore.GC
+            command: ["/app/VStore.GC", "collect", "locks"]
             resources:
               limits:
                 cpu: {{ worker_app_limits_cpu }}

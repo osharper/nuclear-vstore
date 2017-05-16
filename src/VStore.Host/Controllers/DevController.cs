@@ -29,7 +29,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpPut("lock-session")]
         public async Task CreateLockSession()
         {
-            await _lockSessionFactory.CreateLockSessionAsync(0);
+            await _lockSessionFactory.CreateLockSessionAsync(1);
         }
 
         [HttpGet("object")]

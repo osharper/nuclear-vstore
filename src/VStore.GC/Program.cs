@@ -2,6 +2,7 @@
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 using Amazon;
 using Amazon.Runtime;
@@ -61,24 +62,27 @@ namespace NuClear.VStore.GC
                         config.Description = "Run cleanup job. See available arguments for details.";
                         config.HelpOption("-h|--help");
 
-                        var locksArg = config.Argument("locks", "Collect frozen locks.");
-                        var binariesArg = config.Argument("binaries", "Collect orphan binary files.");
+                        var locksArgument = config.Argument("locks", "Collect frozen locks.");
+                        var binariesArgument = config.Argument("binaries", "Collect orphan binary files.");
+                        var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
                         config.OnExecute(
-                            async () =>
+                            () =>
                                 {
-                                    var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
-                                    if (!string.IsNullOrEmpty(locksArg?.Value))
+                                    string jobId = null;
+                                    if (!string.IsNullOrEmpty(locksArgument?.Value))
                                     {
-                                        await jobRunner.RunAsync(locksArg.Value, cts.Token);
+                                        jobId = locksArgument.Value;
                                     }
-                                    else if (!string.IsNullOrEmpty(binariesArg?.Value))
+                                    else if (!string.IsNullOrEmpty(binariesArgument?.Value))
                                     {
-                                        await jobRunner.RunAsync(binariesArg.Value, cts.Token);
+                                        jobId = binariesArgument.Value;
                                     }
                                     else
                                     {
                                         config.ShowHelp();
                                     }
+
+                                    ExecuteAsync(jobRunner, jobId, cts.Token).GetAwaiter().GetResult();
 
                                     return 0;
                                 });
@@ -89,15 +93,12 @@ namespace NuClear.VStore.GC
             var exitCode = 0;
             try
             {
-                logger.LogInformation("VStore GC started with options: {GCOptions}.", args.Length != 0 ? string.Join(" ", args) : "N/A");
+                logger.LogInformation("VStore GC started with options: {gcOptions}.", args.Length != 0 ? string.Join(" ", args) : "N/A");
                 exitCode = app.Execute(args);
             }
-            catch (AggregateException ex)
+            catch (JobNotFoundException)
             {
-                if (ex.GetBaseException() is JobNotFoundException)
-                {
-                    exitCode = 1;
-                }
+                exitCode = 1;
             }
             catch (Exception ex)
             {
@@ -106,7 +107,7 @@ namespace NuClear.VStore.GC
             }
             finally
             {
-                logger.LogInformation("VStore GC is shutting down with code {GCExitCode}.", exitCode);
+                logger.LogInformation("VStore GC is shutting down with code {gcExitCode}.", exitCode);
             }
 
             Environment.Exit(exitCode);
@@ -114,43 +115,44 @@ namespace NuClear.VStore.GC
 
         private static IServiceProvider Bootstrap(IConfiguration configuration)
         {
-            var services = new ServiceCollection();
+            var services = new ServiceCollection()
+                .AddOptions()
+                .Configure<CephOptions>(configuration.GetSection("Ceph"))
+                .Configure<LockOptions>(configuration.GetSection("Ceph:Locks"))
+                .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
 
-            services.AddLogging();
+                .AddLogging()
 
-            services.AddOptions();
-            services.Configure<CephOptions>(configuration.GetSection("Ceph"));
-            services.Configure<LockOptions>(configuration.GetSection("Ceph__Locks"));
+                .AddSingleton<JobRegistry>()
+                .AddScoped<JobRunner>()
+                .AddScoped<LockCleanupJob>()
 
-            services.AddSingleton<JobRegistry>();
-            services.AddTransient<JobRunner>();
-            services.AddTransient<LockCleanupJob>();
-
-            services.AddSingleton<IAmazonS3>(
-                x =>
-                    {
-                        var options = configuration.GetAWSOptions();
-
-                        AWSCredentials credentials;
-                        if (options.Credentials != null)
+                .AddSingleton<IAmazonS3>(
+                    x =>
                         {
-                            credentials = options.Credentials;
-                        }
-                        else
-                        {
-                            var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
-                            if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+                            var options = configuration.GetAWSOptions();
+
+                            AWSCredentials credentials;
+                            if (options.Credentials != null)
                             {
-                                credentials = FallbackCredentialsFactory.GetCredentials();
+                                credentials = options.Credentials;
                             }
-                        }
+                            else
+                            {
+                                var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
+                                if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+                                {
+                                    credentials = FallbackCredentialsFactory.GetCredentials();
+                                }
+                            }
 
-                        var config = options.DefaultClientConfig.ToS3Config();
-                        config.ForcePathStyle = true;
+                            var config = options.DefaultClientConfig.ToS3Config();
+                            config.ForcePathStyle = true;
 
-                        return new AmazonS3Client(credentials, config);
-                    });
-            services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
+                            return new AmazonS3Client(credentials, config);
+                        })
+                .AddScoped<LockSessionManager>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -168,6 +170,14 @@ namespace NuClear.VStore.GC
 
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
+        }
+
+        private static async Task ExecuteAsync(JobRunner jobRunner, string jobId, CancellationToken cancellationToken)
+        {
+            if (!string.IsNullOrEmpty(jobId))
+            {
+                await jobRunner.RunAsync(jobId, cancellationToken);
+            }
         }
     }
 }

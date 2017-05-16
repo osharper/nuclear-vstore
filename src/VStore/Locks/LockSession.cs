@@ -8,6 +8,8 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.Descriptors;
+using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Locks
@@ -32,9 +34,9 @@ namespace NuClear.VStore.Locks
             var lockSession = new LockSession(amazonS3, bucketName, rootObjectId);
             await lockSession.EnsureLockNotExistsAsync();
 
-            var content = JsonConvert.SerializeObject(new { ExpirationDate = expirationDate, UniqueKey = Guid.NewGuid() });
-            var response = await lockSession.CreateSessionLockAsync(content);
-            await lockSession.EnsureLockIsTakenAsync(response.ETag);
+            var lockSessionDescriptor = new LockSessionDescriptor { ExpirationDate = expirationDate, UniqueKey = Guid.NewGuid() };
+            var etag = await lockSession.CreateSessionLockAsync(lockSessionDescriptor);
+            await lockSession.EnsureLockIsTakenAsync(etag);
 
             return lockSession;
         }
@@ -67,23 +69,28 @@ namespace NuClear.VStore.Locks
             throw new SessionLockAlreadyExistsException(_rootObjectId);
         }
 
-        private async Task<PutObjectResponse> CreateSessionLockAsync(string content)
-            => await _amazonS3.PutObjectAsync(
-                   new PutObjectRequest
-                       {
-                           BucketName = _bucketName,
-                           Key = _lockKey,
-                           ContentType = ContentType.Json,
-                           ContentBody = content,
-                           CannedACL = S3CannedACL.PublicRead
-                       });
+        private async Task<string> CreateSessionLockAsync(LockSessionDescriptor lockSessionDescriptor)
+        {
+            var json = JsonConvert.SerializeObject(lockSessionDescriptor, SerializerSettings.Default);
+            var response = await _amazonS3.PutObjectAsync(
+                               new PutObjectRequest
+                                   {
+                                       BucketName = _bucketName,
+                                       Key = _lockKey,
+                                       ContentType = ContentType.Json,
+                                       ContentBody = json,
+                                       CannedACL = S3CannedACL.PublicRead
+                                   });
 
-        private async Task EnsureLockIsTakenAsync(string tag)
+            return response.ETag;
+        }
+
+        private async Task EnsureLockIsTakenAsync(string etag)
         {
             var response = await _amazonS3.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = _lockKey });
             var versions = response.Versions;
 
-            var versionId = versions.Single(v => v.ETag == tag).VersionId;
+            var versionId = versions.Single(v => v.ETag == etag).VersionId;
             if (versionId != versions[versions.Count - 1].VersionId)
             {
                 throw new SessionLockAlreadyExistsException(_rootObjectId);
