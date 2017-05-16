@@ -62,7 +62,9 @@ namespace NuClear.VStore.Objects
 
                         var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                         var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
-                        return modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                        return string.IsNullOrEmpty(modifiedElements)
+                                   ? Array.Empty<int>()
+                                   : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
                     };
 
             Func<string, Task<ListVersionsResponse>> listVersions =

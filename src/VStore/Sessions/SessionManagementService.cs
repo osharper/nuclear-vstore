@@ -292,7 +292,7 @@ namespace NuClear.VStore.Sessions
                                                       return result;
                                                   });
 
-            Image image;
+            Image<Rgba32> image;
             try
             {
                 image = Image.Load(inputStream);

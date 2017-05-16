@@ -26,6 +26,7 @@ build:app:
     - dotnet restore
     - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
     - dotnet publish src/VStore.GC --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-gc
+    - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output publish/migration-tool
     - dotnet publish tests/VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
   tags: [ 2gis, docker ]
   artifacts:
@@ -34,10 +35,11 @@ build:app:
     paths:
       - publish/vstore/
       - publish/vstore-gc/
+      - publish/migration-tool/
       - publish/vstore-tests/
 
 build:run-tests:
-  image: $REGISTRY/microsoft/dotnet:1.1.1-sdk-1.0.0-preview2-1-003177
+  image: $REGISTRY/microsoft/dotnet:1.1.2-sdk-1.0.0-preview2-1-003177
   stage: build:run-tests
   when: always
   script:
@@ -51,8 +53,8 @@ build:vstore-image:
   stage: build:image
   when: manual
   script:
-    - IMAGE=ams/vstore TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
-    - IMAGE=ams/vstore TAG=$CI_TAG make docker-push
+    - TAG=$CI_TAG DOCKER_FILE=publish/vstore/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore make docker-build
+    - TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app
@@ -63,6 +65,16 @@ build:vstore-gc-image:
   script:
     - IMAGE=ams/vstore-gc TAG=$CI_TAG DOCKER_FILE=publish/vstore-gc/Dockerfile DOCKER_BUILD_CONTEXT=publish/vstore-gc make docker-build
     - IMAGE=ams/vstore-gc TAG=$CI_TAG make docker-push
+  tags: [ docker-engine, io ]
+  dependencies:
+    - build:app
+
+build:migration-tool-image:
+  stage: build:image
+  when: manual
+  script:
+    - IMAGE=ams/migration-tool TAG=$CI_TAG DOCKER_FILE=publish/migration-tool/Dockerfile DOCKER_BUILD_CONTEXT=publish/migration-tool make docker-build
+    - IMAGE=ams/migration-tool TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app

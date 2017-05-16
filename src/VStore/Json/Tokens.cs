@@ -15,6 +15,12 @@
         public const string ErrorsToken = "errors";
         public const string ErrorToken = "error";
         public const string IsFormattedToken = "isFormatted";
+        public const string TemplateIdToken = "templateId";
+        public const string TemplateVersionIdToken = "templateVersionId";
+        public const string LanguageToken = "language";
+        public const string NameToken = "name";
+        public const string IsRequiredToken = "isRequired";
+        public const string IsWhiteListedToken = "isWhiteListed";
         public const char ModifiedElementsDelimiter = ';';
     }
 }

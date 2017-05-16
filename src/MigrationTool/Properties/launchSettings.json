@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MigrationTool": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "AMS_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
