@@ -15,9 +15,6 @@ spec:
           containers:
           - name: {{ app_name }}
             image: {{ vstore_gc_image_path }}:{{ image_version }}
-            args:
-            - /bin/sh
-            - -c
             command: ["/app/VStore.GC", "collect", "locks"]
             resources:
               limits:
