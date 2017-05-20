@@ -1,10 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.Host", "src\VStore.Host\VStore.Host.xproj", "{85E18F58-42A8-464B-BBCF-E706994B10F1}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38-6854-4E26-B8EC-4319DED458AC}"
 	ProjectSection(SolutionItems) = preProject
 		.gitlab-ci.yml = .gitlab-ci.yml
@@ -15,15 +13,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38
 		readme.md = readme.md
 	EndProjectSection
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore", "src\VStore\VStore.xproj", "{E83BDDB0-29A7-4440-941C-711E0DE356A8}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "VStore.UnitTests", "tests\VStore.UnitTests\VStore.UnitTests.xproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CA83EA03-82A0-4E15-87EF-31CD857393E3}"
 	ProjectSection(SolutionItems) = preProject
-		global.json = global.json
 		NuGet.Config = NuGet.Config
 	EndProjectSection
 EndProject
@@ -35,7 +28,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{
 		templates\vstore-service-stage.yaml.j2 = templates\vstore-service-stage.yaml.j2
 	EndProjectSection
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "MigrationTool", "src\MigrationTool\MigrationTool.xproj", "{833228DC-01AA-461B-A02C-A1D9D6F64B98}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VStore.Host", "src\VStore.Host\VStore.Host.csproj", "{85E18F58-42A8-464B-BBCF-E706994B10F1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VStore", "src\VStore\VStore.csproj", "{E83BDDB0-29A7-4440-941C-711E0DE356A8}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VStore.UnitTests", "tests\VStore.UnitTests\VStore.UnitTests.csproj", "{56C56716-01D2-45CA-B43E-B4783E630D0E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MigrationTool", "src\MigrationTool\MigrationTool.csproj", "{833228DC-01AA-461B-A02C-A1D9D6F64B98}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -64,10 +63,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{A8C3AC02-38B4-46F4-896A-1C98CDF77B70} = {C8C4BA38-6854-4E26-B8EC-4319DED458AC}
 		{85E18F58-42A8-464B-BBCF-E706994B10F1} = {296CC59B-21CF-456D-85E2-7C99DFF9D2C7}
 		{E83BDDB0-29A7-4440-941C-711E0DE356A8} = {296CC59B-21CF-456D-85E2-7C99DFF9D2C7}
 		{56C56716-01D2-45CA-B43E-B4783E630D0E} = {1E16C21E-64F7-4B0C-A8CB-B05A8932E0E2}
-		{A8C3AC02-38B4-46F4-896A-1C98CDF77B70} = {C8C4BA38-6854-4E26-B8EC-4319DED458AC}
 		{833228DC-01AA-461B-A02C-A1D9D6F64B98} = {296CC59B-21CF-456D-85E2-7C99DFF9D2C7}
 	EndGlobalSection
 EndGlobal

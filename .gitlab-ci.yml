@@ -3,7 +3,6 @@ variables:
 
 stages:
   - build:app
-  - build:run-tests
   - build:image
   - deploy
   - end
@@ -19,14 +18,14 @@ before_script:
 # ================= Test & Build =================
 
 build:app:
-  image: $REGISTRY/microsoft/aspnetcore-build:1.1.0-projectjson
+  image: $REGISTRY/microsoft/aspnetcore-build:1.1.2
   stage: build:app
   when: always
   script:
-    - dotnet restore
-    - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore
-    - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output publish/migration-tool
-    - dotnet publish tests/VStore.UnitTests --configuration Release --runtime ubuntu.14.04-x64 --output publish/vstore-tests
+    - dotnet restore --runtime ubuntu.14.04-x64
+    - dotnet test tests/VStore.UnitTests/VStore.UnitTests.csproj --configuration Release
+    - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore
+    - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/migration-tool
   tags: [ 2gis, docker ]
   artifacts:
     name: "${CI_BUILD_REF_NAME}"
@@ -34,18 +33,6 @@ build:app:
     paths:
       - publish/vstore/
       - publish/migration-tool/
-      - publish/vstore-tests/
-
-build:run-tests:
-  image: $REGISTRY/microsoft/dotnet:1.1.2-sdk-1.0.0-preview2-1-003177
-  stage: build:run-tests
-  when: always
-  script:
-    - dotnet restore tests/VStore.UnitTests
-    - dotnet test tests/VStore.UnitTests --output publish/vstore-tests --configuration Release --no-build
-  tags: [ 2gis, docker ]
-  dependencies:
-    - build:app
 
 build:vstore-image:
   stage: build:image
@@ -78,6 +65,7 @@ deploy:standalone:
     - k8s-handle deploy --config config-standalone.yaml --section vstore --sync-mode True
   only:
     - tags
+  dependencies: []
   tags: [ 2gis, docker ]
   environment:
     name: vstore-standalone
@@ -132,9 +120,8 @@ cleanup:registry:
   stage: end
   when: always
   script:
-    - make docker-registry-images-cleanup TAG="master-" TIME_LIFE_IMAGE=604800 # 7 days
     - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
-    - make docker-registry-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup IMAGE=ams/migration-tool TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
   dependencies: []
   tags: [ docker-engine, io ]
 
@@ -143,8 +130,7 @@ cleanup:runner:
   when: always
   script:
     - make docker-containers-cleanup
-    - make docker-images-cleanup TAG="master-" TIME_LIFE_IMAGE=86400 # 1 day
-    - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=345600 # 4 days
-    - make docker-images-cleanup TAG="feature-" TIME_LIFE_IMAGE=345600 # 4 days
+    - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=86400 # 4 days
+    - make docker-images-cleanup IMAGE=ams/migration-tool TAG="branch-" TIME_LIFE_IMAGE=86400 # 1 day
   dependencies: []
   tags: [ docker-engine, io ]
