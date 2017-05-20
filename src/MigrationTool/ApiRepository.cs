@@ -294,6 +294,7 @@ namespace MigrationTool
 
         public async Task<JToken> UploadFileAsync(Uri uploadUrl, Models.File file, FileFormat format)
         {
+            var url = uploadUrl;
             var stringResponse = string.Empty;
             var fileIdStr = file.Id.ToString();
             try
@@ -308,8 +309,6 @@ namespace MigrationTool
                 using (var content = new MultipartFormDataContent())
                 {
                     content.Add(new StreamContent(new MemoryStream(file.Data)), fileName, fileName);
-
-                    var url = uploadUrl;
                     if (!url.IsAbsoluteUri)
                     {
                         url = new Uri(_storageUri, uploadUrl);
@@ -319,14 +318,14 @@ namespace MigrationTool
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
                         response.EnsureSuccessStatusCode();
-                        _logger.LogInformation("File {id} uploaded successfully", fileIdStr);
+                        _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
                         return JObject.Parse(stringResponse);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(), ex, "File {id} upload error, response: {response}", fileIdStr, stringResponse);
+                _logger.LogError(new EventId(), ex, "File {id} upload error to {url}, response: {response}", fileIdStr, url, stringResponse);
                 throw;
             }
         }
