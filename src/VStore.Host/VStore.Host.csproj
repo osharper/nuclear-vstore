@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <AssemblyName>VStore.Host</AssemblyName>
+    <RootNamespace>NuClear.VStore.Host</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.Host</PackageId>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
@@ -48,6 +49,10 @@
     <PackageReference Include="Serilog.Formatting.Compact" Version="1.0.0" />
     <PackageReference Include="log4net" Version="2.0.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
   </ItemGroup>
 
 </Project>
