@@ -426,7 +426,7 @@ namespace MigrationTool
                     .ToArray(); // EF doesn't build query with ArraySegment
 
                 var failedIds = await ImportAdvertisementsByIdsAsync(segment);
-                importedCount += _batchSize - failedIds.Count;
+                importedCount += count - failedIds.Count;
                 if (failedIds.Count > 0)
                 {
                     failedAds.AddRange(failedIds);
