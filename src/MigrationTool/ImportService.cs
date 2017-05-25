@@ -134,7 +134,15 @@ namespace MigrationTool
                                                    && !p.IsDeleted
                                              select p.Id)
                                       .Distinct()
-                                      .ToArrayAsync();
+                                      .ToListAsync();
+
+                // Find child positions:
+                positionIds.AddRange(
+                    await (from pc in context.PositionChildren
+                           where positionIds.Contains(pc.MasterPositionId)
+                           select pc.ChildPositionId)
+                        .ToArrayAsync()
+                );
 
                 positions = await context.Positions
                     .Where(p => positionIds.Contains(p.Id))

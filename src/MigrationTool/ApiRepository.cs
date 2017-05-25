@@ -222,7 +222,7 @@ namespace MigrationTool
 
         public async Task<IReadOnlyCollection<PositionDescriptor>> GetPositionsAsync()
         {
-            var methodUri = new Uri(_searchUri, "nomenclature/");
+            var methodUri = new Uri(_searchUri, "nomenclature?isDeleted=false&count=500");
             var stringResponse = string.Empty;
             try
             {
