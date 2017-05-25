@@ -29,7 +29,7 @@ namespace MigrationTool
     // ReSharper disable once ClassNeverInstantiated.Global
     public class ImportService
     {
-        private readonly DateTime _threshold;
+        private readonly DateTime _thresholdDate;
         private readonly DateTime _positionsBeginDate;
         private readonly Language _language;
         private readonly string _languageCode;
@@ -58,7 +58,7 @@ namespace MigrationTool
                 throw new ArgumentOutOfRangeException(nameof(options.MaxDegreeOfParallelism));
             }
 
-            _threshold = options.ThresholdDate;
+            _thresholdDate = options.ThresholdDate;
             _positionsBeginDate = options.PositionsBeginDate;
             _maxImportTries = options.MaxImportTries;
             _maxDegreeOfParallelism = options.MaxDegreeOfParallelism;
@@ -112,6 +112,7 @@ namespace MigrationTool
             Position[] positions;
             using (var context = GetNewContext())
             {
+                // Get positions from current pricelist:
                 var positionIds = await(from p in context.Prices
                                         join pp in context.PricePositions on p.Id equals pp.PriceId
                                         join pos in context.Positions on pp.PositionId equals pos.Id
@@ -120,6 +121,18 @@ namespace MigrationTool
                                               && !pp.IsDeleted
                                               && !pos.IsDeleted
                                         select pos.Id)
+                                      // And from orders in migration:
+                                      .Union(from o in context.Orders
+                                             join op in context.OrderPositions on o.Id equals op.OrderId
+                                             join pp in context.PricePositions on op.PricePositionId equals pp.Id
+                                             join p in context.Positions on pp.PositionId equals p.Id
+                                             where !o.IsDeleted && !o.IsTerminated
+                                                   && o.EndDistributionDateFact >= _thresholdDate
+                                                   && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
+                                                   && !op.IsDeleted
+                                                   && !pp.IsDeleted
+                                                   && !p.IsDeleted
+                                             select p.Id)
                                       .Distinct()
                                       .ToArrayAsync();
 
@@ -243,7 +256,7 @@ namespace MigrationTool
                                    join f in context.Files on ae.FileId equals f.Id
                                    where !o.IsDeleted && !o.IsTerminated
                                          && !op.IsDeleted && !adv.IsDeleted
-                                         && o.EndDistributionDateFact >= _threshold
+                                         && o.EndDistributionDateFact >= _thresholdDate
                                          && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
                                          && !ae.IsDeleted && !aet.IsDeleted
                                          && aet.RestrictionType == ElementRestrictionType.Image
@@ -355,7 +368,7 @@ namespace MigrationTool
                                          join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
                                          where !o.IsDeleted && !o.IsTerminated
                                                && !op.IsDeleted && !adv.IsDeleted
-                                               && o.EndDistributionDateFact >= _threshold
+                                               && o.EndDistributionDateFact >= _thresholdDate
                                                && o.ApprovalDate != null
                                                && adv.AdvertisementTemplateId == templateId
                                                && adv.FirmId != null // РМ-заглушки не попадают в импорт
@@ -383,7 +396,7 @@ namespace MigrationTool
                                               join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
                                               join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
                                               where !o.IsDeleted && !o.IsTerminated
-                                                    && o.EndDistributionDateFact >= _threshold
+                                                    && o.EndDistributionDateFact >= _thresholdDate
                                                     && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
                                                     && !op.IsDeleted
                                                     && !adv.IsDeleted
