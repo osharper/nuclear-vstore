@@ -341,7 +341,7 @@ namespace MigrationTool
                     using (var request = new HttpRequestMessage(HttpMethod.Put, methodUri))
                     {
                         request.Content = content;
-                        request.Headers.IfMatch.Add(new EntityTagHeaderValue(template.VersionId));
+                        request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{template.VersionId}\""));
                         using (var response = await _httpClient.SendAsync(request))
                         {
                             stringResponse = await response.Content.ReadAsStringAsync();
