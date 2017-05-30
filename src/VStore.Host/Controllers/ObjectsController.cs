@@ -196,18 +196,20 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (ObjectNotFoundException ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while creating object");
-
-                Response.ContentType = ContentType.PlainText;
+                _logger.LogError(new EventId(), ex, "Error occured while creating object");
                 return Unprocessable(ex.Message);
             }
             catch (ObjectAlreadyExistsException)
             {
-                return Conflict();
+                return Conflict("Object with the same id already exists");
+            }
+            catch (SessionLockAlreadyExistsException)
+            {
+                return Conflict("Simultaneous creation of object with the same id");
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogError(new EventId(0), ex, "Error occured while creating object");
+                _logger.LogError(new EventId(), ex, "Error occured while creating object");
                 return BadRequest(ex.Message);
             }
             catch (ArgumentException ex)
@@ -266,7 +268,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (SessionLockAlreadyExistsException)
             {
-                return Conflict();
+                return Conflict("Simultaneous modification of object");
             }
             catch (ConcurrencyException)
             {
