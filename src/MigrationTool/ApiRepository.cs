@@ -60,7 +60,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PutAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                         response.EnsureSuccessStatusCode();
                         var res = JsonConvert.DeserializeObject<ObjectDescriptor>(stringResponse, SerializerSettings.Default);
                         if (res == null)
@@ -96,7 +96,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Position {id} has been created", positionId);
                     }
@@ -125,7 +125,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.SendAsync(req))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Link has been created between position {positionId} and template {templateId}", positionId, templateId);
                     }
@@ -160,7 +160,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                         response.EnsureSuccessStatusCode();
 
                         _logger.LogInformation("Created template {id} got version: {version}", templateId, response.Headers.ETag.Tag);
@@ -191,7 +191,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.SendAsync(req))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                         response.EnsureSuccessStatusCode();
                         var descriptor = JsonConvert.DeserializeObject<IReadOnlyCollection<ApiObjectDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                         if (descriptor == null)
@@ -229,7 +229,7 @@ namespace MigrationTool
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
                     stringResponse = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                    _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                     response.EnsureSuccessStatusCode();
                     var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<PositionDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                     if (descriptors == null)
@@ -261,7 +261,7 @@ namespace MigrationTool
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
                     stringResponse = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                    _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
                     if (response.StatusCode == HttpStatusCode.NotFound)
                     {
                         _logger.LogDebug("Template {id} not found", templateId);
@@ -315,7 +315,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(url, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Send {method} on {url}, got response: {response}", response.RequestMessage.Method, url, stringResponse);
+                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, url, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
                         return JObject.Parse(stringResponse);
@@ -345,7 +345,7 @@ namespace MigrationTool
                         using (var response = await _httpClient.SendAsync(request))
                         {
                             stringResponse = await response.Content.ReadAsStringAsync();
-                            _logger.LogDebug("Send {method} on {url}, got response: {response}", request.Method, methodUri, stringResponse);
+                            _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", request.Method, methodUri, stringResponse);
                             response.EnsureSuccessStatusCode();
                             _logger.LogInformation("Updated template with {id} got new version: {version}", templateId, response.Headers.ETag.Tag);
                         }
