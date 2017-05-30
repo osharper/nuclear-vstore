@@ -25,7 +25,7 @@ build:app:
     - dotnet restore --runtime ubuntu.14.04-x64
     - dotnet test tests/VStore.UnitTests/VStore.UnitTests.csproj --configuration Release
     - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore
-	- dotnet publish src/VStore.GC --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore-gc
+    - dotnet publish src/VStore.GC --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore-gc
     - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/migration-tool
   tags: [ 2gis, docker ]
   artifacts:
