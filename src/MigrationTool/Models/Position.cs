@@ -9,6 +9,8 @@ namespace MigrationTool.Models
         {
             OrderPositionAdvertisement = new HashSet<OrderPositionAdvertisement>();
             PricePositions = new HashSet<PricePosition>();
+            PositionChildrenChildPosition = new HashSet<PositionChildren>();
+            PositionChildrenMasterPosition = new HashSet<PositionChildren>();
         }
 
         public long Id { get; set; }
@@ -20,6 +22,8 @@ namespace MigrationTool.Models
 
         public ICollection<OrderPositionAdvertisement> OrderPositionAdvertisement { get; set; }
         public ICollection<PricePosition> PricePositions { get; set; }
+        public ICollection<PositionChildren> PositionChildrenChildPosition { get; set; }
+        public ICollection<PositionChildren> PositionChildrenMasterPosition { get; set; }
         public AdvertisementTemplate AdvertisementTemplate { get; set; }
     }
 }
