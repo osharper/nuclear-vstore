@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -21,14 +21,16 @@ namespace NuClear.VStore.GC.Jobs
         protected override async Task ExecuteInternalAsync()
         {
             var objectIds = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
-            foreach (var objId in objectIds)
-            {
-                if (await _lockSessionManager.IsLockSessionExpired(objId))
-                {
-                    await _lockSessionManager.DeleteLockSessionAsync(objId);
-                    _logger.LogInformation("Frozen and already expired lock for the object with id = '{id}' has been deleted.", objId);
-                }
-            }
+            var tasks = objectIds.Select(
+                async x =>
+                    {
+                        if (await _lockSessionManager.IsLockSessionExpired(x))
+                        {
+                            await _lockSessionManager.DeleteLockSessionAsync(x);
+                            _logger.LogInformation("Expired lock for the object with id = '{id}' has been deleted.", x);
+                        }
+                    });
+            await Task.WhenAll(tasks);
         }
     }
 }

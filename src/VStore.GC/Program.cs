@@ -62,7 +62,7 @@ namespace NuClear.VStore.GC
                         config.Description = "Run cleanup job. See available arguments for details.";
                         config.HelpOption("-h|--help");
 
-                        var locksArgument = config.Argument("locks", "Collect frozen locks.");
+                        var locksArgument = config.Argument("locks", "Collect expired locks.");
                         var binariesArgument = config.Argument("binaries", "Collect orphan binary files.");
                         var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
                         config.OnExecute(

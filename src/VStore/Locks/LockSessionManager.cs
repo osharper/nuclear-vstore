@@ -45,7 +45,7 @@ namespace NuClear.VStore.Locks
             var isExpired = lockSessionDescriptor.ExpirationDate <= DateTime.UtcNow;
             if (isExpired)
             {
-                _logger.LogWarning("Frozed lock session found for object with id = {id}.", rootObjectKey);
+                _logger.LogWarning("Expired lock session found for object with id = {id}.", rootObjectKey);
             }
 
             return isExpired;
