@@ -13,6 +13,8 @@ namespace MigrationTool.Models
 
         public long Id { get; set; }
         public Guid ReplicationCode { get; set; }
+        public long SourceOrganizationUnitId { get; set; }
+        public long DestOrganizationUnitId { get; set; }
         public string Number { get; set; }
         public DateTime BeginDistributionDate { get; set; }
         public DateTime EndDistributionDatePlan { get; set; }

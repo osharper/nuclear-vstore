@@ -1,8 +1,12 @@
 ﻿using System;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
+
+using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Host.ActionResults;
+using NuClear.VStore.S3;
 
 using NoContentResult = NuClear.VStore.Host.ActionResults.NoContentResult;
 
@@ -23,15 +27,9 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [NonAction]
-        public ConflictResult Conflict()
+        public ConflictResult Conflict(string message)
         {
-            return new ConflictResult();
-        }
-
-        [NonAction]
-        public BadRequestObjectResult BadRequest(Exception exception)
-        {
-            return new BadRequestObjectResult(new { exception.Message });
+            return new ConflictResult(message) { ContentType = ContentType.PlainText };
         }
 
         [NonAction]
@@ -41,9 +39,15 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [NonAction]
-        public UnprocessableResult Unprocessable(object value)
+        public UnprocessableResult Unprocessable(JToken value)
         {
-            return new UnprocessableResult(value);
+            return new UnprocessableResult(value) { ContentTypes = new MediaTypeCollection { ContentType.Json } };
+        }
+
+        [NonAction]
+        public UnprocessableResult Unprocessable(string value)
+        {
+            return new UnprocessableResult(value) { ContentTypes = new MediaTypeCollection { ContentType.PlainText } };
         }
 
         [NonAction]
@@ -61,7 +65,7 @@ namespace NuClear.VStore.Host.Controllers
         [NonAction]
         public BadRequestContentResult BadRequest(string message)
         {
-            return new BadRequestContentResult(message);
+            return new BadRequestContentResult(message) { ContentType = ContentType.PlainText };
         }
     }
 }

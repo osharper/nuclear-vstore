@@ -10,10 +10,7 @@ stages:
 before_script:
   - export APPLICATION=`make -s print-APPLICATION`
   - source ${CI_PROJECT_DIR}/ci-starter-kit/utils.sh
-  - export BRANCH_NAME=`echo ${CI_BUILD_REF_NAME} | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g' | sed -e 's/[^a-z0-9-]//g'`
-  - export GIT_SHA=`git rev-parse --short=8 HEAD`
-  - export CI_DEV_TAG="dev-${BRANCH_NAME}-${GIT_SHA}"
-  - export CI_TAG=`[[ -z ${CI_BUILD_TAG} ]] && echo "branch-${BRANCH_NAME}-${GIT_SHA}" || echo "${CI_BUILD_TAG}"`
+  - export CI_TAG=`[[ -z ${CI_COMMIT_TAG} ]] && echo "branch-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA:0:8}" || echo "${CI_COMMIT_TAG}"`
 
 # ================= Test & Build =================
 
@@ -29,7 +26,7 @@ build:app:
     - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/migration-tool
   tags: [ 2gis, docker ]
   artifacts:
-    name: "${CI_BUILD_REF_NAME}"
+    name: "${CI_COMMIT_REF_NAME}"
     expire_in: '1 week'
     paths:
       - publish/vstore/
@@ -99,15 +96,15 @@ deploy:ams-deploy:review:
   stage: deploy
   when: manual
   environment:
-    name: review/${CI_BUILD_REF_SLUG}
-    url: http://vstore-${CI_BUILD_REF_SLUG}.web-staging.2gis.ru/swagger
+    name: review/${CI_COMMIT_REF_SLUG}
+    url: http://vstore-${CI_COMMIT_REF_SLUG}.web-staging.2gis.ru/swagger
     on_stop: destroy:ams-deploy:stop-review
   only:
     - branches
   except:
     - master
   script:
-    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_BUILD_REF_SLUG} -F variables[START_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
+    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_COMMIT_REF_SLUG} -F variables[START_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
   dependencies: []
   tags: [ io, docker-engine ]
 
@@ -119,12 +116,12 @@ destroy:ams-deploy:stop-review:
   variables:
     GIT_STRATEGY: none
   environment:
-    name: review/${CI_BUILD_REF_SLUG}
+    name: review/${CI_COMMIT_REF_SLUG}
     action: stop
   only:
     - branches
   script:
-    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_BUILD_REF_SLUG} -F variables[STOP_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
+    - "curl -X POST -F token=${AMS_DEPLOY_TRIGGER_TOKEN} -F ref=master -F variables[VSTORE_TAG]=${CI_TAG} -F variables[HOST_POSTFIX]=${CI_COMMIT_REF_SLUG} -F variables[STOP_REVIEW]=true https://gitlab.2gis.ru/api/v3/projects/2997/trigger/builds"
   dependencies: []
   tags: [ io, docker-engine ]
 

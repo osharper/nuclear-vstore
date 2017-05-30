@@ -2,10 +2,12 @@
 
 namespace NuClear.VStore.Host.ActionResults
 {
-    public sealed class ConflictResult : StatusCodeResult
+    public sealed class ConflictResult : ContentResult
     {
-        public ConflictResult() : base(409)
+        public ConflictResult(string message)
         {
+            StatusCode = 409;
+            Content = message;
         }
     }
 }

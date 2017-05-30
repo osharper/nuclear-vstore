@@ -34,6 +34,8 @@ namespace MigrationTool.Models
 
         public virtual DbSet<Position> Positions { get; set; }
 
+        public virtual DbSet<PositionChildren> PositionChildren { get; set; }
+
         public virtual DbSet<PricePosition> PricePositions { get; set; }
 
         public virtual DbSet<Price> Prices { get; set; }
@@ -360,6 +362,26 @@ namespace MigrationTool.Models
                     .WithMany(p => p.Positions)
                     .HasForeignKey(d => d.AdvertisementTemplateId)
                     .HasConstraintName("FK_Positions_AdvertisementTemplates");
+            });
+
+            modelBuilder.Entity<PositionChildren>(entity =>
+            {
+                entity.HasKey(e => new { e.MasterPositionId, e.ChildPositionId })
+                    .HasName("PK_PositionChildren_MasterPositionId_ChildPositionId");
+
+                entity.ToTable("PositionChildren", "Billing");
+
+                entity.HasOne(d => d.ChildPosition)
+                    .WithMany(p => p.PositionChildrenChildPosition)
+                    .HasForeignKey(d => d.ChildPositionId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_PositionChildren_PositionsChild");
+
+                entity.HasOne(d => d.MasterPosition)
+                    .WithMany(p => p.PositionChildrenMasterPosition)
+                    .HasForeignKey(d => d.MasterPositionId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_PositionChildren_PositionsMaster");
             });
 
             modelBuilder.Entity<PricePosition>(entity =>
