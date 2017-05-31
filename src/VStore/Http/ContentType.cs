@@ -1,4 +1,4 @@
-﻿namespace NuClear.VStore.S3
+﻿namespace NuClear.VStore.Http
 {
     public static class ContentType
     {

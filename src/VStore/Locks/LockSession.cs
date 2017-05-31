@@ -9,6 +9,7 @@ using Amazon.S3.Model;
 using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 

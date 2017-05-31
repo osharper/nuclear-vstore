@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects.ContentPreprocessing;

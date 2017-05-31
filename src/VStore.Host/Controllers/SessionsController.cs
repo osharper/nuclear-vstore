@@ -52,7 +52,7 @@ namespace NuClear.VStore.Host.Controllers
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
-                Response.Headers[Headers.HeaderNames.AmsAuthor] = sessionContext.Author;
+                Response.Headers[Http.HeaderNames.AmsAuthor] = sessionContext.Author;
                 return Json(
                     new
                         {
@@ -85,13 +85,13 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
-            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             Language language,
             long templateId)
         {
             if (string.IsNullOrEmpty(author))
             {
-                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
             }
 
             try
@@ -119,14 +119,14 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
-            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             Language language,
             long templateId,
             string templateVersionId)
         {
             if (string.IsNullOrEmpty(author))
             {
-                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
             }
 
             try

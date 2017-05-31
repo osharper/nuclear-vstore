@@ -20,6 +20,7 @@ using Newtonsoft.Json;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;

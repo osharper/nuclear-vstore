@@ -21,7 +21,9 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
+using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Swashbuckle;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
@@ -157,6 +159,7 @@ namespace NuClear.VStore.Host
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
+            app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
                     {
@@ -176,11 +179,10 @@ namespace NuClear.VStore.Host
                                         error.Add("details", feature.Error.ToString());
                                     }
 
-                                    context.Response.ContentType = "application/json";
+                                    context.Response.ContentType = ContentType.Json;
                                     await context.Response.WriteAsync(new JObject(new JProperty("error", error)).ToString());
                                 }
                     });
-
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
 

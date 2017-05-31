@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Host.ActionResults;
-using NuClear.VStore.S3;
+using NuClear.VStore.Http;
 
 using NoContentResult = NuClear.VStore.Host.ActionResults.NoContentResult;
 
