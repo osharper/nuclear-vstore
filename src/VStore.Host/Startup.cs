@@ -131,11 +131,14 @@ namespace NuClear.VStore.Host
             services.AddSingleton<LockSessionFactory>();
             services.AddSingleton<TemplatesStorageReader>();
             services.AddSingleton<TemplatesManagementService>();
-            services.AddSingleton<SessionStorageReader>();
+            services.AddSingleton(
+                x => new SessionStorageReader(
+                    x.GetService<CephOptions>().FilesBucketName,
+                    x.GetService<IAmazonS3>()));
             services.AddSingleton(
                 x => new SessionManagementService(
-                         x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
-                         x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
+                         x.GetService<VStoreOptions>().FileStorageEndpoint,
+                         x.GetService<CephOptions>().FilesBucketName,
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplatesStorageReader>()));
             services.AddSingleton<ObjectsStorageReader>();
