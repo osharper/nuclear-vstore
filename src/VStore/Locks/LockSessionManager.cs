@@ -42,7 +42,7 @@ namespace NuClear.VStore.Locks
         public async Task<bool> IsLockSessionExpired(long rootObjectKey)
         {
             var lockSessionDescriptor = await GetObjectFromS3<LockSessionDescriptor>(rootObjectKey.AsS3LockKey());
-            var isExpired = lockSessionDescriptor.ExpirationDate <= DateTime.UtcNow;
+            var isExpired = lockSessionDescriptor?.ExpirationDate <= DateTime.UtcNow;
             if (isExpired)
             {
                 _logger.LogWarning("Expired lock session found for object with id = {id}.", rootObjectKey);
@@ -68,7 +68,7 @@ namespace NuClear.VStore.Locks
                     await _amazonS3.DeleteObjectAsync(_bucketName, lockId, version.VersionId);
                 }
             }
-            catch (AmazonS3Exception ex)
+            catch (AmazonS3Exception ex) when (ex.StatusCode != HttpStatusCode.NotFound)
             {
                 throw new S3Exception(ex);
             }
@@ -83,7 +83,7 @@ namespace NuClear.VStore.Locks
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new ObjectNotFoundException($"Object '{key}' not found.");
+                return default(T);
             }
 
             string content;
