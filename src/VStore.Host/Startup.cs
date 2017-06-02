@@ -21,7 +21,9 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
+using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Swashbuckle;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
@@ -59,10 +61,14 @@ namespace NuClear.VStore.Host
         // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddOptions();
-            services.Configure<CephOptions>(_configuration.GetSection("Ceph"));
-            services.Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"));
-            services.Configure<VStoreOptions>(_configuration.GetSection("VStore"));
+            services
+                .AddOptions()
+                .Configure<CephOptions>(_configuration.GetSection("Ceph"))
+                .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
+                .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value);
 
             services.AddMvcCore()
                     .AddApiExplorer()
@@ -123,35 +129,22 @@ namespace NuClear.VStore.Host
 
                         return new AmazonS3Client(credentials, config);
                     });
-            services.AddSingleton(x => new LockSessionManager(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
-            services.AddScoped(x => new LockSessionFactory(x.GetService<IAmazonS3>(), x.GetService<IOptions<LockOptions>>().Value));
-            services.AddScoped(x => new TemplatesStorageReader(x.GetService<IOptions<CephOptions>>().Value, x.GetService<IAmazonS3>()));
-            services.AddScoped(
-                x => new TemplatesManagementService(
-                         x.GetService<IOptions<CephOptions>>().Value,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplatesStorageReader>(),
-                         x.GetService<LockSessionFactory>()));
-            services.AddScoped(x => new SessionStorageReader(x.GetService<IOptions<CephOptions>>().Value.FilesBucketName, x.GetService<IAmazonS3>()));
-            services.AddScoped(
+            services.AddSingleton<LockSessionManager>();
+            services.AddSingleton<LockSessionFactory>();
+            services.AddSingleton<TemplatesStorageReader>();
+            services.AddSingleton<TemplatesManagementService>();
+            services.AddSingleton(
+                x => new SessionStorageReader(
+                    x.GetService<CephOptions>().FilesBucketName,
+                    x.GetService<IAmazonS3>()));
+            services.AddSingleton(
                 x => new SessionManagementService(
-                         x.GetService<IOptions<VStoreOptions>>().Value.FileStorageEndpoint,
-                         x.GetService<IOptions<CephOptions>>().Value.FilesBucketName,
+                         x.GetService<VStoreOptions>().FileStorageEndpoint,
+                         x.GetService<CephOptions>().FilesBucketName,
                          x.GetService<IAmazonS3>(),
                          x.GetService<TemplatesStorageReader>()));
-            services.AddScoped(
-                x => new ObjectsStorageReader(
-                         x.GetService<IOptions<CephOptions>>().Value,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplatesStorageReader>()));
-            services.AddScoped(
-                x => new ObjectsManagementService(
-                         x.GetService<IOptions<CephOptions>>().Value,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplatesStorageReader>(),
-                         x.GetService<ObjectsStorageReader>(),
-                         x.GetService<SessionStorageReader>(),
-                         x.GetService<LockSessionFactory>()));
+            services.AddSingleton<ObjectsStorageReader>();
+            services.AddSingleton<ObjectsManagementService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -166,6 +159,7 @@ namespace NuClear.VStore.Host
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
+            app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
                     {
@@ -185,11 +179,10 @@ namespace NuClear.VStore.Host
                                         error.Add("details", feature.Error.ToString());
                                     }
 
-                                    context.Response.ContentType = "application/json";
+                                    context.Response.ContentType = ContentType.Json;
                                     await context.Response.WriteAsync(new JObject(new JProperty("error", error)).ToString());
                                 }
                     });
-
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseMvc();
 

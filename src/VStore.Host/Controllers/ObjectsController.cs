@@ -28,7 +28,10 @@ namespace NuClear.VStore.Host.Controllers
         private readonly ObjectsManagementService _objectsManagementService;
         private readonly ILogger<ObjectsController> _logger;
 
-        public ObjectsController(ObjectsStorageReader objectsStorageReader, ObjectsManagementService objectsManagementService, ILogger<ObjectsController> logger)
+        public ObjectsController(
+            ObjectsStorageReader objectsStorageReader,
+            ObjectsManagementService objectsManagementService,
+            ILogger<ObjectsController> logger)
         {
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;
@@ -37,13 +40,13 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
-        public async Task<IActionResult> List([FromHeader(Name = Headers.HeaderNames.AmsContinuationToken)]string continuationToken)
+        public async Task<IActionResult> List([FromHeader(Name = Http.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
             var container = await _objectsStorageReader.GetObjectMetadatas(continuationToken?.Trim('"'));
 
             if (!string.IsNullOrEmpty(container.ContinuationToken))
             {
-                Response.Headers[Headers.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
+                Response.Headers[Http.HeaderNames.AmsContinuationToken] = $"\"{container.ContinuationToken}\"";
             }
 
             return Json(container.Collection);
@@ -169,12 +172,12 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(object), 422)]
         public async Task<IActionResult> Create(
             long id,
-            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
             if (string.IsNullOrEmpty(author))
             {
-                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
             }
 
             if (objectDescriptor == null)
@@ -232,7 +235,7 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<IActionResult> Modify(
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
-            [FromHeader(Name = Headers.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
             if (string.IsNullOrEmpty(ifMatch))
@@ -242,7 +245,7 @@ namespace NuClear.VStore.Host.Controllers
 
             if (string.IsNullOrEmpty(author))
             {
-                return BadRequest($"'{Headers.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
             }
 
             if (objectDescriptor == null)

@@ -1,0 +1,38 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+metadata:
+  name: {{ app_name }}
+spec:
+  schedule: "{{ job_schedule }}"
+  concurrencyPolicy: Forbid
+#  successfulJobsHistoryLimit: 5
+#  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: {{ app_name }}
+            image: {{ vstore_gc_image_path }}:{{ image_version }}
+            command: ["/app/VStore.GC", "collect", "locks"]
+            resources:
+              limits:
+                cpu: {{ worker_app_limits_cpu }}
+                memory: {{ worker_app_limits_memory }}
+              requests:
+                cpu: {{ worker_app_requests_cpu }}
+                memory: {{ worker_app_requests_memory }}
+            env:
+            - name: VSTORE_ENVIRONMENT
+              value: {{ vstore_env }}
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ ceph_key_id }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{ ceph_access_key }}
+            - name: VSTORE_AWS__ServiceURL
+              value: {{ ceph_rgw_url }}
+            - name: VSTORE_Ceph__FilesBucketName
+              value: {{ files_bucket_name }}
+            - name: VSTORE_Ceph__Locks__BucketName
+              value: {{ locks_bucket_name }}
