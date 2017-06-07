@@ -116,7 +116,7 @@ namespace MigrationTool
                 var positionIds = await(from p in context.Prices
                                         join pp in context.PricePositions on p.Id equals pp.PriceId
                                         join pos in context.Positions on pp.PositionId equals pos.Id
-                                        where !p.IsDeleted && p.IsPublished
+                                        where !p.IsDeleted
                                               && p.BeginDate >= _positionsBeginDate
                                               && !pp.IsDeleted
                                               && !pos.IsDeleted
@@ -139,8 +139,11 @@ namespace MigrationTool
                 // Find child positions:
                 positionIds.AddRange(
                     await (from pc in context.PositionChildren
+                           join pos in context.Positions on pc.ChildPositionId equals pos.Id
                            where positionIds.Contains(pc.MasterPositionId)
+                                 && !pos.IsDeleted
                            select pc.ChildPositionId)
+                        .Distinct()
                         .ToArrayAsync()
                 );
 
@@ -309,15 +312,30 @@ namespace MigrationTool
             AdvertisementTemplate[] templates;
             using (var context = GetNewContext())
             {
-                var positionsTemplates = await (from p in context.Prices
-                                                join pp in context.PricePositions on p.Id equals pp.PriceId
-                                                join pos in context.Positions on pp.PositionId equals pos.Id
+                var positions = await (from p in context.Prices
+                                       join pp in context.PricePositions on p.Id equals pp.PriceId
+                                       join pos in context.Positions on pp.PositionId equals pos.Id
+                                       where !p.IsDeleted
+                                             && p.BeginDate >= _positionsBeginDate
+                                             && !pp.IsDeleted && pp.IsActive
+                                             && !pos.IsDeleted
+                                       select pos.Id)
+                                    .Distinct()
+                                    .ToListAsync();
+
+                positions.AddRange(
+                    await (from pc in context.PositionChildren
+                           join pos in context.Positions on pc.ChildPositionId equals pos.Id
+                           where positions.Contains(pc.MasterPositionId)
+                                 && !pos.IsDeleted
+                           select pc.ChildPositionId)
+                        .Distinct()
+                        .ToArrayAsync()
+                );
+
+                var positionsTemplates = await (from pos in context.Positions
                                                 join t in context.AdvertisementTemplates on pos.AdvertisementTemplateId equals t.Id
-                                                where !p.IsDeleted && p.IsPublished
-                                                      && p.BeginDate >= _positionsBeginDate
-                                                      && !pp.IsDeleted
-                                                      && !pos.IsDeleted
-                                                      && !t.IsDeleted
+                                                where !t.IsDeleted && positions.Contains(pos.Id)
                                                 select new { t.Id, t.Name })
                                              .Distinct()
                                              .ToArrayAsync();
@@ -403,12 +421,14 @@ namespace MigrationTool
                                               join op in context.OrderPositions on o.Id equals op.OrderId
                                               join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
                                               join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
-                                              where !o.IsDeleted && !o.IsTerminated
-                                                    && o.EndDistributionDateFact >= _thresholdDate
-                                                    && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
+                                              where !o.IsDeleted
+                                                    && o.IsActive
+                                                    && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Архивные заказы, которые размещались
+                                                        o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Будущие и текущие заказы не в архиве
                                                     && !op.IsDeleted
+                                                    && op.IsActive
                                                     && !adv.IsDeleted
-                                                    && adv.FirmId != null   // РМ-заглушки не попадают в импорт
+                                                    && adv.FirmId != null // РМ-заглушки не попадают в импорт
                                               select new { adv.Id, TemplateId = adv.AdvertisementTemplateId })
                                            .Distinct()
                                            .ToArrayAsync();
