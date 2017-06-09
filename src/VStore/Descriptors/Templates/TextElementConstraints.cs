@@ -7,7 +7,6 @@ namespace NuClear.VStore.Descriptors.Templates
         public int? MaxSymbols { get; set; }
         public int? MaxSymbolsPerWord { get; set; }
         public int? MaxLines { get; set; }
-        public abstract bool IsFormatted { get; }
 
         public bool WithoutControlСhars => true;
 
@@ -27,7 +26,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
             return MaxSymbols == other.MaxSymbols &&
                    MaxSymbolsPerWord == other.MaxSymbolsPerWord &&
-                   MaxLines == other.MaxLines && IsFormatted == other.IsFormatted;
+                   MaxLines == other.MaxLines;
         }
 
         public override bool Equals(object obj)
@@ -43,7 +42,6 @@ namespace NuClear.VStore.Descriptors.Templates
                 var hashCode = MaxSymbols.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxSymbolsPerWord.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxLines.GetHashCode();
-                hashCode = (hashCode * 397) ^ IsFormatted.GetHashCode();
                 return hashCode;
             }
         }

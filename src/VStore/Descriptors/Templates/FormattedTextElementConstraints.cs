@@ -6,8 +6,6 @@ namespace NuClear.VStore.Descriptors.Templates
 {
     public class FormattedTextElementConstraints : TextElementConstraints, IEquatable<FormattedTextElementConstraints>
     {
-        public override bool IsFormatted => true;
-
         public bool ValidHtml => true;
 
         public bool NoEmptyLists => true;
@@ -16,7 +14,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public string[] SupportedAttributes { get; } = new string[0];
 
-        public string[] SupportedListElements { get; } =
+        public string[] SupportedTags { get; } =
             {
                 ElementFormattedTextTagNames.Break,
                 ElementFormattedTextTagNames.UnorderedList,
@@ -27,7 +25,7 @@ namespace NuClear.VStore.Descriptors.Templates
                 ElementFormattedTextTagNames.Italic
             };
 
-        public string[] SupportedTags { get; } =
+        public string[] SupportedListElements { get; } =
             {
                 ElementFormattedTextTagNames.ListItem
             };

@@ -14,7 +14,6 @@
         public const string ValueToken = "value";
         public const string ErrorsToken = "errors";
         public const string ErrorToken = "error";
-        public const string IsFormattedToken = "isFormatted";
         public const string TemplateIdToken = "templateId";
         public const string TemplateVersionIdToken = "templateVersionId";
         public const string LanguageToken = "language";

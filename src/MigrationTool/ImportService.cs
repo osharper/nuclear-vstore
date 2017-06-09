@@ -895,7 +895,8 @@ namespace MigrationTool
                         return false;
                     }
 
-                case ElementDescriptorType.Text:
+                case ElementDescriptorType.PlainText:
+                case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                     return false;
@@ -953,7 +954,8 @@ namespace MigrationTool
             var templateCode = element.AdsTemplatesAdsElementTemplates.ExportCode;
             switch (elementType)
             {
-                case ElementDescriptorType.Text:
+                case ElementDescriptorType.FormattedText:
+                case ElementDescriptorType.PlainText:
                     return new TextElementValue
                     {
                         Raw = element.Text

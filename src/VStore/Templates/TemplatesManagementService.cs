@@ -50,10 +50,10 @@ namespace NuClear.VStore.Templates
         {
             return new IElementDescriptor[]
                        {
-                           new ElementDescriptor(ElementDescriptorType.Text, 1, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new FormattedTextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Text, 2, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Image, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ImageElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Article, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.PlainText, 1, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.FormattedText, 2, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new FormattedTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Image, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ImageElementConstraints { SupportedFileFormats = ImageFileFormats }) })),
+                           new ElementDescriptor(ElementDescriptorType.Article, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints { SupportedFileFormats = ArticleFileFormats }) })),
                            new ElementDescriptor(ElementDescriptorType.FasComment, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.Date, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))

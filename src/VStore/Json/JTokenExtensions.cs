@@ -11,7 +11,8 @@ namespace NuClear.VStore.Json
         {
             switch (elementDescriptorType)
             {
-                case ElementDescriptorType.Text:
+                case ElementDescriptorType.PlainText:
+                case ElementDescriptorType.FormattedText:
                     return valueToken.ToObject<TextElementValue>();
                 case ElementDescriptorType.Image:
                     return valueToken.ToObject<ImageElementValue>();

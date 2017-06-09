@@ -1,4 +1,5 @@
 ﻿using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
@@ -13,10 +14,11 @@ namespace VStore.UnitTests
         public void TestHttpLinkValidation()
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
+            var constraints = new LinkElementConstraints();
 
             var error = TestHelpers.MakeValidationCheck<TextElementValue, IncorrectLinkError>(
                 value,
-                null,
+                constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "http://abc. com");
             Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
@@ -26,10 +28,11 @@ namespace VStore.UnitTests
         public void TestHttpsLinkValidation()
         {
             var value = new TextElementValue { Raw = "https://дубль-гис.рф" };
+            var constraints = new LinkElementConstraints();
 
             var error = TestHelpers.MakeValidationCheck<TextElementValue, IncorrectLinkError>(
                 value,
-                null,
+                constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "https://abc. com");
             Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
@@ -39,10 +42,11 @@ namespace VStore.UnitTests
         public void TestLinkSchemeValidation()
         {
             var value = new TextElementValue { Raw = "http://дубль-гис.рф" };
+            var constraints = new LinkElementConstraints();
 
             var error = TestHelpers.MakeValidationCheck<TextElementValue, IncorrectLinkError>(
                 value,
-                null,
+                constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "ftp://дубль-гис.рф");
             Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
@@ -50,7 +54,7 @@ namespace VStore.UnitTests
             value.Raw = "http://xn----9sbhbxp9bk7f.xn--p1ai";
             TestHelpers.MakeValidationCheck<TextElementValue, IncorrectLinkError>(
                 value,
-                null,
+                constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "file://дубль-гис.рф");
         }

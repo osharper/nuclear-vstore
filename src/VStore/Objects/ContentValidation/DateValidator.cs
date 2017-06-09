@@ -17,6 +17,12 @@ namespace NuClear.VStore.Objects.ContentValidation
             var endDate = dateValue.EndDate;
             var bothDatesAreNull = beginDate == null && endDate == null;
 
+            var constraints = (DateElementConstraints)elementConstraints;
+            if (!constraints.ValidDateRange)
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
             // Дата начала не должна быть больше даты окончания, либо обе даты не заданы:
             return bothDatesAreNull || beginDate <= endDate
                        ? Array.Empty<ObjectElementValidationError>()
