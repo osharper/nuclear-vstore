@@ -25,6 +25,7 @@ using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
@@ -66,9 +67,11 @@ namespace NuClear.VStore.Host
                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value);
+                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value);
 
             services.AddMvcCore()
                     .AddApiExplorer()
@@ -105,6 +108,7 @@ namespace NuClear.VStore.Host
                         x.OperationFilter<UploadFileOperationFilter>();
                     });
 
+            services.AddSingleton<EventSender>();
             services.AddSingleton<IAmazonS3>(
                 x =>
                     {
@@ -135,14 +139,16 @@ namespace NuClear.VStore.Host
             services.AddSingleton<TemplatesManagementService>();
             services.AddSingleton(
                 x => new SessionStorageReader(
-                    x.GetService<CephOptions>().FilesBucketName,
-                    x.GetService<IAmazonS3>()));
+                    x.GetRequiredService<CephOptions>().FilesBucketName,
+                    x.GetRequiredService<IAmazonS3>()));
             services.AddSingleton(
                 x => new SessionManagementService(
-                         x.GetService<VStoreOptions>().FileStorageEndpoint,
-                         x.GetService<CephOptions>().FilesBucketName,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplatesStorageReader>()));
+                         x.GetRequiredService<VStoreOptions>().FileStorageEndpoint,
+                         x.GetRequiredService<CephOptions>().FilesBucketName,
+                         x.GetRequiredService<KafkaOptions>().SessionsTopic,
+                         x.GetRequiredService<IAmazonS3>(),
+                         x.GetRequiredService<TemplatesStorageReader>(),
+                         x.GetRequiredService<EventSender>()));
             services.AddSingleton<ObjectsStorageReader>();
             services.AddSingleton<ObjectsManagementService>();
         }
@@ -184,6 +190,7 @@ namespace NuClear.VStore.Host
                                 }
                     });
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
+            app.UseApiVersioning();
             app.UseMvc();
 
             if (!env.IsProduction())

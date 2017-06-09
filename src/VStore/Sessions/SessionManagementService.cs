@@ -20,8 +20,10 @@ using Newtonsoft.Json;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Events;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
 
@@ -41,19 +43,25 @@ namespace NuClear.VStore.Sessions
 
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
+        private readonly string _sessionsTopicName;
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
+        private readonly EventSender _eventSender;
 
         public SessionManagementService(
             Uri fileStorageEndpointUri,
             string filesBucketName,
+            string sessionsTopicName,
             IAmazonS3 amazonS3,
-            TemplatesStorageReader templatesStorageReader)
+            TemplatesStorageReader templatesStorageReader,
+            EventSender eventSender)
         {
             _fileStorageEndpointUri = fileStorageEndpointUri;
             _filesBucketName = filesBucketName;
+            _sessionsTopicName = sessionsTopicName;
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
+            _eventSender = eventSender;
         }
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
@@ -98,6 +106,13 @@ namespace NuClear.VStore.Sessions
                 metadataWrapper.Write(MetadataElement.Author, author);
             }
 
+            await _eventSender.SendAsync(
+                _sessionsTopicName,
+                new SessionCreatedEvent
+                    {
+                        SessionId = sessionId,
+                        ExpiresAt = expiresAt
+                    });
             await _amazonS3.PutObjectAsync(request);
         }
 
