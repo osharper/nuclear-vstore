@@ -27,12 +27,7 @@ namespace NuClear.VStore.Host.Logging
 
         public SerilogAppender(ILogger logger)
         {
-            if (logger == null)
-            {
-                throw new ArgumentNullException(nameof(logger));
-            }
-
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         protected override void Append(LoggingEvent loggingEvent)
@@ -44,8 +39,7 @@ namespace NuClear.VStore.Host.Logging
 
         private static LogEventLevel ConvertLevel(Level log4NetLevel)
         {
-            LogEventLevel serilogLevel;
-            if (LevelMap.TryGetValue(log4NetLevel, out serilogLevel))
+            if (LevelMap.TryGetValue(log4NetLevel, out LogEventLevel serilogLevel))
             {
                 return serilogLevel;
             }

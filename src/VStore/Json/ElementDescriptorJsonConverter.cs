@@ -73,6 +73,9 @@ namespace NuClear.VStore.Json
                     case ElementDescriptorType.Date:
                         constraints = property.Value.ToObject<DateElementConstraints>();
                         break;
+                    case ElementDescriptorType.Phone:
+                        constraints = property.Value.ToObject<PhoneElementConstraints>();
+                        break;
                     default:
                         return null;
                 }

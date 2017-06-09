@@ -280,6 +280,8 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
+                case ElementDescriptorType.Phone:
+                    return new ValidationRule[] { };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -377,6 +379,7 @@ namespace NuClear.VStore.Objects
                                     case ElementDescriptorType.Article:
                                     case ElementDescriptorType.Date:
                                     case ElementDescriptorType.Link:
+                                    case ElementDescriptorType.Phone:
                                         break;
                                     default:
                                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),

@@ -8,6 +8,7 @@
         Article = 4,
         FasComment = 5,
         Date = 6,
-        Link = 7
+        Link = 7,
+        Phone = 8
     }
 }

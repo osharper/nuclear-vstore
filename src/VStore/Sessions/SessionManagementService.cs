@@ -284,8 +284,7 @@ namespace NuClear.VStore.Sessions
                                               new List<IImageFormat>(),
                                               (result, next) =>
                                                   {
-                                                      IImageFormat imageFormat;
-                                                      if (ImageFormatsMap.TryGetValue(next, out imageFormat))
+                                                      if (ImageFormatsMap.TryGetValue(next, out IImageFormat imageFormat))
                                                       {
                                                           result.Add(imageFormat);
                                                       }

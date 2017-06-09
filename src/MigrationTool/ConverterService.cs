@@ -31,8 +31,7 @@ namespace MigrationTool
             var templateCodeStr = templateCode.ToString();
             var format = file.ContentType.Replace("image/x-", string.Empty).Replace("image/", string.Empty);
 
-            FileFormat fileFormat;
-            if (!Enum.TryParse(format, true, out fileFormat))
+            if (!Enum.TryParse(format, true, out FileFormat fileFormat))
             {
                 throw new InvalidOperationException($"Unknown image format '{file.ContentType}'; template code = {templateCodeStr}, template id = {templateIdStr}");
             }
@@ -181,6 +180,8 @@ namespace MigrationTool
                     };
                 case ElementDescriptorType.Date:
                     return new DateElementConstraints();
+                case ElementDescriptorType.Phone:
+                    return new PhoneElementConstraints();
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");
             }
@@ -197,12 +198,10 @@ namespace MigrationTool
             var sizes = elementTemplate.ImageDimensionRestriction.Split(new[] { " | " }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var size in sizes)
             {
-                int height;
-                int width;
                 var dims = size.Split('x');
                 if (dims.Length != 2 ||
-                    !int.TryParse(dims[0], out width) ||
-                    !int.TryParse(dims[1], out height))
+                    !int.TryParse(dims[0], out int width) ||
+                    !int.TryParse(dims[1], out int height))
                 {
                     throw new ArgumentException("Incorrect image dimension: " + size, nameof(size));
                 }
@@ -229,8 +228,7 @@ namespace MigrationTool
             var formats = elementTemplate.FileExtensionRestriction.Split(new[] { " | " }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var format in formats)
             {
-                FileFormat fileFormat;
-                if (!Enum.TryParse(format, true, out fileFormat))
+                if (!Enum.TryParse(format, true, out FileFormat fileFormat))
                 {
                     throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported file format '" + format + "' in: " + elementTemplate.FileExtensionRestriction);
                 }
@@ -253,7 +251,9 @@ namespace MigrationTool
                 case ElementRestrictionType.Text:
                     return elementTemplate.IsAdvertisementLink
                                ? ElementDescriptorType.Link
-                               : (elementTemplate.FormattedText ? ElementDescriptorType.FormattedText : ElementDescriptorType.PlainText);
+                               : elementTemplate.IsPhoneNumber
+                                   ? ElementDescriptorType.Phone
+                                   : (elementTemplate.FormattedText ? ElementDescriptorType.FormattedText : ElementDescriptorType.PlainText);
                 case ElementRestrictionType.Article:
                     return ElementDescriptorType.Article;
                 case ElementRestrictionType.Image:

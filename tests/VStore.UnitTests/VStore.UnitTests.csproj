@@ -9,7 +9,7 @@
     <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
-    <RootNamespace>NuClear.VStore.UnitTests</RootNamespace>
+    <RootNamespace>VStore.UnitTests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

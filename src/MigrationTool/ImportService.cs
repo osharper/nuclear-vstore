@@ -899,6 +899,7 @@ namespace MigrationTool
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
+                case ElementDescriptorType.Phone:
                     return false;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptorType), descriptorType, "Unknown ElementDescriptorType");
@@ -1040,6 +1041,13 @@ namespace MigrationTool
                         BeginDate = element.BeginDate.Value,
                         EndDate = element.EndDate.Value
                     };
+
+                case ElementDescriptorType.Phone:
+                    return new PhoneElementValue
+                        {
+                            Raw = element.Text,
+                            Formatted = null
+                        };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");
             }

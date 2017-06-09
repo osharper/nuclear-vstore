@@ -24,6 +24,8 @@ namespace NuClear.VStore.Json
                     return valueToken.ToObject<DateElementValue>();
                 case ElementDescriptorType.Link:
                     return valueToken.ToObject<TextElementValue>();
+                case ElementDescriptorType.Phone:
+                    return valueToken.ToObject<PhoneElementValue>();
                 default:
                     return null;
             }

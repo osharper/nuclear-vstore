@@ -14,18 +14,18 @@ namespace VStore.UnitTests
     {
         internal delegate IEnumerable<ObjectElementValidationError> Validator(IObjectElementValue value, IElementConstraints elementConstraints);
 
-        internal static TException MakeValidationCheck<TValue, TException>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
+        internal static TError MakeValidationCheck<TValue, TError>(TValue value, IElementConstraints constraints, Validator validator, Action<TValue> valueChanger)
             where TValue : IObjectElementValue
-            where TException : ObjectElementValidationError
+            where TError : ObjectElementValidationError
         {
             Assert.Empty(validator(value, constraints));
             valueChanger(value);
 
             var errors = validator(value, constraints).ToList();
             Assert.Equal(1, errors.Count);
-            Assert.IsType<TException>(errors.First());
+            Assert.IsType<TError>(errors.First());
 
-            return (TException)errors.First();
+            return (TError)errors.First();
         }
 
         internal static void InternalTextChecksTest(

@@ -56,7 +56,8 @@ namespace NuClear.VStore.Templates
                            new ElementDescriptor(ElementDescriptorType.Article, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints { SupportedFileFormats = ArticleFileFormats }) })),
                            new ElementDescriptor(ElementDescriptorType.FasComment, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.Date, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))
+                           new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Phone, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) }))
                        };
         }
 
@@ -152,7 +153,7 @@ namespace NuClear.VStore.Templates
                                            ArticleElementConstraints articleElementConstraints;
                                            if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
                                            {
-                                               VerifyTextConstraints(x.TemplateCode, textElementConstraints, x);
+                                               VerifyTextConstraints(x.TemplateCode, textElementConstraints);
                                            }
                                            else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
                                            {
@@ -232,11 +233,11 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private static void VerifyTextConstraints(int templateCode, TextElementConstraints textElementConstraints, IElementDescriptor elementDescriptor)
+        private static void VerifyTextConstraints(int templateCode, TextElementConstraints textElementConstraints)
         {
             if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
             {
-                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.InvalidMaxSymblosPerWord);
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.InvalidMaxSymbolsPerWord);
             }
 
             if (textElementConstraints.MaxSymbols <= 0)

@@ -10,7 +10,7 @@ using Xunit;
 // ReSharper disable UnusedMember.Global
 namespace VStore.UnitTests
 {
-    public class PlainTextValidatorTests
+    public class PlainTextValidationTests
     {
         private static readonly TestHelpers.Validator[] AllChecks =
             {

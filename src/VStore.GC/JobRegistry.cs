@@ -27,8 +27,7 @@ namespace NuClear.VStore.GC
 
         public AsyncJob GetJob(string jobId)
         {
-            Type jobType;
-            if (Registry.TryGetValue(jobId, out jobType))
+            if (Registry.TryGetValue(jobId, out Type jobType))
             {
                 return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
             }
