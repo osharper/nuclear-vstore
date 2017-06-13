@@ -34,20 +34,42 @@ namespace NuClear.VStore.Kafka
             {
                 using (var producer = new Producer<Null, string>(_producerConfig, null, new StringSerializer(Encoding.UTF8)))
                 {
+                    producer.OnLog += (_, logMessage) => Log(logMessage);
+                    producer.OnError += (_, error) => LogError(error);
+                    producer.OnStatistics += (_, json) => LogStatistics(json);
+
                     var result = await producer.ProduceAsync(topic, null, message);
                     _logger.LogInformation(
-                        "Event with content {eventContent} has been sent to the topic '{topic}' on partition '{partition}' with offset '{offset}'",
-                        message,
+                        "Producing to Kafka. Topic/partition/offset: '{topic}/{partition}/{offset}'. Message: '{message}'",
                         topic,
                         result.Partition,
-                        result.Topic);
+                        result.Offset,
+                        message);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(), ex, "Unexpected error occured while sending a '{eventContent}' to '{topic}'.", message, topic);
+                _logger.LogError(
+                    new EventId(),
+                    ex,
+                    "Error producing to Kafka. Topic: '{topic}'. Message: {message}. Error: '{error}'",
+                    message,
+                    topic);
                 throw;
             }
         }
+
+        private void Log(LogMessage logMessage)
+            => _logger.LogInformation(
+                "Producing to Kafka. Client: '{kafkaClient}', level: '{logLevel}', message: '{logMessage}'",
+                logMessage.Name,
+                logMessage.Level,
+                logMessage.Message);
+
+        private void LogError(Error error)
+            => _logger.LogInformation("Producing to Kafka. Client error: '{error}'. No action required.", error);
+
+        private void LogStatistics(string json)
+            => _logger.LogDebug($"Producing to Kafka. Statistics: '{json}'");
     }
 }
