@@ -49,7 +49,7 @@ namespace NuClear.VStore.Kafka
                 await Task.Yield();
 
                 _logger.LogInformation(
-                    "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaMessage}'.",
+                    "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaMessage}'.",
                     topic,
                     result.Partition,
                     result.Offset,

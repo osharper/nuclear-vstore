@@ -68,7 +68,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
@@ -109,7 +109,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
@@ -150,7 +150,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
