@@ -19,6 +19,7 @@ using Newtonsoft.Json.Linq;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 
 namespace MigrationTool
@@ -34,6 +35,7 @@ namespace MigrationTool
         private readonly Uri _searchUri;
         private readonly ILogger<ApiRepository> _logger;
         private readonly HttpClient _httpClient;
+        private readonly string _logFormat = "Sending '{method}' request on '{url}', request id {requestId}, server {server}, got response: {response}";
 
         public ApiRepository(ILogger<ApiRepository> logger, Uri apiUri, Uri storageUri, string token)
         {
@@ -53,6 +55,8 @@ namespace MigrationTool
         {
             var methodUri = new Uri(_objectUri, objectId + "?firm=" + firmId);
             var stringResponse = string.Empty;
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(objectDescriptor, ApiSerializerSettings.Default), Encoding.UTF8, "application/json"))
@@ -60,7 +64,9 @@ namespace MigrationTool
                     using (var response = await _httpClient.PutAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        response.Headers.TryGetValues(HeaderNames.Server, out server);
+                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                         response.EnsureSuccessStatusCode();
                         var res = JsonConvert.DeserializeObject<ObjectDescriptor>(stringResponse, SerializerSettings.Default);
                         if (res == null)
@@ -75,7 +81,13 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error while object {id} import with response: {response}", objectId, stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while object {id} import with response: {response}",
+                                 requestId,
+                                 server,
+                                 objectId,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)
@@ -89,6 +101,8 @@ namespace MigrationTool
         {
             var methodUri = new Uri(_devUri, "nomenclature");
             var stringResponse = string.Empty;
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(positionDescriptor, SerializerSettings.Default), Encoding.UTF8, "application/json"))
@@ -96,7 +110,9 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        response.Headers.TryGetValues(HeaderNames.Server, out server);
+                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Position {id} has been created", positionId);
                     }
@@ -104,7 +120,13 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error while creating position {id} with response: {response}", positionId, stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while creating position {id} with response: {response}",
+                                 requestId,
+                                 server,
+                                 positionId,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)
@@ -120,19 +142,30 @@ namespace MigrationTool
             using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
             {
                 var stringResponse = string.Empty;
+                IEnumerable<string> server = Array.Empty<string>();
+                IEnumerable<string> requestId = Array.Empty<string>();
                 try
                 {
                     using (var response = await _httpClient.SendAsync(req))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        response.Headers.TryGetValues(HeaderNames.Server, out server);
+                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Link has been created between position {positionId} and template {templateId}", positionId, templateId);
                     }
                 }
                 catch (HttpRequestException ex)
                 {
-                    _logger.LogError(new EventId(), ex, "Request error while creating link between position {positionId} and template {templateId} with response: {response}", positionId, templateId, stringResponse);
+                    _logger.LogError(new EventId(),
+                                     ex,
+                                     "Request {requestId} to server {server} error while creating link between position {positionId} and template {templateId} with response: {response}",
+                                     requestId,
+                                     server,
+                                     positionId,
+                                     templateId,
+                                     stringResponse);
                     throw;
                 }
                 catch (Exception ex)
@@ -147,6 +180,8 @@ namespace MigrationTool
         {
             var methodUri = new Uri(_templateUri, templateId);
             var stringResponse = string.Empty;
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 var descriptor = new
@@ -160,7 +195,9 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        response.Headers.TryGetValues(HeaderNames.Server, out server);
+                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                         response.EnsureSuccessStatusCode();
 
                         _logger.LogInformation("Created template {id} got version: {version}", templateId, response.Headers.ETag.Tag);
@@ -170,7 +207,13 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error while template {id} creating with response: {response}", templateId, stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while creating template {id} with response: {response}",
+                                 requestId,
+                                 server,
+                                 templateId,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)
@@ -186,12 +229,16 @@ namespace MigrationTool
             using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
             {
                 var stringResponse = string.Empty;
+                IEnumerable<string> server = Array.Empty<string>();
+                IEnumerable<string> requestId = Array.Empty<string>();
                 try
                 {
                     using (var response = await _httpClient.SendAsync(req))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                        response.Headers.TryGetValues(HeaderNames.Server, out server);
+                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                         response.EnsureSuccessStatusCode();
                         var descriptor = JsonConvert.DeserializeObject<IReadOnlyCollection<ApiObjectDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                         if (descriptor == null)
@@ -206,7 +253,9 @@ namespace MigrationTool
                 {
                     _logger.LogError(new EventId(),
                                      ex,
-                                     "Request error while getting new object for template {id} and lang {lang} with response: {response}",
+                                     "Request {requestId} to server {server} error while getting new object for template {id} and lang {lang} with response: {response}",
+                                     requestId,
+                                     server,
                                      templateId,
                                      langCode,
                                      stringResponse);
@@ -224,12 +273,16 @@ namespace MigrationTool
         {
             var methodUri = new Uri(_searchUri, "nomenclature?isDeleted=false&count=500");
             var stringResponse = string.Empty;
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
                     stringResponse = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
+                    response.Headers.TryGetValues(HeaderNames.Server, out server);
+                    response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                    _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                     response.EnsureSuccessStatusCode();
                     var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<PositionDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                     if (descriptors == null)
@@ -242,7 +295,12 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error while getting positions with response: {response}", stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while getting positions with response: {response}",
+                                 requestId,
+                                 server,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)
@@ -256,13 +314,18 @@ namespace MigrationTool
         {
             var stringResponse = string.Empty;
             var methodUri = new Uri(_templateUri, templateId);
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
                     stringResponse = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, methodUri, stringResponse);
-                    if (response.StatusCode == HttpStatusCode.NotFound)
+                    response.Headers.TryGetValues(HeaderNames.Server, out server);
+                    response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                    _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                    if (response.StatusCode == HttpStatusCode.NotFound &&
+                        server?.FirstOrDefault() == "okapi")
                     {
                         _logger.LogDebug("Template {id} not found", templateId);
                         return null;
@@ -280,7 +343,13 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error while getting template {id} with response: {response}", templateId, stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while getting template {id} with response: {response}",
+                                 requestId,
+                                 server,
+                                 templateId,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)
@@ -315,7 +384,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(url, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", response.RequestMessage.Method, url, stringResponse);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, url, string.Empty, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
                         return JObject.Parse(stringResponse);
@@ -334,6 +403,8 @@ namespace MigrationTool
             var stringResponse = string.Empty;
             var templateId = template.Id.ToString();
             var methodUri = new Uri(_templateUri, templateId);
+            IEnumerable<string> server = Array.Empty<string>();
+            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(template, SerializerSettings.Default), Encoding.UTF8, "application/json"))
@@ -345,7 +416,9 @@ namespace MigrationTool
                         using (var response = await _httpClient.SendAsync(request))
                         {
                             stringResponse = await response.Content.ReadAsStringAsync();
-                            _logger.LogDebug("Sending '{method}' request on '{url}', got response: {response}", request.Method, methodUri, stringResponse);
+                            response.Headers.TryGetValues(HeaderNames.Server, out server);
+                            response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
+                            _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
                             response.EnsureSuccessStatusCode();
                             _logger.LogInformation("Updated template with {id} got new version: {version}", templateId, response.Headers.ETag.Tag);
                         }
@@ -354,7 +427,13 @@ namespace MigrationTool
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(new EventId(), ex, "Request error in template {id} update with response: {response}", templateId, stringResponse);
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error in template {id} update with response: {response}",
+                                 requestId,
+                                 server,
+                                 templateId,
+                                 stringResponse);
                 throw;
             }
             catch (Exception ex)

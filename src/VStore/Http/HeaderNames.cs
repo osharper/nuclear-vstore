@@ -5,5 +5,6 @@
         public const string AmsAuthor = "x-ams-author";
         public const string AmsContinuationToken = "x-ams-continuation-token";
         public const string RequestId = "x-request-id";
+        public const string Server = "x-server";
     }
 }

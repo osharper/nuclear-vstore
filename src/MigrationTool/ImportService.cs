@@ -707,7 +707,7 @@ namespace MigrationTool
                         _logger.LogInformation("New name was added in template's element with template code = {templateCode}: {newName}",
                                                pair.e.TemplateCode.ToString(),
                                                generatedElementName);
-                    };
+                    }
 
                     await Repository.UpdateTemplateAsync(existedTemplate);
 
