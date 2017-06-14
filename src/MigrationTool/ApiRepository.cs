@@ -369,7 +369,7 @@ namespace MigrationTool
             var tryNum = 0;
             var succeeded = false;
             var healthcheckApiUri = new Uri(_apiUri, "healthcheck");
-            var healthcheckStorageUri = new Uri(_storageUri, "/swagger/v1/swagger.json");
+            var healthcheckStorageUri = new Uri(_storageUri, "/healthcheck");
             do
             {
                 ++tryNum;
