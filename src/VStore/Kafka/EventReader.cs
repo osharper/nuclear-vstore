@@ -27,8 +27,8 @@ namespace NuClear.VStore.Kafka
             _logger = logger;
             _consumerConfig.Add("bootstrap.servers", kafkaOptions.BrokerEndpoints);
             _consumerConfig.Add("group.id", kafkaOptions.GroupId);
-            _consumerConfig.Add("api.version.request", "true");
-            _consumerConfig.Add("enable.auto.commit", "false");
+            _consumerConfig.Add("api.version.request", true);
+            _consumerConfig.Add("enable.auto.commit", false);
             _consumerConfig.Add("session.timeout.ms", 600);
             _consumerConfig.Add(
                 "default.topic.config",
@@ -68,7 +68,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{topic}/{partition}/{offset}'. Message: '{error}'",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
@@ -109,7 +109,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{topic}/{partition}/{offset}'. Message: '{error}'",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
@@ -150,7 +150,7 @@ namespace NuClear.VStore.Kafka
                     (_, error) =>
                         {
                             _logger.LogError(
-                                "Error consuming from Kafka. Topic/partition/offset: '{topic}/{partition}/{offset}'. Message: '{error}'",
+                                "Error consuming from Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaError}'.",
                                 error.Topic,
                                 error.Partition,
                                 error.Offset,
@@ -181,15 +181,15 @@ namespace NuClear.VStore.Kafka
 
         private void Log(LogMessage logMessage)
             => _logger.LogInformation(
-                "Consuming from Kafka. Client: '{kafkaClient}', level: '{logLevel}', message: '{logMessage}'",
+                "Consuming from Kafka. Client: '{kafkaClient}', syslog level: '{kafkaLogLevel}', message: '{kafkaLogMessage}'.",
                 logMessage.Name,
                 logMessage.Level,
                 logMessage.Message);
 
         private void LogError(Error error)
-            => _logger.LogInformation("Consuming from Kafka. Client error: '{error}'. No action required.", error);
+            => _logger.LogInformation("Consuming from Kafka. Client error: '{kafkaError}'. No action required.", error);
 
         private void LogStatistics(string json)
-            => _logger.LogDebug($"Consuming from Kafka. Statistics: '{json}'");
+            => _logger.LogDebug("Consuming from Kafka. Statistics: '{kafkaStatistics}'.", json);
     }
 }

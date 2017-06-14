@@ -11,8 +11,10 @@ using Newtonsoft.Json;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Events;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects.ContentPreprocessing;
 using NuClear.VStore.Objects.ContentValidation;
@@ -31,22 +33,28 @@ namespace NuClear.VStore.Objects
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
+        private readonly EventSender _eventSender;
         private readonly string _bucketName;
+        private readonly string _binariesUsingsTopicName;
 
         public ObjectsManagementService(
             CephOptions cephOptions,
+            KafkaOptions kafkaOptions,
             IAmazonS3 amazonS3,
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
-            LockSessionFactory lockSessionFactory)
+            LockSessionFactory lockSessionFactory,
+            EventSender eventSender)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
             _lockSessionFactory = lockSessionFactory;
+            _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
+            _binariesUsingsTopicName = kafkaOptions.BinariesUsingsTopic;
         }
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
@@ -289,7 +297,13 @@ namespace NuClear.VStore.Objects
         {
             await PreprocessObjectElements(objectDescriptor.Language, objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-            await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
+            var metadata = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
+
+            var events = metadata.Select(x => new BinaryUsedEvent { ObjectId = id, ElementTemplateCode = x.TemplateCode, FileKey = x.FileKey });
+            foreach (var @event in events)
+            {
+                await _eventSender.SendAsync(_binariesUsingsTopicName, @event);
+            }
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -307,7 +321,7 @@ namespace NuClear.VStore.Objects
 
                 metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
                 if (!string.IsNullOrEmpty(author))
-                {
+                 {
                     metadataWrapper.Write(MetadataElement.Author, author);
                 }
 
@@ -386,16 +400,21 @@ namespace NuClear.VStore.Objects
             await Task.WhenAll(tasks);
         }
 
-        private async Task RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
+        private async Task<IReadOnlyCollection<(int TemplateCode, string FileKey)>> RetrieveMetadataForBinaries(
+            long id,
+            IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            var tasks = objectElements.Select(
-                async x =>
+            var binaryElements = objectElements.Where(x => x.Value is IBinaryElementValue).ToList();
+            if (binaryElements.Count == 0)
+            {
+                return Array.Empty<(int TemplateCode, string FileKey)>();
+            }
+
+            var metadata = new(int TemplateCode, string FileKey)[binaryElements.Count];
+            var tasks = binaryElements.Select(
+                async (x, index) =>
                     {
-                        var binaryElementValue = x.Value as IBinaryElementValue;
-                        if (binaryElementValue == null)
-                        {
-                            return;
-                        }
+                        var binaryElementValue = (IBinaryElementValue)x.Value;
 
                         if (string.IsNullOrEmpty(binaryElementValue.Raw))
                         {
@@ -418,8 +437,12 @@ namespace NuClear.VStore.Objects
                         {
                             throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
                         }
+
+                        metadata[index] = (x.TemplateCode, binaryElementValue.Raw);
                     });
             await Task.WhenAll(tasks);
+
+            return metadata;
         }
     }
 }

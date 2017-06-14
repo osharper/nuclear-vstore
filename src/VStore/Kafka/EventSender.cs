@@ -16,60 +16,73 @@ using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Kafka
 {
-    public sealed class EventSender
+    public sealed class EventSender : IDisposable
     {
-        private readonly Dictionary<string, object> _producerConfig = new Dictionary<string, object>();
         private readonly ILogger<EventSender> _logger;
+        private readonly Producer<Null, string> _producer;
 
         public EventSender(KafkaOptions kafkaOptions, ILogger<EventSender> logger)
         {
             _logger = logger;
-            _producerConfig.Add("bootstrap.servers", kafkaOptions.BrokerEndpoints);
+
+            var producerConfig = new Dictionary<string, object>
+                                     {
+                                         { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
+                                         { "api.version.request", true },
+                                         { "queue.buffering.max.ms", 5 }
+                                     };
+            _producer = new Producer<Null, string>(producerConfig, null, new StringSerializer(Encoding.UTF8));
+            _producer.OnLog += (_, logMessage) => Log(logMessage);
+            _producer.OnError += (_, error) => LogError(error);
+            _producer.OnStatistics += (_, json) => LogStatistics(json);
         }
 
         public async Task SendAsync(string topic, IEvent @event)
         {
             var message = JsonConvert.SerializeObject(@event, SerializerSettings.Default);
+
             try
             {
-                using (var producer = new Producer<Null, string>(_producerConfig, null, new StringSerializer(Encoding.UTF8)))
-                {
-                    producer.OnLog += (_, logMessage) => Log(logMessage);
-                    producer.OnError += (_, error) => LogError(error);
-                    producer.OnStatistics += (_, json) => LogStatistics(json);
+                var result = await _producer.ProduceAsync(topic, null, message);
 
-                    var result = await producer.ProduceAsync(topic, null, message);
-                    _logger.LogInformation(
-                        "Producing to Kafka. Topic/partition/offset: '{topic}/{partition}/{offset}'. Message: '{message}'",
-                        topic,
-                        result.Partition,
-                        result.Offset,
-                        message);
-                }
+                // we must do this call as workaround https://github.com/confluentinc/confluent-kafka-dotnet/issues/190
+                await Task.Yield();
+
+                _logger.LogInformation(
+                    "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkOffset}'. Message: '{kafkaMessage}'.",
+                    topic,
+                    result.Partition,
+                    result.Offset,
+                    message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     new EventId(),
                     ex,
-                    "Error producing to Kafka. Topic: '{topic}'. Message: {message}. Error: '{error}'",
+                    "Error producing to Kafka. Topic: '{kafkaTopic}'. Message: {kafkaMessage}. Error: '{kafkaError}'.",
                     message,
                     topic);
                 throw;
             }
         }
 
+        public void Dispose()
+        {
+            _producer?.Dispose();
+        }
+
         private void Log(LogMessage logMessage)
             => _logger.LogInformation(
-                "Producing to Kafka. Client: '{kafkaClient}', level: '{logLevel}', message: '{logMessage}'",
+                "Producing to Kafka. Client: '{kafkaClient}', syslog level: '{kafkaLogLevel}', message: '{kafkaLogMessage}'.",
                 logMessage.Name,
                 logMessage.Level,
                 logMessage.Message);
 
         private void LogError(Error error)
-            => _logger.LogInformation("Producing to Kafka. Client error: '{error}'. No action required.", error);
+            => _logger.LogInformation("Producing to Kafka. Client error: '{kafkaError}'. No action required.", error);
 
         private void LogStatistics(string json)
-            => _logger.LogDebug($"Producing to Kafka. Statistics: '{json}'");
+            => _logger.LogDebug("Producing to Kafka. Statistics: '{kafkaStatistics}'.", json);
     }
 }
