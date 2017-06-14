@@ -66,12 +66,11 @@ namespace NuClear.VStore.Sessions
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            var sessionDescriptorWrapper = await GetSessionDescriptor(sessionId);
+            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
 
-            var sessionDescriptor = (SessionDescriptor)sessionDescriptorWrapper;
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
-            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptor.Language, sessionDescriptorWrapper.Author, sessionDescriptorWrapper.ExpiresAt);
+            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptor.Language, author, expiresAt);
         }
 
         public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, string author)
@@ -127,7 +126,7 @@ namespace NuClear.VStore.Sessions
                 throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
 
-            SessionDescriptor sessionDescriptor = await GetSessionDescriptor(sessionId);
+            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -160,7 +159,7 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    SessionDescriptor sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+                    (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
@@ -202,7 +201,7 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            SessionDescriptor sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
+            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {
@@ -375,7 +374,7 @@ namespace NuClear.VStore.Sessions
             return EnumerateStatus.Continue;
         }
 
-        private async Task<SessionDescriptorWrapper> GetSessionDescriptor(Guid sessionId)
+        private async Task<(SessionDescriptor, string, DateTime)> GetSessionDescriptor(Guid sessionId)
         {
             GetObjectResponse objectResponse;
             try
@@ -407,7 +406,7 @@ namespace NuClear.VStore.Sessions
             }
 
             var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-            return new SessionDescriptorWrapper(sessionDescriptor, author, expiresAt);
+            return (sessionDescriptor, author, expiresAt);
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)
@@ -426,26 +425,6 @@ namespace NuClear.VStore.Sessions
         {
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(templateId, templateVersionId);
             return templateDescriptor.Elements.Single(x => x.TemplateCode == templateCode);
-        }
-
-        private sealed class SessionDescriptorWrapper
-        {
-            private readonly SessionDescriptor _sessionDescriptor;
-
-            public SessionDescriptorWrapper(SessionDescriptor sessionDescriptor, string author, DateTime expiresAt)
-            {
-                _sessionDescriptor = sessionDescriptor;
-                Author = author;
-                ExpiresAt = expiresAt;
-            }
-
-            public string Author { get; }
-            public DateTime ExpiresAt { get; }
-
-            public static implicit operator SessionDescriptor(SessionDescriptorWrapper wrapper)
-            {
-                return wrapper._sessionDescriptor;
-            }
         }
     }
 }

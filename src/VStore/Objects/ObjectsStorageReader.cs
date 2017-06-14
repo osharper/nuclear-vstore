@@ -47,7 +47,8 @@ namespace NuClear.VStore.Objects
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
+            (ObjectPersistenceDescriptor persistenceDescriptor, string author, DateTime lastModified) =
+                await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
@@ -140,19 +141,19 @@ namespace NuClear.VStore.Objects
                 objectVersionId = versionId;
             }
 
-            var persistenceDescriptorWrapper = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
-            var persistenceDescriptor = (ObjectPersistenceDescriptor)persistenceDescriptorWrapper;
+            (ObjectPersistenceDescriptor persistenceDescriptor, string objectAuthor, DateTime objectLastModified) =
+                await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
 
             var elements = new IObjectElementDescriptor[persistenceDescriptor.Elements.Count];
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        var elementDescriptorWrapper = await GetObjectFromS3<ObjectElementDescriptor>(x.Id, x.VersionId);
-                        var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
+                        (ObjectElementDescriptor elementDescriptor, string elementAuthor, DateTime elementLastModified) =
+                            await GetObjectFromS3<ObjectElementDescriptor>(x.Id, x.VersionId);
 
                         elementDescriptor.Id = x.Id.AsSubObjectId();
                         elementDescriptor.VersionId = x.VersionId;
-                        elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
+                        elementDescriptor.LastModified = elementLastModified;
 
                         elements[index] = elementDescriptor;
                     });
@@ -162,11 +163,11 @@ namespace NuClear.VStore.Objects
                                  {
                                      Id = id,
                                      VersionId = objectVersionId,
-                                     LastModified = persistenceDescriptorWrapper.LastModified,
+                                     LastModified = objectLastModified,
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
-                                     Author = persistenceDescriptorWrapper.Author,
+                                     Author = objectAuthor,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -185,7 +186,7 @@ namespace NuClear.VStore.Objects
             return listResponse.S3Objects.Count != 0;
         }
 
-        private async Task<ObjectWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
+        private async Task<(T, string, DateTime)> GetObjectFromS3<T>(string key, string versionId)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -207,27 +208,7 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return new ObjectWrapper<T>(obj, author, getObjectResponse.LastModified);
-        }
-
-        private class ObjectWrapper<T>
-        {
-            private readonly T _object;
-
-            public ObjectWrapper(T @object, string author, DateTime lastModified)
-            {
-                _object = @object;
-                Author = author;
-                LastModified = lastModified;
-            }
-
-            public string Author { get; }
-            public DateTime LastModified { get; }
-
-            public static implicit operator T(ObjectWrapper<T> wrapper)
-            {
-                return wrapper._object;
-            }
+            return (obj, author, getObjectResponse.LastModified);
         }
     }
 }
