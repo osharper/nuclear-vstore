@@ -16,9 +16,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using NuClear.VStore.GC.Jobs;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
+using NuClear.VStore.Sessions;
 
 using Serilog;
 
@@ -37,15 +39,18 @@ namespace NuClear.VStore.GC
                 .AddEnvironmentVariables("VSTORE_")
                 .Build();
 
+            var serviceProvider = Bootstrap(configuration);
+
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger<Program>();
+
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (sender, eventArgs) =>
                                           {
+                                              logger.LogInformation("Application is shutting down...");
                                               cts.Cancel();
-                                              eventArgs.Cancel = false;
+                                              eventArgs.Cancel = true;
                                           };
-
-            var serviceProvider = Bootstrap(configuration);
-
             var app = new CommandLineApplication { Name = "VStore.GC" };
             app.HelpOption("-h|--help");
             app.OnExecute(
@@ -88,8 +93,6 @@ namespace NuClear.VStore.GC
                                 });
                     });
 
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger<Program>();
             var exitCode = 0;
             try
             {
@@ -119,14 +122,19 @@ namespace NuClear.VStore.GC
                 .AddOptions()
                 .Configure<CephOptions>(configuration.GetSection("Ceph"))
                 .Configure<LockOptions>(configuration.GetSection("Ceph:Locks"))
+                .Configure<VStoreOptions>(configuration.GetSection("VStore"))
+                .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value)
 
                 .AddLogging()
 
                 .AddSingleton<JobRegistry>()
                 .AddScoped<JobRunner>()
                 .AddScoped<LockCleanupJob>()
+                .AddScoped<BinariesCleanupJob>()
 
                 .AddSingleton<IAmazonS3>(
                     x =>
@@ -152,7 +160,9 @@ namespace NuClear.VStore.GC
 
                             return new AmazonS3Client(credentials, config);
                         })
-                .AddScoped<LockSessionManager>();
+                .AddSingleton<LockSessionManager>()
+                .AddSingleton<EventReader>()
+                .AddSingleton<SessionCleanupService>();
 
             var serviceProvider = services.BuildServiceProvider();
 

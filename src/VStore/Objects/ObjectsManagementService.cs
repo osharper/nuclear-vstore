@@ -302,7 +302,7 @@ namespace NuClear.VStore.Objects
             var events = metadata.Select(x => new BinaryUsedEvent { ObjectId = id, ElementTemplateCode = x.TemplateCode, FileKey = x.FileKey });
             foreach (var @event in events)
             {
-                await _eventSender.SendAsync(_binariesUsingsTopicName, @event);
+                await _eventSender.SendAsync(_binariesUsingsTopicName, DateTime.UtcNow.DayOfYear, @event);
             }
 
             PutObjectRequest putRequest;

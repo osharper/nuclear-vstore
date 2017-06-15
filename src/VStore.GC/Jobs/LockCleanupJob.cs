@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,7 @@ namespace NuClear.VStore.GC.Jobs
             _lockSessionManager = lockSessionManager;
         }
 
-        protected override async Task ExecuteInternalAsync()
+        protected override async Task ExecuteInternalAsync(CancellationToken cancellationToken)
         {
             var objectIds = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
             var tasks = objectIds.Select(

@@ -39,18 +39,33 @@ namespace NuClear.VStore.Kafka
 
         public async Task SendAsync(string topic, IEvent @event)
         {
+            await SendAsync(topic, @event, message => _producer.ProduceAsync(topic, null, message));
+        }
+
+        public async Task SendAsync(string topic, int partition, IEvent @event)
+        {
+            await SendAsync(topic, @event, message => _producer.ProduceAsync(topic, null, message, partition));
+        }
+
+        public void Dispose()
+        {
+            _producer?.Dispose();
+        }
+
+        private async Task SendAsync(string topic, IEvent @event, Func<string, Task<Message<Null, string>>> producer)
+        {
             var message = JsonConvert.SerializeObject(@event, SerializerSettings.Default);
 
             try
             {
-                var result = await _producer.ProduceAsync(topic, null, message);
+                var result = await producer(message);
 
                 // we must do this call as workaround https://github.com/confluentinc/confluent-kafka-dotnet/issues/190
                 await Task.Yield();
 
                 _logger.LogInformation(
                     "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaMessage}'.",
-                    topic,
+                    result.Topic,
                     result.Partition,
                     result.Offset,
                     message);
@@ -65,11 +80,6 @@ namespace NuClear.VStore.Kafka
                     topic);
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            _producer?.Dispose();
         }
 
         private void Log(LogMessage logMessage)

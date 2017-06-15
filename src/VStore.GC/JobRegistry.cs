@@ -13,7 +13,8 @@ namespace NuClear.VStore.GC
         private static readonly Dictionary<string, Type> Registry =
             new Dictionary<string, Type>
                 {
-                    { "locks", typeof(LockCleanupJob) }
+                    { "locks", typeof(LockCleanupJob) },
+                    { "binaries", typeof(BinariesCleanupJob) }
                 };
 
         private readonly IServiceProvider _serviceProvider;
