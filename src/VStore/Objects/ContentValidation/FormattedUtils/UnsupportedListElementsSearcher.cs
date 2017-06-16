@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using HtmlAgilityPack;
@@ -8,6 +9,12 @@ namespace NuClear.VStore.Objects.ContentValidation.FormattedUtils
     internal class UnsupportedListElementsSearcher : HtmlNodeVisitor
     {
         private bool _unsupportedListElementsFound;
+        private readonly IReadOnlyCollection<string> _supportedTags;
+
+        public UnsupportedListElementsSearcher(IReadOnlyCollection<string> supportedTags)
+        {
+            _supportedTags = supportedTags;
+        }
 
         public bool IsThereUnsupportedElement(string text)
         {
@@ -23,7 +30,7 @@ namespace NuClear.VStore.Objects.ContentValidation.FormattedUtils
             if (node.Name.Equals(ElementFormattedTextTagNames.UnorderedList, StringComparison.OrdinalIgnoreCase))
             {
                 _unsupportedListElementsFound |=
-                    node.ChildNodes.Any(x => !x.Name.Equals(ElementFormattedTextTagNames.ListItem, StringComparison.OrdinalIgnoreCase));
+                    node.ChildNodes.Any(x => !_supportedTags.Contains(x.Name, StringComparer.OrdinalIgnoreCase));
             }
 
             if (_unsupportedListElementsFound)

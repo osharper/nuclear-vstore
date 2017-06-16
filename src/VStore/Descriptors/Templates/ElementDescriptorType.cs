@@ -2,11 +2,13 @@
 {
     public enum ElementDescriptorType
     {
-        Text = 1,
-        Image = 2,
-        Article = 3,
-        FasComment = 4,
-        Date = 5,
-        Link = 6
+        PlainText = 1,
+        FormattedText = 2,
+        Image = 3,
+        Article = 4,
+        FasComment = 5,
+        Date = 6,
+        Link = 7,
+        Phone = 8
     }
 }

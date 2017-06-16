@@ -34,8 +34,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public IElementConstraints For(Language language)
         {
-            IElementConstraints constraints;
-            if (_constraints.TryGetValue(language, out constraints))
+            if (_constraints.TryGetValue(language, out IElementConstraints constraints))
             {
                 return constraints;
             }

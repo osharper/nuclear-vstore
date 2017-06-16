@@ -165,7 +165,6 @@ namespace NuClear.VStore.Host
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 
-            app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
                     {
@@ -189,6 +188,8 @@ namespace NuClear.VStore.Host
                                     await context.Response.WriteAsync(new JObject(new JProperty("error", error)).ToString());
                                 }
                     });
+            app.UseMiddleware<HealthCheckMiddleware>();
+            app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
             app.UseApiVersioning();
             app.UseMvc();

@@ -13,7 +13,7 @@
         EmptySupportedFileFormats,
         EmptySupportedImageSizes,
         NonUniqueTemplateCode,
-        InvalidMaxSymblosPerWord,
+        InvalidMaxSymbolsPerWord,
         InvalidImageSize,
         UnsupportedArticleFileFormat,
         UnsupportedImageFileFormat

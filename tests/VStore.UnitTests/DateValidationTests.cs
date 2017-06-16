@@ -1,6 +1,7 @@
 ﻿using System;
 
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 
@@ -14,10 +15,11 @@ namespace VStore.UnitTests
         public void TestDateRangeValidation()
         {
             var value = new DateElementValue { BeginDate = DateTime.Today, EndDate = DateTime.Today.AddDays(1) };
+            var constraints = new DateElementConstraints();
 
             var error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
-                null,
+                constraints,
                 DateValidator.CheckDate,
                 val => val.EndDate = val.BeginDate?.AddMinutes(-1));
             Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);
@@ -27,10 +29,11 @@ namespace VStore.UnitTests
         public void TestNullsInDateRangeValidation()
         {
             var value = new DateElementValue { BeginDate = null, EndDate = null };
+            var constraints = new DateElementConstraints();
 
             var error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
-                null,
+                constraints,
                 DateValidator.CheckDate,
                 val => val.EndDate = DateTime.Now);
             Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);
@@ -40,7 +43,7 @@ namespace VStore.UnitTests
 
             error = TestHelpers.MakeValidationCheck<DateElementValue, InvalidDateRangeError>(
                 value,
-                null,
+                constraints,
                 DateValidator.CheckDate,
                 val => val.BeginDate = null);
             Assert.Equal(ElementConstraintViolations.ValidDateRange, error.ErrorType);

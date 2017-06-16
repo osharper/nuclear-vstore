@@ -52,16 +52,11 @@ namespace NuClear.VStore.Json
                 IElementConstraints constraints;
                 switch (descriptorType)
                 {
-                    case ElementDescriptorType.Text:
-                        if (property.Value.Value<bool?>(Tokens.IsFormattedToken) ?? false)
-                        {
-                            constraints = property.Value.ToObject<FormattedTextElementConstraints>();
-                        }
-                        else
-                        {
-                            constraints = property.Value.ToObject<PlainTextElementConstraints>();
-                        }
-
+                    case ElementDescriptorType.PlainText:
+                        constraints = property.Value.ToObject<PlainTextElementConstraints>();
+                        break;
+                    case ElementDescriptorType.FormattedText:
+                        constraints = property.Value.ToObject<FormattedTextElementConstraints>();
                         break;
                     case ElementDescriptorType.Image:
                         constraints = property.Value.ToObject<ImageElementConstraints>();
@@ -77,6 +72,9 @@ namespace NuClear.VStore.Json
                         break;
                     case ElementDescriptorType.Date:
                         constraints = property.Value.ToObject<DateElementConstraints>();
+                        break;
+                    case ElementDescriptorType.Phone:
+                        constraints = property.Value.ToObject<PhoneElementConstraints>();
                         break;
                     default:
                         return null;

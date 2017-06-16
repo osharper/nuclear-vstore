@@ -225,7 +225,7 @@ namespace NuClear.VStore.Objects
                                    {
                                        var errors = new List<ObjectElementValidationError>();
                                        var constraints = x.Constraints.For(language);
-                                       var rules = GetVerificationRules(x, constraints);
+                                       var rules = GetValidationRules(x);
 
                                        foreach (var validationRule in rules)
                                        {
@@ -240,32 +240,32 @@ namespace NuClear.VStore.Objects
             await Task.WhenAll(tasks);
         }
 
-        private static IEnumerable<ValidationRule> GetVerificationRules(IObjectElementDescriptor descriptor, IElementConstraints elementConstraints)
+        private static IEnumerable<ValidationRule> GetValidationRules(IObjectElementDescriptor descriptor)
         {
             switch (descriptor.Type)
             {
-                case ElementDescriptorType.Text:
-                    return ((TextElementConstraints)elementConstraints).IsFormatted
-                               ? new ValidationRule[]
-                                     {
-                                         FormattedTextValidator.CheckLength,
-                                         FormattedTextValidator.CheckWordsLength,
-                                         FormattedTextValidator.CheckLinesCount,
-                                         FormattedTextValidator.CheckRestrictedSymbols,
-                                         FormattedTextValidator.CheckValidHtml,
-                                         FormattedTextValidator.CheckSupportedHtmlTags,
-                                         FormattedTextValidator.CheckAttributesAbsence,
-                                         FormattedTextValidator.CheckEmptyList,
-                                         FormattedTextValidator.CheckNestedList,
-                                         FormattedTextValidator.CheckUnsupportedListElements
-                                     }
-                               : new ValidationRule[]
-                                     {
-                                         PlainTextValidator.CheckLength,
-                                         PlainTextValidator.CheckWordsLength,
-                                         PlainTextValidator.CheckLinesCount,
-                                         PlainTextValidator.CheckRestrictedSymbols
-                                     };
+                case ElementDescriptorType.PlainText:
+                    return new ValidationRule[]
+                        {
+                            PlainTextValidator.CheckLength,
+                            PlainTextValidator.CheckWordsLength,
+                            PlainTextValidator.CheckLinesCount,
+                            PlainTextValidator.CheckRestrictedSymbols
+                        };
+                case ElementDescriptorType.FormattedText:
+                    return new ValidationRule[]
+                        {
+                            FormattedTextValidator.CheckLength,
+                            FormattedTextValidator.CheckWordsLength,
+                            FormattedTextValidator.CheckLinesCount,
+                            FormattedTextValidator.CheckRestrictedSymbols,
+                            FormattedTextValidator.CheckValidHtml,
+                            FormattedTextValidator.CheckSupportedHtmlTags,
+                            FormattedTextValidator.CheckAttributesAbsence,
+                            FormattedTextValidator.CheckEmptyList,
+                            FormattedTextValidator.CheckNestedList,
+                            FormattedTextValidator.CheckUnsupportedListElements
+                        };
                 case ElementDescriptorType.FasComment:
                     return new ValidationRule[]
                                {
@@ -288,6 +288,8 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
+                case ElementDescriptorType.Phone:
+                    return new ValidationRule[] { };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -295,7 +297,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
         {
-            await PreprocessObjectElements(objectDescriptor.Language, objectDescriptor.Elements);
+            await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             var metadata = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
@@ -366,29 +368,32 @@ namespace NuClear.VStore.Objects
                                  .Single();
         }
 
-        private async Task PreprocessObjectElements(Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private async Task PreprocessObjectElements(IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             var tasks = elementDescriptors.Select(
                 async descriptor =>
                     await Task.Run(
                         () =>
                             {
-                                var constraints = descriptor.Constraints.For(language);
                                 switch (descriptor.Type)
                                 {
-                                    case ElementDescriptorType.Text:
+                                    case ElementDescriptorType.PlainText:
                                         ((TextElementValue)descriptor.Value).Raw =
-                                            ((TextElementConstraints)constraints).IsFormatted
-                                                ? ElementTextHarmonizer.ProcessFormatted(((TextElementValue)descriptor.Value).Raw)
-                                                : ElementTextHarmonizer.ProcessPlain(((TextElementValue)descriptor.Value).Raw);
+                                            ElementTextHarmonizer.ProcessPlain(((TextElementValue)descriptor.Value).Raw);
+                                        break;
+                                    case ElementDescriptorType.FormattedText:
+                                        ((TextElementValue)descriptor.Value).Raw =
+                                            ElementTextHarmonizer.ProcessFormatted(((TextElementValue)descriptor.Value).Raw);
                                         break;
                                     case ElementDescriptorType.FasComment:
-                                        ((FasElementValue)descriptor.Value).Text = ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
+                                        ((FasElementValue)descriptor.Value).Text =
+                                            ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
                                         break;
                                     case ElementDescriptorType.Image:
                                     case ElementDescriptorType.Article:
                                     case ElementDescriptorType.Date:
                                     case ElementDescriptorType.Link:
+                                    case ElementDescriptorType.Phone:
                                         break;
                                     default:
                                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),

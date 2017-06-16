@@ -25,7 +25,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var constraints = (TextElementConstraints)elementConstraints;
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
             if (!constraints.MaxSymbols.HasValue)
             {
                 return Array.Empty<ObjectElementValidationError>();
@@ -47,7 +47,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var constraints = (TextElementConstraints)elementConstraints;
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
             if (!constraints.MaxSymbolsPerWord.HasValue)
             {
                 return Array.Empty<ObjectElementValidationError>();
@@ -69,7 +69,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var constraints = (TextElementConstraints)elementConstraints;
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
             if (!constraints.MaxLines.HasValue)
             {
                 return Array.Empty<ObjectElementValidationError>();
@@ -86,15 +86,22 @@ namespace NuClear.VStore.Objects.ContentValidation
         public static IEnumerable<ObjectElementValidationError> CheckRestrictedSymbols(IObjectElementValue value, IElementConstraints elementConstraints)
         {
             var textValue = TextValueExtractor(value);
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
             return string.IsNullOrEmpty(textValue)
                 ? Array.Empty<ObjectElementValidationError>()
-                : TextValidationUtils.CheckRestrictedSymbols(WebUtility.HtmlDecode(textValue));
+                : TextValidationUtils.CheckRestrictedSymbols(WebUtility.HtmlDecode(textValue), constraints);
         }
 
         public static IEnumerable<ObjectElementValidationError> CheckValidHtml(IObjectElementValue value, IElementConstraints elementConstraints)
         {
             var textValue = TextValueExtractor(value);
             if (string.IsNullOrEmpty(textValue))
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            if (!constraints.ValidHtml)
             {
                 return Array.Empty<ObjectElementValidationError>();
             }
@@ -115,22 +122,12 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var supportedTags = new[]
-                                    {
-                                        ElementFormattedTextTagNames.Break,
-                                        ElementFormattedTextTagNames.UnorderedList,
-                                        ElementFormattedTextTagNames.ListItem,
-                                        ElementFormattedTextTagNames.Strong,
-                                        ElementFormattedTextTagNames.Bold,
-                                        ElementFormattedTextTagNames.Emphasis,
-                                        ElementFormattedTextTagNames.Italic
-                                    };
-
-            var unsupportedTags = new HtmlTagsSearcher(supportedTags)
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            var unsupportedTags = new HtmlTagsSearcher(constraints.SupportedTags)
                 .GetUnsupportedTags(textValue);
 
             return unsupportedTags.Count > 0
-                ? new[] { new UnsupportedTagsError(supportedTags, unsupportedTags) }
+                ? new[] { new UnsupportedTagsError(constraints.SupportedTags, unsupportedTags) }
                 : Array.Empty<ObjectElementValidationError>();
         }
 
@@ -145,8 +142,12 @@ namespace NuClear.VStore.Objects.ContentValidation
             var attributes = new AttributesSearcher()
                 .GetAttributes(textValue);
 
-            return attributes.Count > 0
-                ? new[] { new UnsupportedAttributesError(attributes) }
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            var unsupportedAttributes = new HashSet<string>(attributes);
+            unsupportedAttributes.ExceptWith(constraints.SupportedAttributes);
+
+            return unsupportedAttributes.Count > 0
+                ? new[] { new UnsupportedAttributesError(unsupportedAttributes) }
                 : Array.Empty<ObjectElementValidationError>();
         }
 
@@ -154,6 +155,12 @@ namespace NuClear.VStore.Objects.ContentValidation
         {
             var textValue = TextValueExtractor(value);
             if (string.IsNullOrEmpty(textValue))
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            if (!constraints.NoEmptyLists)
             {
                 return Array.Empty<ObjectElementValidationError>();
             }
@@ -174,6 +181,12 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            if (!constraints.NoNestedLists)
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
             var nestedListFound = new NestedListSearcher()
                 .IsThereNestedList(textValue);
 
@@ -190,7 +203,8 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var unsupportedElementFound = new UnsupportedListElementsSearcher()
+            var constraints = (FormattedTextElementConstraints)elementConstraints;
+            var unsupportedElementFound = new UnsupportedListElementsSearcher(constraints.SupportedListElements)
                 .IsThereUnsupportedElement(textValue);
 
             return unsupportedElementFound

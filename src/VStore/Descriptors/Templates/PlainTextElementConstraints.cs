@@ -4,8 +4,6 @@ namespace NuClear.VStore.Descriptors.Templates
 {
     public class PlainTextElementConstraints : TextElementConstraints, IEquatable<PlainTextElementConstraints>
     {
-        public override bool IsFormatted => false;
-
         public override bool Equals(object obj)
         {
             var other = obj as PlainTextElementConstraints;

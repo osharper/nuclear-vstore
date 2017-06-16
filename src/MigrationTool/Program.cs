@@ -188,8 +188,7 @@ namespace MigrationTool
                                 throw new IOException("Incorrect instance: " + instance + " on line " + lineNumber.ToString());
                             }
 
-                            long id;
-                            if (!long.TryParse(values[i + 1], out id))
+                            if (!long.TryParse(values[i + 1], out long id))
                             {
                                 throw new InvalidCastException("Cannot parse id for " + instance + " instance on line " + lineNumber.ToString());
                             }

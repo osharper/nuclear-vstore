@@ -9,7 +9,7 @@ namespace NuClear.VStore.Objects.ContentValidation
 {
     public static class LinkValidator
     {
-        public static IEnumerable<ObjectElementValidationError> CheckLink(IObjectElementValue value, IElementConstraints constraints)
+        public static IEnumerable<ObjectElementValidationError> CheckLink(IObjectElementValue value, IElementConstraints elementConstraints)
         {
             var rawValue = (IObjectElementRawValue)value;
             if (string.IsNullOrEmpty(rawValue.Raw))
@@ -17,9 +17,14 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
+            var constraints = (LinkElementConstraints)elementConstraints;
+            if (!constraints.ValidLink)
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
             // We can use Uri.IsWellFormedUriString() instead:
-            Uri uri;
-            if (!Uri.TryCreate(rawValue.Raw, UriKind.Absolute, out uri)
+            if (!Uri.TryCreate(rawValue.Raw, UriKind.Absolute, out Uri uri)
                 || (uri.Scheme != "http" && uri.Scheme != "https")
                 || uri.HostNameType != UriHostNameType.Dns)
             {
