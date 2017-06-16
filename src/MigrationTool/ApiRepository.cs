@@ -384,7 +384,7 @@ namespace MigrationTool
                     using (var response = await _httpClient.PostAsync(url, content))
                     {
                         stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, url, string.Empty, stringResponse);
+                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, url, string.Empty, string.Empty, stringResponse);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
                         return JObject.Parse(stringResponse);
