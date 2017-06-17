@@ -29,7 +29,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public override int GetHashCode()
         {
-            return 1;
+            return ValidDateRange.GetHashCode();
         }
     }
 }
