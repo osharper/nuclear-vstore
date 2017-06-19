@@ -52,7 +52,7 @@ namespace NuClear.VStore.Host.Controllers
             return Json(container.Collection);
         }
 
-        [HttpGet("{id}/{versionId}/template")]
+        [HttpGet("{id:long}/{versionId}/template")]
         [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(IVersionedTemplateDescriptor), 200)]
         [ProducesResponseType(404)]
@@ -72,7 +72,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpGet("{id}/versions")]
+        [HttpGet("{id:long}/versions")]
         [ProducesResponseType(typeof(IReadOnlyCollection<ModifiedObjectDescriptor>), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersions(long id)
@@ -88,7 +88,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:long}")]
         [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(304)]
@@ -127,7 +127,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpGet("{id}/{versionId}")]
+        [HttpGet("{id:long}/{versionId}")]
         [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(typeof(string), 400)]
@@ -164,7 +164,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{id}")]
+        [HttpPost("{id:long}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(404)]
@@ -225,7 +225,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPatch("{id}")]
+        [HttpPatch("{id:long}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(404)]

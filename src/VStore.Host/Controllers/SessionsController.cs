@@ -29,7 +29,7 @@ namespace NuClear.VStore.Host.Controllers
             _logger = logger;
         }
 
-        [HttpGet("{sessionId}")]
+        [HttpGet("{sessionId:guid}")]
         [ProducesResponseType(typeof(object), 200)]
         [ProducesResponseType(typeof(string), 404)]
         [ProducesResponseType(410)]
@@ -79,7 +79,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{language}/{templateId}")]
+        [HttpPost("{language:lang}/{templateId:long}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
@@ -113,7 +113,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{language}/{templateId}/{templateVersionId}")]
+        [HttpPost("{language:lang}/{templateId:long}/{templateVersionId}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
@@ -148,7 +148,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{sessionId}/upload/{templateCode}")]
+        [HttpPost("{sessionId:guid}/upload/{templateCode:int}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
         [ProducesResponseType(typeof(UploadedFileValue), 201)]

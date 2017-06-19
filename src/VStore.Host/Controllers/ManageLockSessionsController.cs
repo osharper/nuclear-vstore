@@ -27,7 +27,7 @@ namespace NuClear.VStore.Host.Controllers
             return Json(keys);
         }
 
-        [HttpDelete("{rootObjectId}")]
+        [HttpDelete("{rootObjectId:long}")]
         [ProducesResponseType(typeof(void), 202)]
         public async Task<IActionResult> DeleteSessionLock(long rootObjectId)
         {

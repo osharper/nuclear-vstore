@@ -176,7 +176,7 @@ namespace NuClear.VStore.Objects
                 {
                     throw new ObjectInconsistentException(
                         objectId,
-                        $"Constraints for the element with template code '{referenceObjectElement.TemplateCode} doesn't match to constraints for corresponding element in template.");
+                        $"Constraints for the element with template code '{referenceObjectElement.TemplateCode}' doesn't match to constraints for corresponding element in template.");
                 }
             }
         }

@@ -2,6 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+using Moq;
+
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation.Errors;
@@ -62,6 +67,16 @@ namespace VStore.UnitTests
             {
                 Assert.Equal(1, errors.OfType<ElementWordsTooLongError>().Count());
             }
+        }
+
+        internal static bool TestRouteConstraint(IRouteConstraint constraint, object value)
+        {
+            var route = new RouteCollection();
+            var context = new Mock<HttpContext>();
+
+            const string ParameterName = "fake";
+            var values = new RouteValueDictionary { { ParameterName, value } };
+            return constraint.Match(context.Object, route, ParameterName, values, RouteDirection.IncomingRequest);
         }
     }
 }

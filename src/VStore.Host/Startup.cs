@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
+using NuClear.VStore.Host.Routing;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
@@ -66,13 +68,14 @@ namespace NuClear.VStore.Host
                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value);
 
             services.AddMvcCore()
-                    .AddApiExplorer()
                     .AddVersionedApiExplorer()
+                    .AddApiExplorer()
                     .AddAuthorization()
                     .AddCors()
                     .AddJsonFormatters()
@@ -185,8 +188,8 @@ namespace NuClear.VStore.Host
             app.UseMiddleware<HealthCheckMiddleware>();
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
-            app.UseApiVersioning();
             app.UseMvc();
+            app.UseApiVersioning();
 
             if (!env.IsProduction())
             {
