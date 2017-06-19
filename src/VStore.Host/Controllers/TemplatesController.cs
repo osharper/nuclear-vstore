@@ -77,6 +77,8 @@ namespace NuClear.VStore.Host.Controllers
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
                             templateDescriptor.Author,
+                            templateDescriptor.AuthorLogin,
+                            templateDescriptor.AuthorName,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -106,6 +108,8 @@ namespace NuClear.VStore.Host.Controllers
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
                             templateDescriptor.Author,
+                            templateDescriptor.AuthorLogin,
+                            templateDescriptor.AuthorName,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -156,11 +160,15 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<IActionResult> Create(
             long id,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (templateDescriptor == null)
@@ -170,7 +178,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
+                var versionId = await _templatesManagementService.CreateTemplate(id, new AuthorInfo(author, authorLogin, authorName), templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
@@ -201,6 +209,8 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
             if (string.IsNullOrEmpty(ifMatch))
@@ -208,9 +218,11 @@ namespace NuClear.VStore.Host.Controllers
                 return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
             }
 
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (templateDescriptor == null)
@@ -220,7 +232,11 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch.Trim('"'), author, templateDescriptor);
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(
+                                          id,
+                                          ifMatch.Trim('"'),
+                                          new AuthorInfo(author, authorLogin, authorName),
+                                          templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";

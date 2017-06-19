@@ -51,7 +51,7 @@ namespace NuClear.VStore.Objects
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
-        public async Task<string> Create(long id, string author, IObjectDescriptor objectDescriptor)
+        public async Task<string> Create(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             CheckRequredProperties(id, objectDescriptor);
 
@@ -90,7 +90,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                return await PutObject(id, author, objectDescriptor);
+                return await PutObject(id, authorInfo, objectDescriptor);
             }
             finally
             {
@@ -101,7 +101,7 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        public async Task<string> Modify(long id, string versionId, string author, IObjectDescriptor modifiedObjectDescriptor)
+        public async Task<string> Modify(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor modifiedObjectDescriptor)
         {
             CheckRequredProperties(id, modifiedObjectDescriptor);
 
@@ -135,7 +135,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
 
-                return await PutObject(id, author, modifiedObjectDescriptor);
+                return await PutObject(id, authorInfo, modifiedObjectDescriptor);
             }
             finally
             {
@@ -287,7 +287,7 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
@@ -308,10 +308,9 @@ namespace NuClear.VStore.Objects
                                  };
 
                 metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-                if (!string.IsNullOrEmpty(author))
-                {
-                    metadataWrapper.Write(MetadataElement.Author, author);
-                }
+                metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+                metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+                metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
                 await _amazonS3.PutObjectAsync(putRequest);
             }
@@ -337,10 +336,9 @@ namespace NuClear.VStore.Objects
                              };
 
             metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            if (!string.IsNullOrEmpty(author))
-            {
-                metadataWrapper.Write(MetadataElement.Author, author);
-            }
+            metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+            metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             metadataWrapper.Write(
                 MetadataElement.ModifiedElements,

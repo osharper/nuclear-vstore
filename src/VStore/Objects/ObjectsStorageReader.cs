@@ -169,7 +169,9 @@ namespace NuClear.VStore.Objects
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
-                                     Author = persistenceDescriptorWrapper.Author,
+                                     Author = persistenceDescriptorWrapper.AuthorInfo.Author,
+                                     AuthorLogin = persistenceDescriptorWrapper.AuthorInfo.AuthorLogin,
+                                     AuthorName = persistenceDescriptorWrapper.AuthorInfo.AuthorName,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -202,6 +204,8 @@ namespace NuClear.VStore.Objects
 
             var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string content;
             using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
@@ -210,21 +214,21 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return new ObjectWrapper<T>(obj, author, getObjectResponse.LastModified);
+            return new ObjectWrapper<T>(obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
         }
 
         private class ObjectWrapper<T>
         {
             private readonly T _object;
 
-            public ObjectWrapper(T @object, string author, DateTime lastModified)
+            public ObjectWrapper(T @object, AuthorInfo authorInfo, DateTime lastModified)
             {
                 _object = @object;
-                Author = author;
+                AuthorInfo = authorInfo;
                 LastModified = lastModified;
             }
 
-            public string Author { get; }
+            public AuthorInfo AuthorInfo { get; }
             public DateTime LastModified { get; }
 
             public static implicit operator T(ObjectWrapper<T> wrapper)

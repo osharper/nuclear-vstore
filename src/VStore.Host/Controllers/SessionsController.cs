@@ -63,6 +63,8 @@ namespace NuClear.VStore.Host.Controllers
                                     templateDescriptor.VersionId,
                                     templateDescriptor.LastModified,
                                     templateDescriptor.Author,
+                                    templateDescriptor.AuthorLogin,
+                                    templateDescriptor.AuthorName,
                                     templateDescriptor.Properties,
                                     templateDescriptor.Elements
                                 },

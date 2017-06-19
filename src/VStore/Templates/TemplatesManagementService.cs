@@ -61,7 +61,7 @@ namespace NuClear.VStore.Templates
                        };
         }
 
-        public async Task<string> CreateTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
+        public async Task<string> CreateTemplate(long id, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -78,7 +78,7 @@ namespace NuClear.VStore.Templates
                     throw new ObjectAlreadyExistsException(id);
                 }
 
-                await PutTemplate(id, author, templateDescriptor);
+                await PutTemplate(id, authorInfo, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
@@ -92,7 +92,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        public async Task<string> ModifyTemplate(long id, string versionId, string author, ITemplateDescriptor templateDescriptor)
+        public async Task<string> ModifyTemplate(long id, string versionId, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)
         {
             if (id == 0)
             {
@@ -120,7 +120,7 @@ namespace NuClear.VStore.Templates
                     throw new ConcurrencyException(id, versionId, latestVersionId);
                 }
 
-                await PutTemplate(id, author, templateDescriptor);
+                await PutTemplate(id, authorInfo, templateDescriptor);
 
                 // ceph does not return version-id response header, so we need to do another request to get version
                 return await _templatesStorageReader.GetTemplateLatestVersion(id);
@@ -256,7 +256,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private async Task PutTemplate(long id, string author, ITemplateDescriptor templateDescriptor)
+        private async Task PutTemplate(long id, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)
         {
             await VerifyElementDescriptorsConsistency(templateDescriptor.Elements);
 
@@ -269,7 +269,9 @@ namespace NuClear.VStore.Templates
                     CannedACL = S3CannedACL.PublicRead,
                 };
             var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            metadataWrapper.Write(MetadataElement.Author, author);
+            metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+            metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             await _amazonS3.PutObjectAsync(putRequest);
         }
