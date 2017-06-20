@@ -21,12 +21,12 @@ using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
+using NuClear.VStore.Objects;
 
 using File = System.IO.File;
 
 namespace MigrationTool
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
     public class ImportService
     {
         private readonly DateTime _thresholdDate;
@@ -138,14 +138,13 @@ namespace MigrationTool
 
                 // Find child positions:
                 positionIds.AddRange(
-                    await (from pc in context.PositionChildren
+                    await(from pc in context.PositionChildren
                            join pos in context.Positions on pc.ChildPositionId equals pos.Id
                            where positionIds.Contains(pc.MasterPositionId)
                                  && !pos.IsDeleted
                            select pc.ChildPositionId)
                         .Distinct()
-                        .ToArrayAsync()
-                );
+                        .ToArrayAsync());
 
                 positions = await context.Positions
                     .Where(p => positionIds.Contains(p.Id))
@@ -324,14 +323,13 @@ namespace MigrationTool
                                     .ToListAsync();
 
                 positions.AddRange(
-                    await (from pc in context.PositionChildren
+                    await(from pc in context.PositionChildren
                            join pos in context.Positions on pc.ChildPositionId equals pos.Id
                            where positions.Contains(pc.MasterPositionId)
                                  && !pos.IsDeleted
                            select pc.ChildPositionId)
                         .Distinct()
-                        .ToArrayAsync()
-                );
+                        .ToArrayAsync());
 
                 var positionsTemplates = await (from pos in context.Positions
                                                 join t in context.AdvertisementTemplates on pos.AdvertisementTemplateId equals t.Id
@@ -591,8 +589,21 @@ namespace MigrationTool
 
         private async Task ImportAdvertisementAsync(Advertisement advertisement)
         {
+            var objectId = advertisement.Id.ToString();
             var objectDescriptor = await GenerateObjectDescriptorAsync(advertisement);
-            await Repository.CreateObjectAsync(advertisement.Id.ToString(), advertisement.FirmId.ToString(), objectDescriptor);
+            try
+            {
+                await Repository.CreateObjectAsync(advertisement.Id, advertisement.FirmId.ToString(), objectDescriptor);
+            }
+            catch (ObjectAlreadyExistsException ex)
+            {
+                _logger.LogWarning(new EventId(), ex, "Object {id} already exists, try to continue execution", objectId);
+            }
+
+            if (advertisement.IsSelectedToWhiteList)
+            {
+                await Repository.SelectObjectToWhitelist(objectId);
+            }
         }
 
         private async Task<ObjectDescriptor> GenerateObjectDescriptorAsync(Advertisement advertisement)
@@ -919,7 +930,7 @@ namespace MigrationTool
                 Properties = new JObject
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
-                    { Tokens.IsWhiteListedToken, false }
+                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList }
                 }
             };
         }
