@@ -1,21 +1,26 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Reflection;
+using System.Text;
 
 using Amazon;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -23,6 +28,7 @@ using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
+using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Routing;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
@@ -68,12 +74,21 @@ namespace NuClear.VStore.Host
                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
                 .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<JwtOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value);
 
-            services.AddMvcCore()
+            services.AddMvcCore(
+                        options =>
+                            {
+                                var policy = new AuthorizationPolicyBuilder()
+                                    .RequireAuthenticatedUser()
+                                    .Build();
+                                options.Filters.Add(new AuthorizeFilter(policy));
+                            })
                     .AddVersionedApiExplorer()
                     .AddApiExplorer()
                     .AddAuthorization()
@@ -96,16 +111,26 @@ namespace NuClear.VStore.Host
             services.AddApiVersioning(options => options.ReportApiVersions = true);
 
             services.AddSwaggerGen(
-                x =>
+                options =>
                     {
                         var provider = services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
                         foreach (var description in provider.ApiVersionDescriptions)
                         {
-                            x.SwaggerDoc(description.GroupName, new Info { Title = $"VStore API {description.ApiVersion}", Version = description.ApiVersion.ToString() });
+                            options.SwaggerDoc(description.GroupName, new Info { Title = $"VStore API {description.ApiVersion}", Version = description.ApiVersion.ToString() });
                         }
 
-                        x.OperationFilter<ImplicitApiVersionParameter>();
-                        x.OperationFilter<UploadFileOperationFilter>();
+                        options.AddSecurityDefinition(
+                            "Bearer",
+                            new ApiKeyScheme
+                                {
+                                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                                    Name = "Authorization",
+                                    In = "header",
+                                    Type = "apiKey"
+                                });
+
+                        options.OperationFilter<ImplicitApiVersionParameter>();
+                        options.OperationFilter<UploadFileOperationFilter>();
                     });
 
             services.AddSingleton<IAmazonS3>(
@@ -188,6 +213,33 @@ namespace NuClear.VStore.Host
             app.UseMiddleware<HealthCheckMiddleware>();
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
+
+            var jwtOptions = app.ApplicationServices.GetRequiredService<JwtOptions>();
+            app.UseJwtBearerAuthentication(
+                new JwtBearerOptions
+                    {
+                        AutomaticAuthenticate = true,
+                        AutomaticChallenge = true,
+                        TokenValidationParameters =
+                            new TokenValidationParameters
+                                {
+                                    ValidateIssuer = true,
+                                    ValidIssuer = jwtOptions.Issuer,
+
+                                    ValidateAudience = false,
+
+                                    ValidateIssuerSigningKey = true,
+                                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtOptions.SecretKey)),
+
+                                    ValidateLifetime = false,
+                                    LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
+                                                            {
+                                                                var utcNow = DateTime.UtcNow;
+                                                                return notBefore <= utcNow && utcNow <= expires;
+                                                            }
+                                }
+                    });
+
             app.UseMvc();
             app.UseApiVersioning();
 
