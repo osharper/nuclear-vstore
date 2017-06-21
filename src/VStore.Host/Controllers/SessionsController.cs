@@ -205,7 +205,7 @@ namespace NuClear.VStore.Host.Controllers
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
 
-                return Created(uploadedFileInfo.PreviewUri, new UploadedFileValue(uploadedFileInfo.Id));
+                return Created(uploadedFileInfo.DownloadUri, new UploadedFileValue(uploadedFileInfo.Id));
             }
             catch (ObjectNotFoundException)
             {

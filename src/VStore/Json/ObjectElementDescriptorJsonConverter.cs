@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Objects.Persistence;
 using NuClear.VStore.Descriptors.Templates;
 
 namespace NuClear.VStore.Json
@@ -22,8 +23,18 @@ namespace NuClear.VStore.Json
                                         objectElementDescriptor.Properties,
                                         objectElementDescriptor.Constraints);
 
+            var objectElementDescriptorValue = objectElementDescriptor.Value;
+            var binaryElementValue = objectElementDescriptorValue as IBinaryElementPersistenceValue;
+            if (binaryElementValue != null)
+            {
+                objectElementDescriptorValue = new BinaryElementPersistenceValue(
+                    binaryElementValue.Raw,
+                    binaryElementValue.Filename,
+                    binaryElementValue.Filesize);
+            }
+
             var json = JObject.FromObject(elementDescriptor, serializer);
-            json[Tokens.ValueToken] = JToken.FromObject(objectElementDescriptor.Value, serializer);
+            json[Tokens.ValueToken] = JToken.FromObject(objectElementDescriptorValue, serializer);
 
             json.WriteTo(writer);
         }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Net;
+﻿using System.Net;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -27,9 +26,8 @@ namespace NuClear.VStore.Sessions
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                 var filename = metadataWrapper.Read<string>(MetadataElement.Filename);
-                var previewUrl = metadataWrapper.Read<string>(MetadataElement.PreviewUrl);
 
-                return new BinaryMetadata(filename, metadataResponse.ContentLength, previewUrl != null ? new Uri(previewUrl) : null);
+                return new BinaryMetadata(filename, metadataResponse.ContentLength);
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {

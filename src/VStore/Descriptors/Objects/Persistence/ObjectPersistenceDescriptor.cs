@@ -2,7 +2,7 @@
 
 using Newtonsoft.Json.Linq;
 
-namespace NuClear.VStore.Descriptors.Objects
+namespace NuClear.VStore.Descriptors.Objects.Persistence
 {
     public sealed class ObjectPersistenceDescriptor : IObjectPersistenceDescriptor
     {

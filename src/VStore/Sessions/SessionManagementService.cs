@@ -201,9 +201,11 @@ namespace NuClear.VStore.Sessions
                         getResponse.ContentLength);
                 }
 
-                var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
-                var previewUrl = new Uri(_fileStorageEndpointUri, fileKey);
+                var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
+                var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
 
+                var fileExtension = Path.GetExtension(fileName);
+                var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
                 var copyRequest = new CopyObjectRequest
                                       {
                                           SourceBucket = _filesBucketName,
@@ -218,12 +220,9 @@ namespace NuClear.VStore.Sessions
                     copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
                 }
 
-                var metadataWrapper = MetadataCollectionWrapper.For(copyRequest.Metadata);
-                metadataWrapper.Write(MetadataElement.PreviewUrl, previewUrl);
-
                 await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new UploadedFileInfo(fileKey, previewUrl);
+                return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {

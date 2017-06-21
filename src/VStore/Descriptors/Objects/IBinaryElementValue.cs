@@ -1,8 +1,11 @@
-﻿namespace NuClear.VStore.Descriptors.Objects
+﻿using System;
+
+using NuClear.VStore.Descriptors.Objects.Persistence;
+
+namespace NuClear.VStore.Descriptors.Objects
 {
-    public interface IBinaryElementValue : IObjectElementRawValue
+    public interface IBinaryElementValue : IBinaryElementPersistenceValue
     {
-        string Filename { get; set; }
-        long Filesize { get; set; }
+        Uri DownloadUri { get; set; }
     }
 }

@@ -5,7 +5,6 @@
         ExpiresAt = 1,
         Filename,
         Author,
-        ModifiedElements,
-        PreviewUrl
+        ModifiedElements
     }
 }
