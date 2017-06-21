@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -148,6 +149,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("{sessionId:guid}/upload/{templateCode:int}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]

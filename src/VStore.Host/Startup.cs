@@ -235,7 +235,7 @@ namespace NuClear.VStore.Host
                                     LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
                                                             {
                                                                 var utcNow = DateTime.UtcNow;
-                                                                return notBefore <= utcNow && utcNow <= expires;
+                                                                return !(notBefore > utcNow || utcNow > expires);
                                                             }
                                 }
                     });
