@@ -90,6 +90,7 @@ namespace NuClear.VStore.Host
                                 settings.Converters.Insert(1, new ElementDescriptorJsonConverter());
                                 settings.Converters.Insert(2, new ElementDescriptorCollectionJsonConverter());
                                 settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
+                                settings.Converters.Insert(4, new ObjectElementDescriptorJsonConverter());
                                 settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
                             });
 

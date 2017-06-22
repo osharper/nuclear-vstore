@@ -59,52 +59,47 @@ namespace NuClear.VStore.Objects
         {
             var versions = new List<ModifiedObjectDescriptor>();
 
-            Func<string, string, Task<IReadOnlyCollection<int>>> getModifiedElements =
-                async (key, versionId) =>
+            async Task<IReadOnlyCollection<int>> GetModifiedElements(string key, string versionId)
+            {
+                var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, key, versionId);
+
+                var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
+                var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
+                return string.IsNullOrEmpty(modifiedElements)
+                           ? Array.Empty<int>()
+                           : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+            }
+
+            async Task<ListVersionsResponse> ListVersions(string nextVersionIdMarker)
+            {
+                var versionsResponse = await _amazonS3.ListVersionsAsync(new ListVersionsRequest
                     {
-                        var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, key, versionId);
+                        BucketName = _bucketName,
+                        Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                        VersionIdMarker = nextVersionIdMarker
+                    });
+                var versionInfos = versionsResponse.Versions.Where(x => !x.IsDeleteMarker)
+                                                   .Select(x => new { x.Key, x.VersionId, x.LastModified })
+                                                   .ToArray();
 
-                        var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-                        var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
-                        return string.IsNullOrEmpty(modifiedElements)
-                                   ? Array.Empty<int>()
-                                   : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
-                    };
+                var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
+                var tasks = versionInfos.Select(
+                    async (x, index) =>
+                        {
+                            var modifiedElements = await GetModifiedElements(x.Key, x.VersionId);
+                            descriptors[index] = new ModifiedObjectDescriptor(x.Key.AsRootObjectId(),
+                                                                              x.VersionId,
+                                                                              x.LastModified,
+                                                                              modifiedElements);
+                        });
+                await Task.WhenAll(tasks);
 
-            Func<string, Task<ListVersionsResponse>> listVersions =
-                async nextVersionIdMarker =>
-                    {
-                        var versionsResponse = await _amazonS3.ListVersionsAsync(
-                                                   new ListVersionsRequest
-                                                       {
-                                                           BucketName = _bucketName,
-                                                           Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
-                                                           VersionIdMarker = nextVersionIdMarker
-                                                       });
-                        var versionInfos = versionsResponse.Versions
-                                                           .Where(x => !x.IsDeleteMarker)
-                                                           .Select(x => new { x.Key, x.VersionId, x.LastModified })
-                                                           .ToArray();
+                versions.AddRange(descriptors);
 
-                        var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
-                        var tasks = versionInfos.Select(
-                            async (x, index) =>
-                                {
-                                    var modifiedElements = await getModifiedElements(x.Key, x.VersionId);
-                                    descriptors[index] = new ModifiedObjectDescriptor(
-                                        x.Key.AsRootObjectId(),
-                                        x.VersionId,
-                                        x.LastModified,
-                                        modifiedElements);
-                                });
-                        await Task.WhenAll(tasks);
+                return versionsResponse;
+            }
 
-                        versions.AddRange(descriptors);
-
-                        return versionsResponse;
-                    };
-
-            var response = await listVersions(null);
+            var response = await ListVersions(null);
             if (versions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
@@ -112,7 +107,7 @@ namespace NuClear.VStore.Objects
 
             while (response.IsTruncated)
             {
-                response = await listVersions(response.NextVersionIdMarker);
+                response = await ListVersions(response.NextVersionIdMarker);
             }
 
             return versions;
@@ -163,23 +158,21 @@ namespace NuClear.VStore.Objects
                             binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
                         }
 
-                        var imageElementValue = binaryElementValue as IImageElementValue;
-                        if (imageElementValue != null)
+                        if (binaryElementValue is IImageElementValue imageElementValue)
                         {
                             imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
                         }
 
-                        elements[index] = new ObjectElementDescriptor(
-                            new ElementDescriptor(
-                                elementPersistenceDescriptor.Type,
-                                elementPersistenceDescriptor.TemplateCode,
-                                elementPersistenceDescriptor.Properties,
-                                elementPersistenceDescriptor.Constraints),
-                            elementPersistenceDescriptor.Value)
+                        elements[index] = new ObjectElementDescriptor
                             {
                                 Id = x.Id.AsSubObjectId(),
                                 VersionId = x.VersionId,
-                                LastModified = elementPersistenceDescriptorWrapper.LastModified
+                                LastModified = elementPersistenceDescriptorWrapper.LastModified,
+                                Type = elementPersistenceDescriptor.Type,
+                                TemplateCode = elementPersistenceDescriptor.TemplateCode,
+                                Properties = elementPersistenceDescriptor.Properties,
+                                Constraints = elementPersistenceDescriptor.Constraints,
+                                Value = elementPersistenceDescriptor.Value
                             };
                     });
             await Task.WhenAll(tasks);

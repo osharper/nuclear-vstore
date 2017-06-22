@@ -211,7 +211,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static async Task VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private static async Task VerifyObjectElementsConsistency(
+            long objectId,
+            Language language,
+            IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             var tasks = elementDescriptors.Select(
                 async x => await Task.Run(
@@ -304,21 +307,10 @@ namespace NuClear.VStore.Objects
                 if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
                 {
                     var metadata = metadataForBinaries[elementDescriptor.Id];
-                    value = new BinaryElementPersistenceValue(
-                        binaryElementValue.Raw,
-                        metadata.Filename,
-                        metadata.Filesize);
+                    value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
                 }
 
-                var elementPersistenceDescriptor =
-                    new ObjectElementPersistenceDescriptor(
-                        new ElementDescriptor(
-                            elementDescriptor.Type,
-                            elementDescriptor.TemplateCode,
-                            elementDescriptor.Properties,
-                            elementDescriptor.Constraints),
-                        value);
-
+                var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
                 putRequest = new PutObjectRequest
                                  {
                                      Key = id.AsS3ObjectKey(elementDescriptor.Id),
