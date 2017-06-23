@@ -11,6 +11,8 @@ namespace NuClear.VStore.Json
 {
     public sealed class ObjectDescriptorJsonConverter : JsonConverter
     {
+        public override bool CanWrite => false;
+
         public override bool CanConvert(Type objectType) => typeof(IObjectDescriptor).IsAssignableFrom(objectType);
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
