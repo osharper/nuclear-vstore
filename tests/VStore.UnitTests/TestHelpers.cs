@@ -50,7 +50,7 @@ namespace VStore.UnitTests
             if (containsRestrictedSymbols)
             {
                 Assert.Equal(1, errors.OfType<NonBreakingSpaceSymbolError>().Count());
-                Assert.Equal(1, errors.OfType<ControlСharactersInTextError>().Count());
+                Assert.Equal(1, errors.OfType<ControlCharactersInTextError>().Count());
             }
 
             if (constraints.MaxSymbols.HasValue)
