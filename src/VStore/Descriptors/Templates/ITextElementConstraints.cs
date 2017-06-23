@@ -4,7 +4,7 @@
     {
         int? MaxSymbols { get; set; }
 
-        bool WithoutControlСhars { get; }
+        bool WithoutControlChars { get; }
 
         bool WithoutNonBreakingSpace { get; }
     }

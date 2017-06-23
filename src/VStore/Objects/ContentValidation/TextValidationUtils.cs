@@ -32,9 +32,9 @@ namespace NuClear.VStore.Objects.ContentValidation
                 errors.Add(new NonBreakingSpaceSymbolError());
             }
 
-            if (constraints.WithoutControlСhars && textToCheck.Any(c => char.IsControl(c) && c != '\t' && c != '\n'))
+            if (constraints.WithoutControlChars && textToCheck.Any(c => char.IsControl(c) && c != '\t' && c != '\n'))
             {
-                errors.Add(new ControlСharactersInTextError());
+                errors.Add(new ControlCharactersInTextError());
             }
 
             return errors;
