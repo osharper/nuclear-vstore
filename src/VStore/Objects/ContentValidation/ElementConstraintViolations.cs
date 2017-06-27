@@ -5,7 +5,7 @@
         MaxLines,
         MaxSymbols,
         MaxSymbolsPerWord,
-        WithoutControlСhars,
+        WithoutControlChars,
         WithoutNonBreakingSpace,
         ValidHtml,
         SupportedTags,

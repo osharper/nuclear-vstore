@@ -102,12 +102,12 @@ namespace VStore.UnitTests
             Assert.Equal(ElementConstraintViolations.WithoutNonBreakingSpace, errorOnSpace.ErrorType);
 
             value.Raw = AllChars.ToUpper();
-            var errorOnChars = TestHelpers.MakeValidationCheck<TextElementValue, ControlСharactersInTextError>(
+            var errorOnChars = TestHelpers.MakeValidationCheck<TextElementValue, ControlCharactersInTextError>(
                 value,
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\r");
-            Assert.Equal(ElementConstraintViolations.WithoutControlСhars, errorOnChars.ErrorType);
+            Assert.Equal(ElementConstraintViolations.WithoutControlChars, errorOnChars.ErrorType);
         }
 
         [Fact]

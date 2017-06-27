@@ -20,9 +20,15 @@ namespace MigrationTool.Models
 
         public virtual DbSet<AdvertisementElement> AdvertisementElements { get; set; }
 
+        public virtual DbSet<AdvertisementElementDenialReason> AdvertisementElementDenialReasons { get; set; }
+
+        public virtual DbSet<AdvertisementElementStatus> AdvertisementElementStatuses { get; set; }
+
         public virtual DbSet<AdvertisementTemplate> AdvertisementTemplates { get; set; }
 
         public virtual DbSet<Advertisement> Advertisements { get; set; }
+
+        public virtual DbSet<DenialReason> DenialReasons { get; set; }
 
         public virtual DbSet<File> Files { get; set; }
 
@@ -65,6 +71,65 @@ namespace MigrationTool.Models
                     .HasForeignKey(d => d.AdsTemplateId)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_AdsTemplatesAdsElementTemplates_AdvertisementTemplates");
+            });
+
+            modelBuilder.Entity<AdvertisementElementDenialReason>(entity =>
+            {
+                entity.ToTable("AdvertisementElementDenialReasons", "Billing");
+
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.CreatedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
+
+                entity.HasOne(d => d.AdvertisementElement)
+                    .WithMany(p => p.AdvertisementElementDenialReasons)
+                    .HasForeignKey(d => d.AdvertisementElementId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_AdvertisementElementDenialReasons_AdvertisementElements");
+
+                entity.HasOne(d => d.DenialReason)
+                    .WithMany(p => p.AdvertisementElementDenialReasons)
+                    .HasForeignKey(d => d.DenialReasonId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_AdvertisementElementDenialReasons_DenialReasons");
+            });
+
+            modelBuilder.Entity<AdvertisementElementStatus>(entity =>
+            {
+                entity.ToTable("AdvertisementElementStatuses", "Billing");
+
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.CreatedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
+
+                entity.HasOne(d => d.AdvertisementElement)
+                    .WithOne(p => p.AdvertisementElementStatus)
+                    .HasForeignKey<AdvertisementElementStatus>(d => d.Id)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_AdvertisementElementStatuses_AdvertisementElements");
+            });
+
+            modelBuilder.Entity<DenialReason>(entity =>
+            {
+                entity.ToTable("DenialReasons", "Billing");
+
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.CreatedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                entity.Property(e => e.ProofLink)
+                    .IsRequired()
+                    .HasMaxLength(256);
             });
 
             modelBuilder.Entity<AdvertisementElementTemplate>(entity =>

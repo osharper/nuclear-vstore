@@ -8,7 +8,7 @@ namespace NuClear.VStore.Descriptors.Templates
         public int? MaxSymbolsPerWord { get; set; }
         public int? MaxLines { get; set; }
 
-        public bool WithoutControlСhars => true;
+        public bool WithoutControlChars => true;
 
         public bool WithoutNonBreakingSpace => true;
 
