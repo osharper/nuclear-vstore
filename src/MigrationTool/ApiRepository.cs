@@ -51,7 +51,7 @@ namespace MigrationTool
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        public async Task CreateObjectAsync(long id, string firmId, ObjectDescriptor objectDescriptor)
+        public async Task<string> CreateObjectAsync(long id, string firmId, ObjectDescriptor objectDescriptor)
         {
             var objectId = id.ToString();
             var methodUri = new Uri(_objectUri, objectId + "?firm=" + firmId);
@@ -78,6 +78,8 @@ namespace MigrationTool
                         }
 
                         _logger.LogInformation("Imported object {id} got version: {version}", objectId, res.VersionId);
+
+                        return res.VersionId;
                     }
                 }
             }
@@ -95,6 +97,51 @@ namespace MigrationTool
             catch (Exception ex)
             {
                 _logger.LogError(new EventId(), ex, "Object {id} import error with response: {response}", objectId, stringResponse);
+                throw;
+            }
+        }
+
+        public async Task<ObjectDescriptor> GetObjectAsync(long id)
+        {
+            var objectId = id.ToString();
+            var methodUri = new Uri(_objectUri, objectId);
+            var server = string.Empty;
+            var requestId = string.Empty;
+            var stringResponse = string.Empty;
+            try
+            {
+                using (var response = await _httpClient.GetAsync(methodUri))
+                {
+                    (stringResponse, server, requestId) = await HandleResponse(response);
+                    response.EnsureSuccessStatusCode();
+                    var res = JsonConvert.DeserializeObject<IReadOnlyList<ObjectDescriptor>>(stringResponse, SerializerSettings.Default);
+                    if (res == null)
+                    {
+                        throw new SerializationException("Cannot deserialize response: " + stringResponse);
+                    }
+
+                    if (res.Count != 1)
+                    {
+                        throw new NotSupportedException("Unsupported count of objects in response: " + res.Count.ToString());
+                    }
+
+                    return res.First();
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while getting object {id} with response: {response}",
+                                 requestId,
+                                 server,
+                                 objectId,
+                                 stringResponse);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new EventId(), ex, "Getting object {id} error", objectId);
                 throw;
             }
         }
@@ -455,6 +502,47 @@ namespace MigrationTool
                 {
                     _logger.LogError(new EventId(), ex, "Error while selecting object {objectId} to whitelist", objectId);
                     throw;
+                }
+            }
+        }
+
+        public async Task UpdateObjectModerationStatusAsync(string objectId, string versionId, ModerationResult moderationResult)
+        {
+            var methodUri = new Uri(_objectUri, $"{objectId}/version/{versionId}/moderation");
+            using (var content = new StringContent(JsonConvert.SerializeObject(moderationResult, SerializerSettings.Default), Encoding.UTF8, "application/json"))
+            {
+                using (var req = new HttpRequestMessage(HttpMethod.Put, methodUri))
+                {
+                    req.Content = content;
+                    var server = string.Empty;
+                    var requestId = string.Empty;
+                    var stringResponse = string.Empty;
+                    try
+                    {
+                        using (var response = await _httpClient.SendAsync(req))
+                        {
+                            (stringResponse, server, requestId) = await HandleResponse(response);
+                            response.EnsureSuccessStatusCode();
+                            _logger.LogInformation("Object {objectId} with version {versionId} has been updated with moderation status {status}", objectId, versionId, moderationResult.Status);
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogError(new EventId(),
+                                         ex,
+                                         "Request {requestId} to server {server} error while updating object {objectId} moderation status {status} with response: {response}",
+                                         requestId,
+                                         server,
+                                         objectId,
+                                         moderationResult.Status,
+                                         stringResponse);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(new EventId(), ex, "Error while updating object {objectId} moderation status {status}", objectId, moderationResult.Status);
+                        throw;
+                    }
                 }
             }
         }
