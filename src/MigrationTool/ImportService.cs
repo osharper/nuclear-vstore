@@ -81,7 +81,7 @@ namespace MigrationTool
 
         public async Task<bool> ImportAsync(ImportMode mode)
         {
-            var templateIds = _instanceTemplatesMap.Keys.ToArray();
+            var templateIds = _instanceTemplatesMap.Keys.ToList();
             switch (mode)
             {
                 case ImportMode.ImportTemplates:
@@ -144,7 +144,7 @@ namespace MigrationTool
                                  && !pos.IsDeleted
                            select pc.ChildPositionId)
                         .Distinct()
-                        .ToArrayAsync());
+                        .ToListAsync());
 
                 positions = await context.Positions
                     .Where(p => positionIds.Contains(p.Id))
@@ -273,7 +273,7 @@ namespace MigrationTool
                                          && !aet.FileExtensionRestriction.Contains(f.ContentType.Replace("image/x-", string.Empty).Replace("image/", string.Empty))
                                    select f)
                                 .Distinct()
-                                .ToArrayAsync();
+                                .ToListAsync();
             }
 
             var dirPath = $@".{Path.DirectorySeparatorChar.ToString()}download";
@@ -329,14 +329,14 @@ namespace MigrationTool
                                  && !pos.IsDeleted
                            select pc.ChildPositionId)
                         .Distinct()
-                        .ToArrayAsync());
+                        .ToListAsync());
 
                 var positionsTemplates = await (from pos in context.Positions
                                                 join t in context.AdvertisementTemplates on pos.AdvertisementTemplateId equals t.Id
                                                 where !t.IsDeleted && positions.Contains(pos.Id)
                                                 select new { t.Id, t.Name })
                                              .Distinct()
-                                             .ToArrayAsync();
+                                             .ToListAsync();
 
                 if (positionsTemplates.Any(pt => !templateIds.Contains(pt.Id)))
                 {
@@ -390,17 +390,20 @@ namespace MigrationTool
                                          join op in context.OrderPositions on o.Id equals op.OrderId
                                          join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
                                          join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
-                                         where !o.IsDeleted && !o.IsTerminated
-                                               && !op.IsDeleted && !adv.IsDeleted
-                                               && o.EndDistributionDateFact >= _thresholdDate
-                                               && o.ApprovalDate != null
+                                         where !o.IsDeleted
+                                               && o.IsActive
+                                               && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate ||  // Archived orders that were placed
+                                                   o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)    // Future and current orders that are not in the archive
+                                               && !op.IsDeleted
+                                               && op.IsActive
+                                               && !adv.IsDeleted
                                                && adv.AdvertisementTemplateId == templateId
-                                               && adv.FirmId != null // РМ-заглушки не попадают в импорт
+                                               && adv.FirmId != null    // Do not import stubs
                                          orderby o.ApprovalDate descending
                                          select adv.Id)
                                       .Distinct()
                                       .Take(_truncatedImportSize)
-                                      .ToArrayAsync();
+                                      .ToListAsync();
 
                     advertisementIds.AddRange(portion);
                 }
@@ -421,21 +424,21 @@ namespace MigrationTool
                                               join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
                                               where !o.IsDeleted
                                                     && o.IsActive
-                                                    && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Архивные заказы, которые размещались
-                                                        o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Будущие и текущие заказы не в архиве
+                                                    && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
+                                                        o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Future and current orders that are not in the archive
                                                     && !op.IsDeleted
                                                     && op.IsActive
                                                     && !adv.IsDeleted
-                                                    && adv.FirmId != null // РМ-заглушки не попадают в импорт
+                                                    && adv.FirmId != null // Do not import stubs
                                               select new { adv.Id, TemplateId = adv.AdvertisementTemplateId })
                                            .Distinct()
-                                           .ToArrayAsync();
+                                           .ToListAsync();
 
                 var missedTemplatesIds = advertisementIds.Select(adv => adv.TemplateId)
                                                          .Distinct()
                                                          .Except(templateIds)
-                                                         .ToArray();
-                if (missedTemplatesIds.Length > 0)
+                                                         .ToList();
+                if (missedTemplatesIds.Count > 0)
                 {
                     var missedTemplates = await context.AdvertisementTemplates
                                                        .Where(t => missedTemplatesIds.Contains(t.Id))
@@ -491,21 +494,9 @@ namespace MigrationTool
         /// <returns>Identifiers of failed advertisements</returns>
         private async Task<IReadOnlyCollection<long>> ImportAdvertisementsByIdsAsync(IReadOnlyCollection<long> advIds)
         {
-            Advertisement[] advertisements;
-            using (var context = GetNewContext())
-            {
-                advertisements = await context.Advertisements
-                                              .Where(a => advIds.Contains(a.Id))
-                                              .Include(a => a.AdvertisementElements)
-                                                .ThenInclude(ae => ae.AdvertisementElementTemplate)
-                                                .ThenInclude(aet => aet.AdsTemplatesAdsElementTemplates)
-                                              .Include(a => a.AdvertisementElements)
-                                                .ThenInclude(ae => ae.File)
-                                              .ToArrayAsync();
-            }
-
             var batchImportedCount = 0;
             var failedIds = new ConcurrentBag<long>();
+            var advertisements = await GetAdvertisementsByIds(advIds);
             await ParallelImport(advertisements,
                                  async advertisement =>
                                      {
@@ -525,23 +516,31 @@ namespace MigrationTool
             return failedIds;
         }
 
+        private async Task<Advertisement[]> GetAdvertisementsByIds(IReadOnlyCollection<long> ids)
+        {
+            using (var context = GetNewContext())
+            {
+                return await context.Advertisements
+                                    .Where(a => ids.Contains(a.Id))
+                                    .Include(a => a.AdvertisementElements)
+                                        .ThenInclude(ae => ae.AdvertisementElementTemplate)
+                                        .ThenInclude(aet => aet.AdsTemplatesAdsElementTemplates)
+                                    .Include(a => a.AdvertisementElements)
+                                        .ThenInclude(ae => ae.File)
+                                    .Include(a => a.AdvertisementElements)
+                                        .ThenInclude(ae => ae.AdvertisementElementStatus)
+                                    .Include(a => a.AdvertisementElements)
+                                        .ThenInclude(ae => ae.AdvertisementElementDenialReasons)
+                                        .ThenInclude(aedr => aedr.DenialReason)
+                                    .ToArrayAsync();
+            }
+        }
+
         private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<long> failedAds)
         {
             var imported = 0;
             _logger.LogInformation("Start to import failed advertisements, total {count}", failedAds.Count.ToString());
-            IReadOnlyCollection<Advertisement> advertisements;
-            using (var context = GetNewContext())
-            {
-                advertisements = await context.Advertisements
-                                              .Where(a => failedAds.Contains(a.Id))
-                                              .Include(a => a.AdvertisementElements)
-                                                .ThenInclude(ae => ae.AdvertisementElementTemplate)
-                                                .ThenInclude(aet => aet.AdsTemplatesAdsElementTemplates)
-                                              .Include(a => a.AdvertisementElements)
-                                                .ThenInclude(ae => ae.File)
-                                              .ToArrayAsync();
-            }
-
+            var advertisements = await GetAdvertisementsByIds(failedAds);
             foreach (var advertisement in advertisements)
             {
                 bool hasFailed;
@@ -564,7 +563,7 @@ namespace MigrationTool
                 while (hasFailed && tries < _maxImportTries);
             }
 
-            _logger.LogInformation("Failed advertisements repeated import done, total imported: {imported} of {total}", imported.ToString(), advertisements.Count.ToString());
+            _logger.LogInformation("Failed advertisements repeated import done, total imported: {imported} of {total}", imported.ToString(), advertisements.Length.ToString());
             return imported == failedAds.Count;
         }
 
@@ -582,18 +581,19 @@ namespace MigrationTool
                 var segment = new ArraySegment<T>(arr, offset, count);
                 var tasks = segment
                     .Select(callback)
-                    .ToArray();
+                    .ToList();
                 await Task.WhenAll(tasks);
             }
         }
 
         private async Task ImportAdvertisementAsync(Advertisement advertisement)
         {
+            var versionId = string.Empty;
             var objectId = advertisement.Id.ToString();
             var objectDescriptor = await GenerateObjectDescriptorAsync(advertisement);
             try
             {
-                await Repository.CreateObjectAsync(advertisement.Id, advertisement.FirmId.ToString(), objectDescriptor);
+                versionId = await Repository.CreateObjectAsync(advertisement.Id, advertisement.FirmId.ToString(), objectDescriptor);
             }
             catch (ObjectAlreadyExistsException ex)
             {
@@ -603,6 +603,18 @@ namespace MigrationTool
             if (advertisement.IsSelectedToWhiteList)
             {
                 await Repository.SelectObjectToWhitelist(objectId);
+            }
+
+            var moderationStatus = Converter.GetAdvertisementModerationStatus(advertisement);
+            if (moderationStatus.Status != ModerationStatus.OnApproval)
+            {
+                if (string.IsNullOrEmpty(versionId))
+                {
+                    _logger.LogWarning("VersionId for object {id} is unknown, need to get latest version", objectId);
+                    versionId = (await Repository.GetObjectAsync(advertisement.Id)).VersionId;
+                }
+
+                await Repository.UpdateObjectModerationStatusAsync(objectId, versionId, moderationStatus);
             }
         }
 
@@ -625,7 +637,7 @@ namespace MigrationTool
                                                 .Where(e => !e.IsDeleted)
                                                 .Select(async e => await ConvertAdvertisementElementToObjectElementDescriptorAsync(e,
                                                     newObject.Elements.Single(x => x.TemplateCode == e.AdsTemplatesAdsElementTemplates.ExportCode)))
-                                                .ToArray()),
+                                                .ToList()),
                 Properties = newObject.Properties
             };
         }
@@ -650,12 +662,18 @@ namespace MigrationTool
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(), ex, "Convert object {id} element {elementId} error", element.AdvertisementId.ToString(), element.Id.ToString());
+                _logger.LogError(
+                    new EventId(),
+                    ex,
+                    "Convert object {objectId} element {elementId} error, template code {templateCode}",
+                    element.AdvertisementId.ToString(),
+                    element.Id.ToString(),
+                    element.AdsTemplatesAdsElementTemplates.ExportCode.ToString());
                 throw;
             }
         }
 
-        private IElementDescriptor GetObjectElementDescriptor(AdvertisementElement element, ElementDescriptorType elementType, ApiObjectElementDescriptor newElem)
+        private IElementDescriptor GetObjectElementDescriptor(AdvertisementElement element, ElementDescriptorType elementType, IElementDescriptor newElem)
         {
             var templateCode = element.AdsTemplatesAdsElementTemplates.ExportCode;
 
@@ -931,7 +949,7 @@ namespace MigrationTool
                                        .Where(link => !link.IsDeleted && !link.ElementTemplate.IsDeleted)
                                        .OrderBy(link => link.ExportCode)
                                        .Select(ConvertTemplateLinkToTemplateElementDescriptor)
-                                       .ToArray(),
+                                       .ToList(),
                 Properties = new JObject
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
@@ -985,13 +1003,14 @@ namespace MigrationTool
                                       : "http://" + element.Text
                     };
                 case ElementDescriptorType.FasComment:
+                {
+                    var raw = Converter.ConvertFasCommentType(element);
                     return new FasElementValue
                     {
-                        Raw = element.FasCommentType.HasValue && element.FasCommentType.Value != FasComment.NewFasComment
-                                      ? element.FasCommentType.Value.ToString()
-                                      : "custom",
-                        Text = element.Text
+                        Raw = raw,
+                        Text = raw != null ? element.Text : null
                     };
+                }
                 case ElementDescriptorType.Image:
                     {
                         if (element.FileId == null || element.File == null)
@@ -1006,7 +1025,7 @@ namespace MigrationTool
 
                         if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
                         {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed");
+                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for image element");
                         }
 
                         var templateId = _instanceTemplatesMap[element.AdsTemplatesAdsElementTemplates.AdsTemplateId];
@@ -1035,7 +1054,7 @@ namespace MigrationTool
 
                         if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
                         {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed");
+                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for article element");
                         }
 
                         var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);

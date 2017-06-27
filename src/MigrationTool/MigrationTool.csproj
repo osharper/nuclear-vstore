@@ -44,7 +44,7 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.NETCore.DotNetHostPolicy" Version="1.1.2" />
     <PackageReference Include="Microsoft.NETCore.Runtime.CoreCLR" Version="1.1.2" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="3.0.0" />
     <PackageReference Include="Serilog.Extensions.Logging.File" Version="1.0.1" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="2.4.0" />
