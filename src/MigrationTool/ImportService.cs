@@ -645,12 +645,18 @@ namespace MigrationTool
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(), ex, "Convert object {id} element {elementId} error", element.AdvertisementId.ToString(), element.Id.ToString());
+                _logger.LogError(
+                    new EventId(),
+                    ex,
+                    "Convert object {objectId} element {elementId} error, template code {templateCode}",
+                    element.AdvertisementId.ToString(),
+                    element.Id.ToString(),
+                    element.AdsTemplatesAdsElementTemplates.ExportCode.ToString());
                 throw;
             }
         }
 
-        private IElementDescriptor GetObjectElementDescriptor(AdvertisementElement element, ElementDescriptorType elementType, ApiObjectElementDescriptor newElem)
+        private IElementDescriptor GetObjectElementDescriptor(AdvertisementElement element, ElementDescriptorType elementType, IElementDescriptor newElem)
         {
             var templateCode = element.AdsTemplatesAdsElementTemplates.ExportCode;
 
@@ -980,13 +986,14 @@ namespace MigrationTool
                                       : "http://" + element.Text
                     };
                 case ElementDescriptorType.FasComment:
+                {
+                    var raw = Converter.ConvertFasCommentType(element);
                     return new FasElementValue
                     {
-                        Raw = element.FasCommentType.HasValue && element.FasCommentType.Value != FasComment.NewFasComment
-                                      ? element.FasCommentType.Value.ToString()
-                                      : "custom",
-                        Text = element.Text
+                        Raw = raw,
+                        Text = raw != null ? element.Text : null
                     };
+                }
                 case ElementDescriptorType.Image:
                     {
                         if (element.FileId == null || element.File == null)
@@ -1001,7 +1008,7 @@ namespace MigrationTool
 
                         if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
                         {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed");
+                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for image element");
                         }
 
                         var templateId = _instanceTemplatesMap[element.AdsTemplatesAdsElementTemplates.AdsTemplateId];
@@ -1030,7 +1037,7 @@ namespace MigrationTool
 
                         if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
                         {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed");
+                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for article element");
                         }
 
                         var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);

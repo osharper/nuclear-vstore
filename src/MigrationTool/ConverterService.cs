@@ -266,5 +266,68 @@ namespace MigrationTool
                     throw new ArgumentOutOfRangeException(nameof(elementTemplate), elementTemplate.RestrictionType, "Unknown ElementRestrictionType");
             }
         }
+
+        public string ConvertFasCommentType(AdvertisementElement element)
+        {
+            if (!element.FasCommentType.HasValue)
+            {
+                return null;
+            }
+
+            switch (element.FasCommentType.Value)
+            {
+                case FasComment.NewFasComment:
+                    return "custom";
+                case FasComment.RussiaAlcohol:
+                case FasComment.CyprusAlcohol:
+                case FasComment.ChileAlcohol:
+                case FasComment.CzechAlcoholAdvertising:
+                case FasComment.UkraineAlcohol:
+                case FasComment.KyrgyzstanAlcohol:
+                    return "alcohol";
+                case FasComment.RussiaSupplements:
+                case FasComment.CyprusSupplements:
+                    return "supplements";
+                case FasComment.RussiaDrugs:
+                case FasComment.CyprusDrugs:
+                case FasComment.UkraineDrugs:
+                    return "drugs";
+                case FasComment.CyprusDrugsAndService:
+                case FasComment.ChileDrugsAndService:
+                    return "drugsAndService";
+                case FasComment.CzechMedsMultiple:
+                    return "medsMultiple";
+                case FasComment.CzechMedsSingle:
+                    return "medsSingle";
+                case FasComment.CzechDietarySupplement:
+                    return "dietarySupplement";
+                case FasComment.CzechSpecialNutrition:
+                    return "specialNutrition";
+                case FasComment.CzechChildNutrition:
+                    return "childNutrition";
+                case FasComment.CzechFinancilaServices:
+                    return "financilaServices";
+                case FasComment.CzechMedsTraditional:
+                    return "medsTraditional";
+                case FasComment.CzechBiocides:
+                    return "biocides";
+                case FasComment.ChileMedicalReceiptDrugs:
+                    return "medicalReceiptDrugs";
+                case FasComment.UkraineAutotherapy:
+                    return "autotherapy";
+                case FasComment.UkraineMedicalDevice:
+                    return "medicalDevice";
+                case FasComment.UkraineSoundPhonogram:
+                    return "soundPhonogram";
+                case FasComment.UkraineSoundLive:
+                    return "soundLive";
+                case FasComment.UkraineEmploymentAssistance:
+                    return "employmentAssistance";
+                case FasComment.KyrgyzstanCertificateRequired:
+                    return "certificateRequired";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(element.FasCommentType), element.FasCommentType.Value, "Unsupported FAS comment type");
+            }
+        }
     }
 }
