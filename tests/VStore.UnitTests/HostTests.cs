@@ -55,10 +55,12 @@ namespace VStore.UnitTests
             _client = _server.CreateClient();
         }
 
-        [Fact]
-        public async Task TestGetAvailableElementDescriptors()
+        [Theory]
+        [InlineData("1.0")]
+        [InlineData("1.1")]
+        public async Task TestGetAvailableElementDescriptors(string version)
         {
-            using (var response = await _client.GetAsync("/api/1.0/templates/element-descriptors/available"))
+            using (var response = await _client.GetAsync($"/api/{version}/templates/element-descriptors/available"))
             {
                 response.EnsureSuccessStatusCode();
                 var stringResponse = await response.Content.ReadAsStringAsync();

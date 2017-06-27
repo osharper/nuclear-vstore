@@ -12,6 +12,7 @@ using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Host.Controllers
 {
+    [ApiVersionNeutral]
     [Route("api/{api-version:apiVersion}/dev")]
     public sealed class DevController : VStoreController
     {

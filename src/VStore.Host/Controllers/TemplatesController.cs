@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +10,7 @@ using Newtonsoft.Json.Linq;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.S3;
@@ -17,7 +18,8 @@ using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Host.Controllers
 {
-    [ApiVersion("1.0")]
+    [ApiVersion("1.1")]
+    [ApiVersion("1.0", Deprecated = true)]
     [Route("api/{api-version:apiVersion}/templates")]
     public class TemplatesController : VStoreController
     {
@@ -116,6 +118,24 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
+        [Obsolete, MapToApiVersion("1.0")]
+        [HttpPost("validate-elements")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(object), 422)]
+        public async Task<IActionResult> ValidateElementsV10([FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        {
+            try
+            {
+                await _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
+                return Ok();
+            }
+            catch (TemplateValidationException ex)
+            {
+                return Unprocessable(GenerateTemplateErrorJsonV10(ex));
+            }
+        }
+
+        [MapToApiVersion("1.1")]
         [HttpPost("validate-elements")]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(object), 422)]
@@ -132,22 +152,21 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [HttpPost("{id:long}/validate-elements")]
-        [ProducesResponseType(200)]
+        [Obsolete, MapToApiVersion("1.0")]
+        [HttpPost("{id:long}")]
+        [ProducesResponseType(201)]
+        [ProducesResponseType(typeof(object), 400)]
+        [ProducesResponseType(409)]
         [ProducesResponseType(typeof(object), 422)]
-        public async Task<IActionResult> ValidateElements(long id, [FromBody] IReadOnlyCollection<IElementDescriptor> elementDescriptors)
+        public async Task<IActionResult> CreateV10(
+            long id,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            try
-            {
-                await _templatesManagementService.VerifyElementDescriptorsConsistency(elementDescriptors);
-                return Ok();
-            }
-            catch (TemplateValidationException ex)
-            {
-                return Unprocessable(GenerateTemplateErrorJson(ex));
-            }
+            return await CreateInternal(id, author, templateDescriptor, GenerateTemplateErrorJsonV10);
         }
 
+        [MapToApiVersion("1.1")]
         [HttpPost("{id:long}")]
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(object), 400)]
@@ -157,6 +176,49 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             [FromBody] ITemplateDescriptor templateDescriptor)
+        {
+            return await CreateInternal(id, author, templateDescriptor, GenerateTemplateErrorJson);
+        }
+
+        [Obsolete, MapToApiVersion("1.0")]
+        [HttpPut("{id:long}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        [ProducesResponseType(412)]
+        [ProducesResponseType(typeof(object), 422)]
+        public async Task<IActionResult> ModifyV10(
+            long id,
+            [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromBody] ITemplateDescriptor templateDescriptor)
+        {
+            return await ModifyInternal(id, ifMatch, author, templateDescriptor, GenerateTemplateErrorJsonV10);
+        }
+
+        [MapToApiVersion("1.1")]
+        [HttpPut("{id:long}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(string), 400)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        [ProducesResponseType(412)]
+        [ProducesResponseType(typeof(object), 422)]
+        public async Task<IActionResult> Modify(
+            long id,
+            [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromBody] ITemplateDescriptor templateDescriptor)
+        {
+            return await ModifyInternal(id, ifMatch, author, templateDescriptor, GenerateTemplateErrorJson);
+        }
+
+        private async Task<IActionResult> CreateInternal(
+            long id,
+            string author,
+            ITemplateDescriptor templateDescriptor,
+            Func<TemplateValidationException, JToken> errorGenerator)
         {
             if (string.IsNullOrEmpty(author))
             {
@@ -186,22 +248,16 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (TemplateValidationException ex)
             {
-                return Unprocessable(GenerateTemplateErrorJson(ex));
+                return Unprocessable(errorGenerator(ex));
             }
         }
 
-        [HttpPut("{id:long}")]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(typeof(string), 400)]
-        [ProducesResponseType(404)]
-        [ProducesResponseType(409)]
-        [ProducesResponseType(412)]
-        [ProducesResponseType(typeof(object), 422)]
-        public async Task<IActionResult> Modify(
+        private async Task<IActionResult> ModifyInternal(
             long id,
-            [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
-            [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
-            [FromBody] ITemplateDescriptor templateDescriptor)
+            string ifMatch,
+            string author,
+            ITemplateDescriptor templateDescriptor,
+            Func<TemplateValidationException, JToken> errorGenerator)
         {
             if (string.IsNullOrEmpty(ifMatch))
             {
@@ -232,7 +288,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (TemplateValidationException ex)
             {
-                return Unprocessable(GenerateTemplateErrorJson(ex));
+                return Unprocessable(errorGenerator(ex));
             }
             catch (SessionLockAlreadyExistsException)
             {
@@ -244,7 +300,13 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
-        [SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1502:ElementMustNotBeOnSingleLine", Justification = "Reviewed. Suppression is OK here.")]
-        private static JToken GenerateTemplateErrorJson(TemplateValidationException ex) => new JArray { ex.SerializeToJson() };
+        private static JToken GenerateTemplateErrorJsonV10(TemplateValidationException ex) => new JArray { ex.SerializeToJsonV10() };
+
+        private static JToken GenerateTemplateErrorJson(TemplateValidationException ex) =>
+            new JObject
+                {
+                    { Tokens.ErrorsToken, new JArray() },
+                    { Tokens.ElementsToken, new JArray { ex.SerializeToJson() } }
+                };
     }
 }
