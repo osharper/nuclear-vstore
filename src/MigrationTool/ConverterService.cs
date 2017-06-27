@@ -7,6 +7,7 @@ using ImageSharp;
 
 using Microsoft.Extensions.Logging;
 
+using MigrationTool.Json;
 using MigrationTool.Models;
 
 using NuClear.VStore.Descriptors;
@@ -265,6 +266,38 @@ namespace MigrationTool
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementTemplate), elementTemplate.RestrictionType, "Unknown ElementRestrictionType");
             }
+        }
+
+        public ModerationResult GetAdvertisementModerationStatus(Advertisement advertisement)
+        {
+            if (advertisement.AdvertisementElements.All(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Valid))
+            {
+                return new ModerationResult { Status = ModerationStatus.Approved, Comment = string.Empty };
+            }
+
+            if (advertisement.AdvertisementElements.Any(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.ReadyForValidation
+                      || (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Draft))
+            {
+                return new ModerationResult { Status = ModerationStatus.OnApproval, Comment = string.Empty };
+            }
+
+            if (advertisement.AdvertisementElements.Any(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Invalid))
+            {
+                var denialReasons = advertisement.AdvertisementElements
+                                                 .SelectMany(ae => ae.AdvertisementElementDenialReasons)
+                                                 .Select(aedr => string.IsNullOrEmpty(aedr.Comment) ? aedr.DenialReason.Name : $"{aedr.DenialReason.Name} - {aedr.Comment}");
+
+                return new ModerationResult
+                    {
+                        Status = ModerationStatus.Approved,
+                        Comment = string.Join("; ", denialReasons)
+                    };
+            }
+
+            throw new NotImplementedException($"Cannot determine moderation status for advertisement {advertisement.Id.ToString()}");
         }
 
         public string ConvertFasCommentType(AdvertisementElement element)

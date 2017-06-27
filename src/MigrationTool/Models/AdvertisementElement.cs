@@ -1,10 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace MigrationTool.Models
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class AdvertisementElement
     {
+        public AdvertisementElement()
+        {
+            AdvertisementElementDenialReasons = new HashSet<AdvertisementElementDenialReason>();
+        }
+
         public long Id { get; set; }
         public long AdvertisementId { get; set; }
         public long AdvertisementElementTemplateId { get; set; }
@@ -19,6 +24,8 @@ namespace MigrationTool.Models
         public DateTime? ModifiedOn { get; set; }
         public long? DgppId { get; set; }
 
+        public ICollection<AdvertisementElementDenialReason> AdvertisementElementDenialReasons { get; set; }
+        public AdvertisementElementStatus AdvertisementElementStatus { get; set; }
         public ElementTemplateLink AdsTemplatesAdsElementTemplates { get; set; }
         public AdvertisementElementTemplate AdvertisementElementTemplate { get; set; }
         public Advertisement Advertisement { get; set; }
