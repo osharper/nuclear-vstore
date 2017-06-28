@@ -53,6 +53,14 @@ namespace NuClear.VStore.Host.Controllers
             return Json(container.Collection);
         }
 
+        [HttpGet("specified")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ModifiedTemplateDescriptor>), 200)]
+        public async Task<IActionResult> List(IReadOnlyCollection<long> ids)
+        {
+            var descriptors = await _templatesStorageReader.GetTemplateMetadatas(ids);
+            return Json(descriptors);
+        }
+
         [HttpGet("{id:long}")]
         [ResponseCache(Duration = 120)]
         [ProducesResponseType(typeof(object), 200)]

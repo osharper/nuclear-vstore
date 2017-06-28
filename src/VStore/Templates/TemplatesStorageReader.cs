@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -19,6 +22,8 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesStorageReader
     {
+        private const int DegreeOfParallelism = 8;
+
         private readonly IAmazonS3 _amazonS3;
         private readonly string _bucketName;
 
@@ -34,6 +39,45 @@ namespace NuClear.VStore.Templates
 
             var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(long.Parse(x.Key), x.LastModified)).ToArray();
             return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
+        }
+
+        public async Task<IReadOnlyCollection<ModifiedTemplateDescriptor>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
+        {
+            var partitioner = Partitioner.Create(ids);
+            var result = new ModifiedTemplateDescriptor[ids.Count];
+            var tasks = partitioner
+                .GetOrderablePartitions(DegreeOfParallelism)
+                .Select(async x =>
+                            {
+                                while (x.MoveNext())
+                                {
+                                    var templateId = x.Current.Value;
+                                    ModifiedTemplateDescriptor descriptor;
+                                    try
+                                    {
+                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString());
+                                        var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                                        var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                        var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                        var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
+                                        var versionId = await GetTemplateLatestVersion(templateId);
+                                        descriptor = new ModifiedTemplateDescriptor(
+                                            x.Current.Value,
+                                            versionId,
+                                            response.LastModified,
+                                            new AuthorInfo(author, authorLogin, authorName));
+                                    }
+                                    catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    {
+                                        descriptor = null;
+                                    }
+
+                                    result[x.Current.Key] = descriptor;
+                                }
+                            });
+            await Task.WhenAll(tasks);
+            return result;
         }
 
         public async Task<TemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
