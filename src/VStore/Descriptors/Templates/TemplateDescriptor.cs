@@ -11,6 +11,8 @@ namespace NuClear.VStore.Descriptors.Templates
         public string VersionId { get; set; }
         public DateTime LastModified { get; set; }
         public string Author { get; set; }
+        public string AuthorLogin { get; set; }
+        public string AuthorName { get; set; }
         public JObject Properties { get; set; }
         public IReadOnlyCollection<IElementDescriptor> Elements { get; set; }
     }
