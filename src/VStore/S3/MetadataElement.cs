@@ -7,7 +7,6 @@
         Author,
         AuthorLogin,
         AuthorName,
-        ModifiedElements,
-        PreviewUrl
+        ModifiedElements
     }
 }

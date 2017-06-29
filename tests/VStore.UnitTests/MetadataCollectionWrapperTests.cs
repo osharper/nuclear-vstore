@@ -22,16 +22,6 @@ namespace VStore.UnitTests
         }
 
         [Fact]
-        public void ShouldWrapUri()
-        {
-            var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
-            var value = new Uri("http://dot.net");
-            wrapper.Write(MetadataElement.PreviewUrl, value);
-            var res = wrapper.Read<Uri>(MetadataElement.PreviewUrl);
-            Assert.Equal(value, res);
-        }
-
-        [Fact]
         public void ShouldWrapFilenameAsBase64()
         {
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());

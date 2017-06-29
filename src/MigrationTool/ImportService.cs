@@ -650,10 +650,15 @@ namespace MigrationTool
                 var elementValue = await GetElementDescriptorValueAsync(elementType, element, newElem);
                 var elementDescriptor = GetObjectElementDescriptor(element, elementType, newElem);
 
-                return new ObjectElementDescriptor(elementDescriptor, elementValue)
-                {
-                    Id = element.Id
-                };
+                return new ObjectElementDescriptor
+                    {
+                        Id = element.Id,
+                        Type = elementDescriptor.Type,
+                        TemplateCode = elementDescriptor.TemplateCode,
+                        Properties = elementDescriptor.Properties,
+                        Constraints = elementDescriptor.Constraints,
+                        Value = elementValue
+                    };
             }
             catch (Exception ex)
             {

@@ -59,6 +59,7 @@ namespace NuClear.VStore.Host
                 new ElementDescriptorJsonConverter(),
                 new ElementDescriptorCollectionJsonConverter(),
                 new TemplateDescriptorJsonConverter(),
+                new ObjectElementDescriptorJsonConverter(),
                 new ObjectDescriptorJsonConverter()
             };
 

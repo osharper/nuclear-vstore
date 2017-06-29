@@ -1,9 +1,8 @@
-﻿using NuClear.VStore.Descriptors.Templates;
+﻿using NuClear.VStore.Descriptors.Objects.Persistence;
 
 namespace NuClear.VStore.Descriptors.Objects
 {
-    public interface IObjectElementDescriptor : IElementDescriptor, IIdentifyable<long>
+    public interface IObjectElementDescriptor : IObjectElementPersistenceDescriptor, IIdentifyable<long>
     {
-        IObjectElementValue Value { get; }
     }
 }

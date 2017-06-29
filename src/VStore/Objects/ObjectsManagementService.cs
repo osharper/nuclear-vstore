@@ -10,6 +10,8 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Objects.Persistence;
+using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
@@ -209,7 +211,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static async Task VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private static async Task VerifyObjectElementsConsistency(
+            long objectId,
+            Language language,
+            IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             var tasks = elementDescriptors.Select(
                 async x => await Task.Run(
@@ -291,19 +296,27 @@ namespace NuClear.VStore.Objects
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-            await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
+            var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
 
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
+                var value = elementDescriptor.Value;
+                if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
+                {
+                    var metadata = metadataForBinaries[elementDescriptor.Id];
+                    value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                }
+
+                var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
                 putRequest = new PutObjectRequest
                                  {
                                      Key = id.AsS3ObjectKey(elementDescriptor.Id),
                                      BucketName = _bucketName,
                                      ContentType = ContentType.Json,
-                                     ContentBody = JsonConvert.SerializeObject(elementDescriptor, SerializerSettings.Default),
+                                     ContentBody = JsonConvert.SerializeObject(elementPersistenceDescriptor, SerializerSettings.Default),
                                      CannedACL = S3CannedACL.PublicRead
                                  };
 
@@ -389,40 +402,38 @@ namespace NuClear.VStore.Objects
             await Task.WhenAll(tasks);
         }
 
-        private async Task RetrieveMetadataForBinaries(long id, IEnumerable<IObjectElementDescriptor> objectElements)
+        private async Task<IReadOnlyDictionary<long, BinaryMetadata>> RetrieveMetadataForBinaries(
+            long id,
+            IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            var tasks = objectElements.Select(
-                async x =>
-                    {
-                        var binaryElementValue = x.Value as IBinaryElementValue;
-                        if (binaryElementValue == null)
-                        {
-                            return;
-                        }
-
-                        if (string.IsNullOrEmpty(binaryElementValue.Raw))
-                        {
-                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
-                        }
-
-                        try
-                        {
-                            var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
-                            binaryElementValue.Filename = binaryMetadata.Filename;
-                            binaryElementValue.Filesize = binaryMetadata.Filesize;
-
-                            var imageElementValue = binaryElementValue as IImageElementValue;
-                            if (imageElementValue != null)
+            var tasks = objectElements
+                .Select(async x =>
                             {
-                                imageElementValue.PreviewUri = binaryMetadata.PreviewUri;
-                            }
-                        }
-                        catch (ObjectNotFoundException ex)
-                        {
-                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
-                        }
-                    });
+                                var binaryElementValue = x.Value as IBinaryElementValue;
+                                if (binaryElementValue == null)
+                                {
+                                    return (Id: null, Metadata: null);
+                                }
+
+                                if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                                }
+
+                                try
+                                {
+                                    var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
+                                    return (Id: (long?)x.Id, Metadata: binaryMetadata);
+                                }
+                                catch (ObjectNotFoundException ex)
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                }
+                            })
+                .ToList();
             await Task.WhenAll(tasks);
+
+            return tasks.Select(x => x.Result).Where(x => x.Id.HasValue).ToDictionary(x => x.Id.Value, x => x.Metadata);
         }
     }
 }

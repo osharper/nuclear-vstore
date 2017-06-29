@@ -8,21 +8,13 @@ namespace NuClear.VStore.Descriptors.Objects
 {
     public sealed class ObjectElementDescriptor : IVersionedObjectElementDescriptor
     {
-        private readonly IElementDescriptor _elementDescriptor;
-
-        public ObjectElementDescriptor(IElementDescriptor elementDescriptor, IObjectElementValue value)
-        {
-            _elementDescriptor = elementDescriptor;
-            Value = value;
-        }
-
         public long Id { get; set; }
         public string VersionId { get; set; }
         public DateTime LastModified { get; set; }
-        public ElementDescriptorType Type => _elementDescriptor.Type;
-        public int TemplateCode => _elementDescriptor.TemplateCode;
-        public JObject Properties => _elementDescriptor.Properties;
-        public ConstraintSet Constraints => _elementDescriptor.Constraints;
-        public IObjectElementValue Value { get; }
+        public ElementDescriptorType Type { get; set; }
+        public int TemplateCode { get; set; }
+        public JObject Properties { get; set; }
+        public ConstraintSet Constraints { get; set; }
+        public IObjectElementValue Value { get; set; }
     }
 }
