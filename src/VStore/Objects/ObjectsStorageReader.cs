@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Objects.Persistence;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Options;
@@ -26,15 +27,18 @@ namespace NuClear.VStore.Objects
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
+        private readonly Uri _fileStorageEndpoint;
 
         public ObjectsStorageReader(
             CephOptions cephOptions,
+            VStoreOptions vStoreOptions,
             IAmazonS3 amazonS3,
             TemplatesStorageReader templatesStorageReader)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
+            _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(string continuationToken)
@@ -150,14 +154,31 @@ namespace NuClear.VStore.Objects
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        var elementDescriptorWrapper = await GetObjectFromS3<ObjectElementDescriptor>(x.Id, x.VersionId);
-                        var elementDescriptor = (ObjectElementDescriptor)elementDescriptorWrapper;
+                        var elementPersistenceDescriptorWrapper = await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
+                        var elementPersistenceDescriptor = (ObjectElementPersistenceDescriptor)elementPersistenceDescriptorWrapper;
 
-                        elementDescriptor.Id = x.Id.AsSubObjectId();
-                        elementDescriptor.VersionId = x.VersionId;
-                        elementDescriptor.LastModified = elementDescriptorWrapper.LastModified;
+                        var binaryElementValue = elementPersistenceDescriptor.Value as IBinaryElementValue;
+                        if (binaryElementValue != null)
+                        {
+                            binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
+                        }
 
-                        elements[index] = elementDescriptor;
+                        if (binaryElementValue is IImageElementValue imageElementValue)
+                        {
+                            imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                        }
+
+                        elements[index] = new ObjectElementDescriptor
+                            {
+                                Id = x.Id.AsSubObjectId(),
+                                VersionId = x.VersionId,
+                                LastModified = elementPersistenceDescriptorWrapper.LastModified,
+                                Type = elementPersistenceDescriptor.Type,
+                                TemplateCode = elementPersistenceDescriptor.TemplateCode,
+                                Properties = elementPersistenceDescriptor.Properties,
+                                Constraints = elementPersistenceDescriptor.Constraints,
+                                Value = elementPersistenceDescriptor.Value
+                            };
                     });
             await Task.WhenAll(tasks);
 
