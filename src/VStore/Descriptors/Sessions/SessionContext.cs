@@ -6,19 +6,24 @@ namespace NuClear.VStore.Descriptors.Sessions
 {
     public sealed class SessionContext
     {
-        public SessionContext(long templateId, IVersionedTemplateDescriptor templateDescriptor, Language language, string author, DateTime expiresAt)
+        public SessionContext(
+            long templateId,
+            IVersionedTemplateDescriptor templateDescriptor,
+            Language language,
+            AuthorInfo authorInfo,
+            DateTime expiresAt)
         {
             TemplateId = templateId;
             TemplateDescriptor = templateDescriptor;
             Language = language;
-            Author = author;
+            AuthorInfo = authorInfo;
             ExpiresAt = expiresAt;
         }
 
         public long TemplateId { get; }
         public IVersionedTemplateDescriptor TemplateDescriptor { get; }
         public Language Language { get; }
-        public string Author { get; }
+        public AuthorInfo AuthorInfo { get; }
         public DateTime ExpiresAt { get; }
     }
 }
