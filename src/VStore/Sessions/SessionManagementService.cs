@@ -109,12 +109,7 @@ namespace NuClear.VStore.Sessions
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
             metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
-            var @event = new SessionCreatedEvent
-                             {
-                                 SessionId = sessionId,
-                                 ExpiresAt = expiresAt
-                             };
-            await _eventSender.SendAsync(_sessionsTopicName, @event);
+            await _eventSender.SendAsync(_sessionsTopicName, new SessionCreatedEvent(sessionId, expiresAt));
 
             await _amazonS3.PutObjectAsync(request);
         }

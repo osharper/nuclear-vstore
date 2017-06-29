@@ -306,13 +306,7 @@ namespace NuClear.VStore.Objects
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
 
             var infoForBinaries = await RetrieveInfoForBinaries(id, objectDescriptor.Elements);
-            var events = infoForBinaries
-                .Select(x => new BinaryUsedEvent
-                    {
-                        ObjectId = id,
-                        ElementTemplateCode = x.Value.TemplateCode,
-                        FileKey = x.Value.FileKey
-                    });
+            var events = infoForBinaries.Select(x => new BinaryUsedEvent(id, x.Value.TemplateCode, x.Value.FileKey));
             foreach (var @event in events)
             {
                 await _eventSender.SendAsync(_binariesUsingsTopicName, DateTime.UtcNow.DayOfYear, @event);

@@ -4,7 +4,14 @@ namespace NuClear.VStore.Events
 {
     public class SessionCreatedEvent : IEvent
     {
-        public Guid SessionId { get; set; }
-        public DateTime ExpiresAt { get; set; }
+        public SessionCreatedEvent(Guid sessionId, DateTime expiresAt)
+        {
+            SessionId = sessionId;
+            ExpiresAt = expiresAt;
+        }
+
+        public string Key => SessionId.ToString();
+        public Guid SessionId { get; }
+        public DateTime ExpiresAt { get; }
     }
 }
