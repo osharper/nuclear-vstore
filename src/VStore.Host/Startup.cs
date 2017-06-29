@@ -49,7 +49,7 @@ using Swashbuckle.AspNetCore.Swagger;
 
 namespace NuClear.VStore.Host
 {
-   // ReSharper disable once ClassNeverInstantiated.Global
+    // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class Startup
     {
         private static readonly JsonConverter[] CustomConverters =
@@ -113,7 +113,7 @@ namespace NuClear.VStore.Host
 
                                 settings.Culture = CultureInfo.InvariantCulture;
                                 settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-                                for (var index = 0; index < CustomConverters.Length; index++)
+                                for (var index = 0; index < CustomConverters.Length; ++index)
                                 {
                                     settings.Converters.Insert(index, CustomConverters[index]);
                                 }
