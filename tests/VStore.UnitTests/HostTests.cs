@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,6 +54,10 @@ namespace VStore.UnitTests
                                                         builder.ApplicationServices.GetRequiredService<ILoggerFactory>(),
                                                         builder.ApplicationServices.GetRequiredService<IApplicationLifetime>())));
             _client = _server.CreateClient();
+            _client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJva2FwaSJ9.001QCdGC5mXuecjP1OfhafA6BsBB56ASHdoKA4btkak");
         }
 
         [Theory]

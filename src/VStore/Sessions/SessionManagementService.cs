@@ -63,10 +63,15 @@ namespace NuClear.VStore.Sessions
             var sessionDescriptor = (SessionDescriptor)sessionDescriptorWrapper;
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
-            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptor.Language, sessionDescriptorWrapper.Author, sessionDescriptorWrapper.ExpiresAt);
+            return new SessionContext(
+                templateDescriptor.Id,
+                templateDescriptor,
+                sessionDescriptor.Language,
+                sessionDescriptorWrapper.AuthorInfo,
+                sessionDescriptorWrapper.ExpiresAt);
         }
 
-        public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, string author)
+        public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, AuthorInfo authorInfo)
         {
             if (language == Language.Unspecified)
             {
@@ -93,10 +98,9 @@ namespace NuClear.VStore.Sessions
             var expiresAt = CurrentTime().AddDays(1);
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
-            if (!string.IsNullOrEmpty(author))
-            {
-                metadataWrapper.Write(MetadataElement.Author, author);
-            }
+            metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+            metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             await _amazonS3.PutObjectAsync(request);
         }
@@ -382,6 +386,8 @@ namespace NuClear.VStore.Sessions
             }
 
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string json;
             using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
@@ -390,7 +396,7 @@ namespace NuClear.VStore.Sessions
             }
 
             var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-            return new SessionDescriptorWrapper(sessionDescriptor, author, expiresAt);
+            return new SessionDescriptorWrapper(sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)
@@ -415,14 +421,14 @@ namespace NuClear.VStore.Sessions
         {
             private readonly SessionDescriptor _sessionDescriptor;
 
-            public SessionDescriptorWrapper(SessionDescriptor sessionDescriptor, string author, DateTime expiresAt)
+            public SessionDescriptorWrapper(SessionDescriptor sessionDescriptor, AuthorInfo authorInfo, DateTime expiresAt)
             {
                 _sessionDescriptor = sessionDescriptor;
-                Author = author;
+                AuthorInfo = authorInfo;
                 ExpiresAt = expiresAt;
             }
 
-            public string Author { get; }
+            public AuthorInfo AuthorInfo { get; }
             public DateTime ExpiresAt { get; }
 
             public static implicit operator SessionDescriptor(SessionDescriptorWrapper wrapper)

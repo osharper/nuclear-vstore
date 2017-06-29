@@ -52,6 +52,8 @@ namespace NuClear.VStore.Templates
 
             var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
@@ -59,7 +61,15 @@ namespace NuClear.VStore.Templates
                 json = reader.ReadToEnd();
             }
 
-            var descriptor = new TemplateDescriptor { Id = id, VersionId = objectVersionId, LastModified = response.LastModified, Author = author };
+            var descriptor = new TemplateDescriptor
+                {
+                    Id = id,
+                    VersionId = objectVersionId,
+                    LastModified = response.LastModified,
+                    Author = author,
+                    AuthorLogin = authorLogin,
+                    AuthorName = authorName
+                };
             JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
 
             return descriptor;

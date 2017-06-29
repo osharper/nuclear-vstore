@@ -14,6 +14,8 @@ namespace NuClear.VStore.Descriptors.Objects
         public string TemplateVersionId { get; set; }
         public Language Language { get; set; }
         public string Author { get; set; }
+        public string AuthorLogin { get; set; }
+        public string AuthorName { get; set; }
         public JObject Properties { get; set; }
         public IReadOnlyCollection<IObjectElementDescriptor> Elements { get; set; }
     }

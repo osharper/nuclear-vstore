@@ -117,6 +117,8 @@ namespace NuClear.VStore.Host.Controllers
                         objectDescriptor.TemplateVersionId,
                         objectDescriptor.Language,
                         objectDescriptor.Author,
+                        objectDescriptor.AuthorLogin,
+                        objectDescriptor.AuthorName,
                         objectDescriptor.Properties,
                         objectDescriptor.Elements
                     });
@@ -150,6 +152,8 @@ namespace NuClear.VStore.Host.Controllers
                         objectDescriptor.TemplateVersionId,
                         objectDescriptor.Language,
                         objectDescriptor.Author,
+                        objectDescriptor.AuthorLogin,
+                        objectDescriptor.AuthorName,
                         objectDescriptor.Properties,
                         objectDescriptor.Elements
                     });
@@ -173,11 +177,15 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<IActionResult> Create(
             long id,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (objectDescriptor == null)
@@ -187,7 +195,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var versionId = await _objectsManagementService.Create(id, author, objectDescriptor);
+                var versionId = await _objectsManagementService.Create(id, new AuthorInfo(author, authorLogin, authorName), objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
@@ -236,11 +244,15 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] IObjectDescriptor objectDescriptor)
         {
-            if (string.IsNullOrEmpty(ifMatch))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (string.IsNullOrEmpty(author))
@@ -255,7 +267,11 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _objectsManagementService.Modify(id, ifMatch.Trim('"'), author, objectDescriptor);
+                var latestVersionId = await _objectsManagementService.Modify(
+                                          id,
+                                          ifMatch.Trim('"'),
+                                          new AuthorInfo(author, authorLogin, authorName),
+                                          objectDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Objects", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";

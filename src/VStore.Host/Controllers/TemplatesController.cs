@@ -79,6 +79,8 @@ namespace NuClear.VStore.Host.Controllers
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
                             templateDescriptor.Author,
+                            templateDescriptor.AuthorLogin,
+                            templateDescriptor.AuthorName,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -108,6 +110,8 @@ namespace NuClear.VStore.Host.Controllers
                             templateDescriptor.VersionId,
                             templateDescriptor.LastModified,
                             templateDescriptor.Author,
+                            templateDescriptor.AuthorLogin,
+                            templateDescriptor.AuthorName,
                             templateDescriptor.Properties,
                             templateDescriptor.Elements
                         });
@@ -161,9 +165,11 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<IActionResult> CreateV10(
             long id,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            return await CreateInternal(id, author, templateDescriptor, GenerateTemplateErrorJsonV10);
+            return await CreateInternal(id, author, authorLogin, authorName, templateDescriptor, GenerateTemplateErrorJsonV10);
         }
 
         [MapToApiVersion("1.1")]
@@ -175,9 +181,11 @@ namespace NuClear.VStore.Host.Controllers
         public async Task<IActionResult> Create(
             long id,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            return await CreateInternal(id, author, templateDescriptor, GenerateTemplateErrorJson);
+            return await CreateInternal(id, author, authorLogin, authorName, templateDescriptor, GenerateTemplateErrorJson);
         }
 
         [Obsolete, MapToApiVersion("1.0")]
@@ -192,9 +200,11 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            return await ModifyInternal(id, ifMatch, author, templateDescriptor, GenerateTemplateErrorJsonV10);
+            return await ModifyInternal(id, ifMatch, author, authorLogin, authorName, templateDescriptor, GenerateTemplateErrorJsonV10);
         }
 
         [MapToApiVersion("1.1")]
@@ -209,20 +219,26 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             [FromHeader(Name = HeaderNames.IfMatch)] string ifMatch,
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             [FromBody] ITemplateDescriptor templateDescriptor)
         {
-            return await ModifyInternal(id, ifMatch, author, templateDescriptor, GenerateTemplateErrorJson);
+            return await ModifyInternal(id, ifMatch, author, authorLogin, authorName, templateDescriptor, GenerateTemplateErrorJson);
         }
 
         private async Task<IActionResult> CreateInternal(
             long id,
             string author,
+            string authorLogin,
+            string authorName,
             ITemplateDescriptor templateDescriptor,
             Func<TemplateValidationException, JToken> errorGenerator)
         {
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (templateDescriptor == null)
@@ -232,7 +248,7 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var versionId = await _templatesManagementService.CreateTemplate(id, author, templateDescriptor);
+                var versionId = await _templatesManagementService.CreateTemplate(id, new AuthorInfo(author, authorLogin, authorName), templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
@@ -256,6 +272,8 @@ namespace NuClear.VStore.Host.Controllers
             long id,
             string ifMatch,
             string author,
+            string authorLogin,
+            string authorName,
             ITemplateDescriptor templateDescriptor,
             Func<TemplateValidationException, JToken> errorGenerator)
         {
@@ -264,9 +282,11 @@ namespace NuClear.VStore.Host.Controllers
                 return BadRequest($"'{HeaderNames.IfMatch}' request header must be specified.");
             }
 
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             if (templateDescriptor == null)
@@ -276,7 +296,11 @@ namespace NuClear.VStore.Host.Controllers
 
             try
             {
-                var latestVersionId = await _templatesManagementService.ModifyTemplate(id, ifMatch.Trim('"'), author, templateDescriptor);
+                var latestVersionId = await _templatesManagementService.ModifyTemplate(
+                                          id,
+                                          ifMatch.Trim('"'),
+                                          new AuthorInfo(author, authorLogin, authorName),
+                                          templateDescriptor);
                 var url = Url.AbsoluteAction("GetVersion", "Templates", new { id, versionId = latestVersionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -52,7 +53,9 @@ namespace NuClear.VStore.Host.Controllers
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
-                Response.Headers[Http.HeaderNames.AmsAuthor] = sessionContext.Author;
+                Response.Headers[Http.HeaderNames.AmsAuthor] = sessionContext.AuthorInfo.Author;
+                Response.Headers[Http.HeaderNames.AmsAuthorLogin] = sessionContext.AuthorInfo.AuthorLogin;
+                Response.Headers[Http.HeaderNames.AmsAuthorName] = sessionContext.AuthorInfo.AuthorName;
                 return Json(
                     new
                         {
@@ -63,6 +66,8 @@ namespace NuClear.VStore.Host.Controllers
                                     templateDescriptor.VersionId,
                                     templateDescriptor.LastModified,
                                     templateDescriptor.Author,
+                                    templateDescriptor.AuthorLogin,
+                                    templateDescriptor.AuthorName,
                                     templateDescriptor.Properties,
                                     templateDescriptor.Elements
                                 },
@@ -86,18 +91,22 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             Language language,
             long templateId)
         {
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             try
             {
                 var sessionId = Guid.NewGuid();
-                await _sessionManagementService.Setup(sessionId, templateId, null, language, author);
+                await _sessionManagementService.Setup(sessionId, templateId, null, language, new AuthorInfo(author, authorLogin, authorName));
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
@@ -120,19 +129,23 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
+            [FromHeader(Name = Http.HeaderNames.AmsAuthorName)] string authorName,
             Language language,
             long templateId,
             string templateVersionId)
         {
-            if (string.IsNullOrEmpty(author))
+            if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(authorLogin) || string.IsNullOrEmpty(authorName))
             {
-                return BadRequest($"'{Http.HeaderNames.AmsAuthor}' request header must be specified.");
+                return BadRequest(
+                    $"'{Http.HeaderNames.AmsAuthor}', '{Http.HeaderNames.AmsAuthorLogin}' and '{Http.HeaderNames.AmsAuthorName}' " +
+                    "request headers must be specified.");
             }
 
             try
             {
                 var sessionId = Guid.NewGuid();
-                await _sessionManagementService.Setup(sessionId, templateId, templateVersionId, language, author);
+                await _sessionManagementService.Setup(sessionId, templateId, templateVersionId, language, new AuthorInfo(author, authorLogin, authorName));
                 var url = Url.AbsoluteAction("Get", "Sessions", new { sessionId });
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
@@ -148,6 +161,7 @@ namespace NuClear.VStore.Host.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("{sessionId:guid}/upload/{templateCode:int}")]
         [DisableFormValueModelBinding]
         [MultipartBodyLengthLimit(1024)]
