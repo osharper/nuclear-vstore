@@ -22,15 +22,15 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesStorageReader
     {
-        private const int DegreeOfParallelism = 8;
-
         private readonly IAmazonS3 _amazonS3;
         private readonly string _bucketName;
+        private readonly int _degreeOfParallelism;
 
         public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3 amazonS3)
         {
             _amazonS3 = amazonS3;
             _bucketName = cephOptions.TemplatesBucketName;
+            _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetTemplateMetadatas(string continuationToken)
@@ -46,7 +46,7 @@ namespace NuClear.VStore.Templates
             var partitioner = Partitioner.Create(ids);
             var result = new ModifiedTemplateDescriptor[ids.Count];
             var tasks = partitioner
-                .GetOrderablePartitions(DegreeOfParallelism)
+                .GetOrderablePartitions(_degreeOfParallelism)
                 .Select(async x =>
                             {
                                 while (x.MoveNext())
