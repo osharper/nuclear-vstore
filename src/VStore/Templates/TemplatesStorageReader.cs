@@ -77,7 +77,7 @@ namespace NuClear.VStore.Templates
                                 }
                             });
             await Task.WhenAll(tasks);
-            return result;
+            return result.Where(x => x != null).ToList();
         }
 
         public async Task<TemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
