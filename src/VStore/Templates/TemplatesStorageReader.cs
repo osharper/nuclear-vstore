@@ -43,8 +43,9 @@ namespace NuClear.VStore.Templates
 
         public async Task<IReadOnlyCollection<ModifiedTemplateDescriptor>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
         {
-            var partitioner = Partitioner.Create(ids);
-            var result = new ModifiedTemplateDescriptor[ids.Count];
+            var uniqueIds = ids.Distinct().ToList();
+            var partitioner = Partitioner.Create(uniqueIds);
+            var result = new ModifiedTemplateDescriptor[uniqueIds.Count];
             var tasks = partitioner
                 .GetOrderablePartitions(_degreeOfParallelism)
                 .Select(async x =>
