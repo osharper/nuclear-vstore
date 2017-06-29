@@ -22,10 +22,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
+using NuClear.VStore.Host.Json;
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Options;
@@ -47,9 +49,19 @@ using Swashbuckle.AspNetCore.Swagger;
 
 namespace NuClear.VStore.Host
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
+   // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class Startup
     {
+        private static readonly JsonConverter[] CustomConverters =
+            {
+                new StringEnumConverter { CamelCaseText = true },
+                new Int64ToStringJsonConverter(),
+                new ElementDescriptorJsonConverter(),
+                new ElementDescriptorCollectionJsonConverter(),
+                new TemplateDescriptorJsonConverter(),
+                new ObjectDescriptorJsonConverter()
+            };
+
         private readonly IConfigurationRoot _configuration;
 
         public Startup(IHostingEnvironment env)
@@ -101,11 +113,10 @@ namespace NuClear.VStore.Host
 
                                 settings.Culture = CultureInfo.InvariantCulture;
                                 settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-                                settings.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
-                                settings.Converters.Insert(1, new ElementDescriptorJsonConverter());
-                                settings.Converters.Insert(2, new ElementDescriptorCollectionJsonConverter());
-                                settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
-                                settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
+                                for (var index = 0; index < CustomConverters.Length; index++)
+                                {
+                                    settings.Converters.Insert(index, CustomConverters[index]);
+                                }
                             });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
