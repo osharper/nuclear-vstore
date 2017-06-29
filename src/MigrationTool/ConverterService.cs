@@ -339,7 +339,7 @@ namespace MigrationTool
                 case FasComment.CzechChildNutrition:
                     return "childNutrition";
                 case FasComment.CzechFinancilaServices:
-                    return "financilaServices";
+                    return "financialServices";
                 case FasComment.CzechMedsTraditional:
                     return "medsTraditional";
                 case FasComment.CzechBiocides:
