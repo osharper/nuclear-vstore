@@ -75,9 +75,9 @@ namespace NuClear.VStore.Kafka
                 _logger.LogError(
                     new EventId(),
                     ex,
-                    "Error producing to Kafka. Topic: '{kafkaTopic}'. Message: {kafkaMessage}. Error: '{kafkaError}'.",
-                    message,
-                    topic);
+                    "Error producing to Kafka. Topic: '{kafkaTopic}'. Message: {kafkaMessage}'.",
+                    topic,
+                    message);
                 throw;
             }
         }

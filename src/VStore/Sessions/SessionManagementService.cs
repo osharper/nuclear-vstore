@@ -66,7 +66,7 @@ namespace NuClear.VStore.Sessions
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            (SessionDescriptor sessionDescriptor, AuthorInfo authorInfo, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(sessionId);
 
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
@@ -130,7 +130,7 @@ namespace NuClear.VStore.Sessions
                 throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
 
-            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -163,7 +163,7 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
+                    (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
@@ -205,7 +205,7 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
+            (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(uploadSession.SessionId);
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {

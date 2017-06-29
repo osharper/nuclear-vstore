@@ -435,10 +435,10 @@ namespace NuClear.VStore.Objects
                                     return default((long, (int, string, BinaryMetadata)));
                                 }
 
-                        if (string.IsNullOrEmpty(binaryElementValue.Raw))
-                        {
-                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
-                        }
+                                if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                                }
 
                                 try
                                 {
