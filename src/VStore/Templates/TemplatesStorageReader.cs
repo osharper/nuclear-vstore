@@ -43,7 +43,7 @@ namespace NuClear.VStore.Templates
 
         public async Task<IReadOnlyCollection<ModifiedTemplateDescriptor>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
         {
-            var uniqueIds = ids.Distinct().ToList();
+            var uniqueIds = new HashSet<long>(ids);
             var partitioner = Partitioner.Create(uniqueIds);
             var result = new ModifiedTemplateDescriptor[uniqueIds.Count];
             var tasks = partitioner
