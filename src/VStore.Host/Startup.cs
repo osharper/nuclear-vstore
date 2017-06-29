@@ -1,27 +1,37 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Reflection;
+using System.Text;
 
 using Amazon;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
+using NuClear.VStore.Host.Json;
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
+using NuClear.VStore.Host.Options;
+using NuClear.VStore.Host.Routing;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
@@ -43,6 +53,17 @@ namespace NuClear.VStore.Host
     // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class Startup
     {
+        private static readonly JsonConverter[] CustomConverters =
+            {
+                new StringEnumConverter { CamelCaseText = true },
+                new Int64ToStringJsonConverter(),
+                new ElementDescriptorJsonConverter(),
+                new ElementDescriptorCollectionJsonConverter(),
+                new TemplateDescriptorJsonConverter(),
+                new ObjectElementDescriptorJsonConverter(),
+                new ObjectDescriptorJsonConverter()
+            };
+
         private readonly IConfigurationRoot _configuration;
 
         public Startup(IHostingEnvironment env)
@@ -67,15 +88,25 @@ namespace NuClear.VStore.Host
                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
                 .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
+                .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<JwtOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value);
 
-            services.AddMvcCore()
-                    .AddApiExplorer()
+            services.AddMvcCore(
+                        options =>
+                            {
+                                var policy = new AuthorizationPolicyBuilder()
+                                    .RequireAuthenticatedUser()
+                                    .Build();
+                                options.Filters.Add(new AuthorizeFilter(policy));
+                            })
                     .AddVersionedApiExplorer()
+                    .AddApiExplorer()
                     .AddAuthorization()
                     .AddCors()
                     .AddJsonFormatters()
@@ -86,26 +117,35 @@ namespace NuClear.VStore.Host
 
                                 settings.Culture = CultureInfo.InvariantCulture;
                                 settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-                                settings.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
-                                settings.Converters.Insert(1, new ElementDescriptorJsonConverter());
-                                settings.Converters.Insert(2, new ElementDescriptorCollectionJsonConverter());
-                                settings.Converters.Insert(3, new TemplateDescriptorJsonConverter());
-                                settings.Converters.Insert(4, new ObjectDescriptorJsonConverter());
+                                for (var index = 0; index < CustomConverters.Length; ++index)
+                                {
+                                    settings.Converters.Insert(index, CustomConverters[index]);
+                                }
                             });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
 
             services.AddSwaggerGen(
-                x =>
+                options =>
                     {
                         var provider = services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
                         foreach (var description in provider.ApiVersionDescriptions)
                         {
-                            x.SwaggerDoc(description.GroupName, new Info { Title = $"VStore API {description.ApiVersion}", Version = description.ApiVersion.ToString() });
+                            options.SwaggerDoc(description.GroupName, new Info { Title = $"VStore API {description.ApiVersion}", Version = description.ApiVersion.ToString() });
                         }
 
-                        x.OperationFilter<ImplicitApiVersionParameter>();
-                        x.OperationFilter<UploadFileOperationFilter>();
+                        options.AddSecurityDefinition(
+                            "Bearer",
+                            new ApiKeyScheme
+                                {
+                                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                                    Name = "Authorization",
+                                    In = "header",
+                                    Type = "apiKey"
+                                });
+
+                        options.OperationFilter<ImplicitApiVersionParameter>();
+                        options.OperationFilter<UploadFileOperationFilter>();
                     });
 
             services.AddSingleton<EventSender>();
@@ -191,8 +231,35 @@ namespace NuClear.VStore.Host
             app.UseMiddleware<HealthCheckMiddleware>();
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
-            app.UseApiVersioning();
+
+            var jwtOptions = app.ApplicationServices.GetRequiredService<JwtOptions>();
+            app.UseJwtBearerAuthentication(
+                new JwtBearerOptions
+                    {
+                        AutomaticAuthenticate = true,
+                        AutomaticChallenge = true,
+                        TokenValidationParameters =
+                            new TokenValidationParameters
+                                {
+                                    ValidateIssuer = true,
+                                    ValidIssuer = jwtOptions.Issuer,
+
+                                    ValidateAudience = false,
+
+                                    ValidateIssuerSigningKey = true,
+                                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtOptions.SecretKey)),
+
+                                    ValidateLifetime = false,
+                                    LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
+                                                            {
+                                                                var utcNow = DateTime.UtcNow;
+                                                                return !(notBefore > utcNow || utcNow > expires);
+                                                            }
+                                }
+                    });
+
             app.UseMvc();
+            app.UseApiVersioning();
 
             if (!env.IsProduction())
             {

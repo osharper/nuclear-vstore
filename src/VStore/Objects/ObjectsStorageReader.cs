@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Objects.Persistence;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Options;
@@ -26,15 +27,18 @@ namespace NuClear.VStore.Objects
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
+        private readonly Uri _fileStorageEndpoint;
 
         public ObjectsStorageReader(
             CephOptions cephOptions,
+            VStoreOptions vStoreOptions,
             IAmazonS3 amazonS3,
             TemplatesStorageReader templatesStorageReader)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
+            _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(string continuationToken)
@@ -47,7 +51,7 @@ namespace NuClear.VStore.Objects
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            (ObjectPersistenceDescriptor persistenceDescriptor, string author, DateTime lastModified) =
+            (var persistenceDescriptor, var author, var lastModified) =
                 await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
@@ -56,41 +60,44 @@ namespace NuClear.VStore.Objects
         {
             var versions = new List<ModifiedObjectDescriptor>();
 
-            async Task<IReadOnlyCollection<int>> GetModifiedElements(string key, string versionId)
+            async Task<(IReadOnlyCollection<int> ModifiedElements, AuthorInfo AuthorInfo)> GetElementMetadata(string key, string versionId)
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, key, versionId);
 
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                 var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
-                return string.IsNullOrEmpty(modifiedElements)
-                           ? Array.Empty<int>()
-                           : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                var modifiedElementIds = string.IsNullOrEmpty(modifiedElements)
+                                             ? Array.Empty<int>()
+                                             : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+                return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
             async Task<ListVersionsResponse> ListVersions(string nextVersionIdMarker)
             {
-                var versionsResponse = await _amazonS3.ListVersionsAsync(
-                                           new ListVersionsRequest
-                                               {
-                                                   BucketName = _bucketName,
-                                                   Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
-                                                   VersionIdMarker = nextVersionIdMarker
-                                               });
+                var versionsResponse = await _amazonS3.ListVersionsAsync(new ListVersionsRequest
+                    {
+                        BucketName = _bucketName,
+                        Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                        VersionIdMarker = nextVersionIdMarker
+                    });
                 var versionInfos = versionsResponse.Versions.Where(x => !x.IsDeleteMarker)
                                                    .Select(x => new { x.Key, x.VersionId, x.LastModified })
                                                    .ToArray();
 
                 var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
-                var tasks = versionInfos.Select(
-                    async (x, index) =>
-                        {
-                            var modifiedElements = await GetModifiedElements(x.Key, x.VersionId);
-                            descriptors[index] = new ModifiedObjectDescriptor(
-                                x.Key.AsRootObjectId(),
-                                x.VersionId,
-                                x.LastModified,
-                                modifiedElements);
-                        });
+                var tasks = versionInfos.Select(async (x, index) =>
+                                                    {
+                                                        var elementMetadata = await GetElementMetadata(x.Key, x.VersionId);
+                                                        descriptors[index] = new ModifiedObjectDescriptor(
+                                                            x.Key.AsRootObjectId(),
+                                                            x.VersionId,
+                                                            x.LastModified,
+                                                            elementMetadata.AuthorInfo,
+                                                            elementMetadata.ModifiedElements);
+                                                    });
                 await Task.WhenAll(tasks);
 
                 versions.AddRange(descriptors);
@@ -141,21 +148,38 @@ namespace NuClear.VStore.Objects
                 objectVersionId = versionId;
             }
 
-            (ObjectPersistenceDescriptor persistenceDescriptor, string objectAuthor, DateTime objectLastModified) =
+            (var persistenceDescriptor, var objectAuthorInfo, var objectLastModified) =
                 await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
 
             var elements = new IObjectElementDescriptor[persistenceDescriptor.Elements.Count];
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        (ObjectElementDescriptor elementDescriptor, string elementAuthor, DateTime elementLastModified) =
-                            await GetObjectFromS3<ObjectElementDescriptor>(x.Id, x.VersionId);
+                        (var elementPersistenceDescriptor, var elementAuthorInfo, var elementLastModified) =
+                            await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
-                        elementDescriptor.Id = x.Id.AsSubObjectId();
-                        elementDescriptor.VersionId = x.VersionId;
-                        elementDescriptor.LastModified = elementLastModified;
+                        var binaryElementValue = elementPersistenceDescriptor.Value as IBinaryElementValue;
+                        if (binaryElementValue != null)
+                        {
+                            binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
+                        }
 
-                        elements[index] = elementDescriptor;
+                        if (binaryElementValue is IImageElementValue imageElementValue)
+                        {
+                            imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                        }
+
+                        elements[index] = new ObjectElementDescriptor
+                            {
+                                Id = x.Id.AsSubObjectId(),
+                                VersionId = x.VersionId,
+                                LastModified = elementLastModified,
+                                Type = elementPersistenceDescriptor.Type,
+                                TemplateCode = elementPersistenceDescriptor.TemplateCode,
+                                Properties = elementPersistenceDescriptor.Properties,
+                                Constraints = elementPersistenceDescriptor.Constraints,
+                                Value = elementPersistenceDescriptor.Value
+                            };
                     });
             await Task.WhenAll(tasks);
 
@@ -167,7 +191,9 @@ namespace NuClear.VStore.Objects
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
-                                     Author = objectAuthor,
+                                     Author = objectAuthorInfo.Author,
+                                     AuthorLogin = objectAuthorInfo.AuthorLogin,
+                                     AuthorName = objectAuthorInfo.AuthorName,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -186,7 +212,7 @@ namespace NuClear.VStore.Objects
             return listResponse.S3Objects.Count != 0;
         }
 
-        private async Task<(T, string, DateTime)> GetObjectFromS3<T>(string key, string versionId)
+        private async Task<(T, AuthorInfo, DateTime)> GetObjectFromS3<T>(string key, string versionId)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -200,6 +226,8 @@ namespace NuClear.VStore.Objects
 
             var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string content;
             using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
@@ -208,7 +236,7 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return (obj, author, getObjectResponse.LastModified);
+            return (obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
         }
     }
 }

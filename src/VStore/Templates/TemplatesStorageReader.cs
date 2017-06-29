@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -21,11 +23,13 @@ namespace NuClear.VStore.Templates
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly string _bucketName;
+        private readonly int _degreeOfParallelism;
 
         public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3 amazonS3)
         {
             _amazonS3 = amazonS3;
             _bucketName = cephOptions.TemplatesBucketName;
+            _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetTemplateMetadatas(string continuationToken)
@@ -34,6 +38,46 @@ namespace NuClear.VStore.Templates
 
             var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(long.Parse(x.Key), x.LastModified)).ToArray();
             return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
+        }
+
+        public async Task<IReadOnlyCollection<ModifiedTemplateDescriptor>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
+        {
+            var uniqueIds = new HashSet<long>(ids);
+            var partitioner = Partitioner.Create(uniqueIds);
+            var result = new ModifiedTemplateDescriptor[uniqueIds.Count];
+            var tasks = partitioner
+                .GetOrderablePartitions(_degreeOfParallelism)
+                .Select(async x =>
+                            {
+                                while (x.MoveNext())
+                                {
+                                    var templateId = x.Current.Value;
+                                    ModifiedTemplateDescriptor descriptor;
+                                    try
+                                    {
+                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString());
+                                        var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                                        var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                        var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                        var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
+                                        var versionId = await GetTemplateLatestVersion(templateId);
+                                        descriptor = new ModifiedTemplateDescriptor(
+                                            x.Current.Value,
+                                            versionId,
+                                            response.LastModified,
+                                            new AuthorInfo(author, authorLogin, authorName));
+                                    }
+                                    catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    {
+                                        descriptor = null;
+                                    }
+
+                                    result[x.Current.Key] = descriptor;
+                                }
+                            });
+            await Task.WhenAll(tasks);
+            return result;
         }
 
         public async Task<TemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
@@ -52,6 +96,8 @@ namespace NuClear.VStore.Templates
 
             var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
@@ -59,7 +105,15 @@ namespace NuClear.VStore.Templates
                 json = reader.ReadToEnd();
             }
 
-            var descriptor = new TemplateDescriptor { Id = id, VersionId = objectVersionId, LastModified = response.LastModified, Author = author };
+            var descriptor = new TemplateDescriptor
+                {
+                    Id = id,
+                    VersionId = objectVersionId,
+                    LastModified = response.LastModified,
+                    Author = author,
+                    AuthorLogin = authorLogin,
+                    AuthorName = authorName
+                };
             JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
 
             return descriptor;

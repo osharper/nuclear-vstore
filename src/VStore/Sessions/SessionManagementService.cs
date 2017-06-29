@@ -66,14 +66,19 @@ namespace NuClear.VStore.Sessions
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
+            (SessionDescriptor sessionDescriptor, AuthorInfo authorInfo, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
 
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
-            return new SessionContext(templateDescriptor.Id, templateDescriptor, sessionDescriptor.Language, author, expiresAt);
+            return new SessionContext(
+                templateDescriptor.Id,
+                templateDescriptor,
+                sessionDescriptor.Language,
+                authorInfo,
+                expiresAt);
         }
 
-        public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, string author)
+        public async Task Setup(Guid sessionId, long templateId, string templateVersionId, Language language, AuthorInfo authorInfo)
         {
             if (language == Language.Unspecified)
             {
@@ -100,10 +105,9 @@ namespace NuClear.VStore.Sessions
             var expiresAt = CurrentTime().AddDays(1);
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
-            if (!string.IsNullOrEmpty(author))
-            {
-                metadataWrapper.Write(MetadataElement.Author, author);
-            }
+            metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+            metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             var @event = new SessionCreatedEvent
                              {
@@ -126,7 +130,7 @@ namespace NuClear.VStore.Sessions
                 throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
 
-            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -159,7 +163,7 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
+                    (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileHeaderIsValid(elementDescriptor, memory);
                 }
@@ -201,7 +205,7 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            (SessionDescriptor sessionDescriptor, string author, DateTime expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
+            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(uploadSession.SessionId);
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {
@@ -215,9 +219,11 @@ namespace NuClear.VStore.Sessions
                         getResponse.ContentLength);
                 }
 
-                var fileKey = uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag);
-                var previewUrl = new Uri(_fileStorageEndpointUri, fileKey);
+                var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
+                var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
 
+                var fileExtension = Path.GetExtension(fileName);
+                var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
                 var copyRequest = new CopyObjectRequest
                                       {
                                           SourceBucket = _filesBucketName,
@@ -232,12 +238,9 @@ namespace NuClear.VStore.Sessions
                     copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
                 }
 
-                var metadataWrapper = MetadataCollectionWrapper.For(copyRequest.Metadata);
-                metadataWrapper.Write(MetadataElement.PreviewUrl, previewUrl);
-
                 await _amazonS3.CopyObjectAsync(copyRequest);
 
-                return new UploadedFileInfo(fileKey, previewUrl);
+                return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {
@@ -373,7 +376,7 @@ namespace NuClear.VStore.Sessions
             return EnumerateStatus.Continue;
         }
 
-        private async Task<(SessionDescriptor, string, DateTime)> GetSessionDescriptor(Guid sessionId)
+        private async Task<(SessionDescriptor, AuthorInfo, DateTime)> GetSessionDescriptor(Guid sessionId)
         {
             GetObjectResponse objectResponse;
             try
@@ -397,6 +400,8 @@ namespace NuClear.VStore.Sessions
             }
 
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
             string json;
             using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
@@ -405,7 +410,7 @@ namespace NuClear.VStore.Sessions
             }
 
             var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-            return (sessionDescriptor, author, expiresAt);
+            return (sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
         }
 
         private async Task<bool> IsSessionExists(Guid sessionId)

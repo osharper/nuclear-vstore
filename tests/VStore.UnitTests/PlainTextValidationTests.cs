@@ -83,7 +83,7 @@ namespace VStore.UnitTests
                 val => val.Raw = "\x00A0");
 
             value.Raw = AllChars.ToUpper();
-            TestHelpers.MakeValidationCheck<TextElementValue, ControlСharactersInTextError>(
+            TestHelpers.MakeValidationCheck<TextElementValue, ControlCharactersInTextError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
@@ -148,7 +148,7 @@ namespace VStore.UnitTests
             TestHelpers.MakeValidationCheck<FasElementValue, NonBreakingSpaceSymbolError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\x00A0");
 
             value.Text = AllChars.ToUpper();
-            TestHelpers.MakeValidationCheck<FasElementValue, ControlСharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
+            TestHelpers.MakeValidationCheck<FasElementValue, ControlCharactersInTextError>(value, constraints, PlainTextValidator.CheckRestrictedSymbols, val => val.Text = "\r");
         }
 
         [Theory]

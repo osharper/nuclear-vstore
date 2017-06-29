@@ -7,6 +7,7 @@ using ImageSharp;
 
 using Microsoft.Extensions.Logging;
 
+using MigrationTool.Json;
 using MigrationTool.Models;
 
 using NuClear.VStore.Descriptors;
@@ -264,6 +265,101 @@ namespace MigrationTool
                     return ElementDescriptorType.Date;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementTemplate), elementTemplate.RestrictionType, "Unknown ElementRestrictionType");
+            }
+        }
+
+        public ModerationResult GetAdvertisementModerationStatus(Advertisement advertisement)
+        {
+            if (advertisement.AdvertisementElements.All(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Valid))
+            {
+                return new ModerationResult { Status = ModerationStatus.Approved, Comment = string.Empty };
+            }
+
+            if (advertisement.AdvertisementElements.Any(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.ReadyForValidation
+                      || (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Draft))
+            {
+                return new ModerationResult { Status = ModerationStatus.OnApproval, Comment = string.Empty };
+            }
+
+            if (advertisement.AdvertisementElements.Any(
+                ae => (AdvertisementElementStatusValue)ae.AdvertisementElementStatus.Status == AdvertisementElementStatusValue.Invalid))
+            {
+                var denialReasons = advertisement.AdvertisementElements
+                                                 .SelectMany(ae => ae.AdvertisementElementDenialReasons)
+                                                 .Select(aedr => string.IsNullOrEmpty(aedr.Comment) ? aedr.DenialReason.Name : $"{aedr.DenialReason.Name} - {aedr.Comment}");
+
+                return new ModerationResult
+                    {
+                        Status = ModerationStatus.Approved,
+                        Comment = string.Join("; ", denialReasons)
+                    };
+            }
+
+            throw new NotImplementedException($"Cannot determine moderation status for advertisement {advertisement.Id.ToString()}");
+        }
+
+        public string ConvertFasCommentType(AdvertisementElement element)
+        {
+            if (!element.FasCommentType.HasValue)
+            {
+                return null;
+            }
+
+            switch (element.FasCommentType.Value)
+            {
+                case FasComment.NewFasComment:
+                    return "custom";
+                case FasComment.RussiaAlcohol:
+                case FasComment.CyprusAlcohol:
+                case FasComment.ChileAlcohol:
+                case FasComment.CzechAlcoholAdvertising:
+                case FasComment.UkraineAlcohol:
+                case FasComment.KyrgyzstanAlcohol:
+                    return "alcohol";
+                case FasComment.RussiaSupplements:
+                case FasComment.CyprusSupplements:
+                    return "supplements";
+                case FasComment.RussiaDrugs:
+                case FasComment.CyprusDrugs:
+                case FasComment.UkraineDrugs:
+                    return "drugs";
+                case FasComment.CyprusDrugsAndService:
+                case FasComment.ChileDrugsAndService:
+                    return "drugsAndService";
+                case FasComment.CzechMedsMultiple:
+                    return "medsMultiple";
+                case FasComment.CzechMedsSingle:
+                    return "medsSingle";
+                case FasComment.CzechDietarySupplement:
+                    return "dietarySupplement";
+                case FasComment.CzechSpecialNutrition:
+                    return "specialNutrition";
+                case FasComment.CzechChildNutrition:
+                    return "childNutrition";
+                case FasComment.CzechFinancilaServices:
+                    return "financialServices";
+                case FasComment.CzechMedsTraditional:
+                    return "medsTraditional";
+                case FasComment.CzechBiocides:
+                    return "biocides";
+                case FasComment.ChileMedicalReceiptDrugs:
+                    return "medicalReceiptDrugs";
+                case FasComment.UkraineAutotherapy:
+                    return "autotherapy";
+                case FasComment.UkraineMedicalDevice:
+                    return "medicalDevice";
+                case FasComment.UkraineSoundPhonogram:
+                    return "soundPhonogram";
+                case FasComment.UkraineSoundLive:
+                    return "soundLive";
+                case FasComment.UkraineEmploymentAssistance:
+                    return "employmentAssistance";
+                case FasComment.KyrgyzstanCertificateRequired:
+                    return "certificateRequired";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(element.FasCommentType), element.FasCommentType.Value, "Unsupported FAS comment type");
             }
         }
     }

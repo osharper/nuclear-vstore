@@ -10,6 +10,8 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
+using NuClear.VStore.Descriptors.Objects.Persistence;
+using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Events;
 using NuClear.VStore.Http;
@@ -59,7 +61,7 @@ namespace NuClear.VStore.Objects
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
 
-        public async Task<string> Create(long id, string author, IObjectDescriptor objectDescriptor)
+        public async Task<string> Create(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             CheckRequredProperties(id, objectDescriptor);
 
@@ -98,7 +100,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                return await PutObject(id, author, objectDescriptor);
+                return await PutObject(id, authorInfo, objectDescriptor);
             }
             finally
             {
@@ -109,7 +111,7 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        public async Task<string> Modify(long id, string versionId, string author, IObjectDescriptor modifiedObjectDescriptor)
+        public async Task<string> Modify(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor modifiedObjectDescriptor)
         {
             CheckRequredProperties(id, modifiedObjectDescriptor);
 
@@ -143,7 +145,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
 
-                return await PutObject(id, author, modifiedObjectDescriptor);
+                return await PutObject(id, authorInfo, modifiedObjectDescriptor);
             }
             finally
             {
@@ -184,7 +186,7 @@ namespace NuClear.VStore.Objects
                 {
                     throw new ObjectInconsistentException(
                         objectId,
-                        $"Constraints for the element with template code '{referenceObjectElement.TemplateCode} doesn't match to constraints for corresponding element in template.");
+                        $"Constraints for the element with template code '{referenceObjectElement.TemplateCode}' doesn't match to constraints for corresponding element in template.");
                 }
             }
         }
@@ -217,7 +219,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static async Task VerifyObjectElementsConsistency(long objectId, Language language, IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private static async Task VerifyObjectElementsConsistency(
+            long objectId,
+            Language language,
+            IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             var tasks = elementDescriptors.Select(
                 async x => await Task.Run(
@@ -295,13 +300,19 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private async Task<string> PutObject(long id, string author, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-            var metadata = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
-            var events = metadata.Select(x => new BinaryUsedEvent { ObjectId = id, ElementTemplateCode = x.TemplateCode, FileKey = x.FileKey });
+            var infoForBinaries = await RetrieveInfoForBinaries(id, objectDescriptor.Elements);
+            var events = infoForBinaries
+                .Select(x => new BinaryUsedEvent
+                    {
+                        ObjectId = id,
+                        ElementTemplateCode = x.Value.TemplateCode,
+                        FileKey = x.Value.FileKey
+                    });
             foreach (var @event in events)
             {
                 await _eventSender.SendAsync(_binariesUsingsTopicName, DateTime.UtcNow.DayOfYear, @event);
@@ -312,20 +323,27 @@ namespace NuClear.VStore.Objects
 
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
+                var value = elementDescriptor.Value;
+                if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
+                {
+                    var metadata = infoForBinaries[elementDescriptor.Id].BinaryMetadata;
+                    value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                }
+
+                var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
                 putRequest = new PutObjectRequest
                                  {
                                      Key = id.AsS3ObjectKey(elementDescriptor.Id),
                                      BucketName = _bucketName,
                                      ContentType = ContentType.Json,
-                                     ContentBody = JsonConvert.SerializeObject(elementDescriptor, SerializerSettings.Default),
+                                     ContentBody = JsonConvert.SerializeObject(elementPersistenceDescriptor, SerializerSettings.Default),
                                      CannedACL = S3CannedACL.PublicRead
                                  };
 
                 metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-                if (!string.IsNullOrEmpty(author))
-                 {
-                    metadataWrapper.Write(MetadataElement.Author, author);
-                }
+                metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+                metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+                metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
                 await _amazonS3.PutObjectAsync(putRequest);
             }
@@ -351,10 +369,9 @@ namespace NuClear.VStore.Objects
                              };
 
             metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
-            if (!string.IsNullOrEmpty(author))
-            {
-                metadataWrapper.Write(MetadataElement.Author, author);
-            }
+            metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
+            metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             metadataWrapper.Write(
                 MetadataElement.ModifiedElements,
@@ -405,49 +422,38 @@ namespace NuClear.VStore.Objects
             await Task.WhenAll(tasks);
         }
 
-        private async Task<IReadOnlyCollection<(int TemplateCode, string FileKey)>> RetrieveMetadataForBinaries(
+        private async Task<IReadOnlyDictionary<long, (int TemplateCode, string FileKey, BinaryMetadata BinaryMetadata)>> RetrieveInfoForBinaries(
             long id,
             IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            var binaryElements = objectElements.Where(x => x.Value is IBinaryElementValue).ToList();
-            if (binaryElements.Count == 0)
-            {
-                return Array.Empty<(int TemplateCode, string FileKey)>();
-            }
-
-            var metadata = new(int TemplateCode, string FileKey)[binaryElements.Count];
-            var tasks = binaryElements.Select(
-                async (x, index) =>
-                    {
-                        var binaryElementValue = (IBinaryElementValue)x.Value;
+            var tasks = objectElements
+                .Select(async x =>
+                            {
+                                var binaryElementValue = x.Value as IBinaryElementValue;
+                                if (binaryElementValue == null)
+                                {
+                                    return default((long, (int, string, BinaryMetadata)));
+                                }
 
                         if (string.IsNullOrEmpty(binaryElementValue.Raw))
                         {
                             throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
                         }
 
-                        try
-                        {
-                            var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
-                            binaryElementValue.Filename = binaryMetadata.Filename;
-                            binaryElementValue.Filesize = binaryMetadata.Filesize;
-
-                            var imageElementValue = binaryElementValue as IImageElementValue;
-                            if (imageElementValue != null)
-                            {
-                                imageElementValue.PreviewUri = binaryMetadata.PreviewUri;
-                            }
-                        }
-                        catch (ObjectNotFoundException ex)
-                        {
-                            throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
-                        }
-
-                        metadata[index] = (x.TemplateCode, binaryElementValue.Raw);
-                    });
+                                try
+                                {
+                                    var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
+                                    return (Id: (long?)x.Id, BinaryInfo: (x.TemplateCode, binaryElementValue.Raw, binaryMetadata));
+                                }
+                                catch (ObjectNotFoundException ex)
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                }
+                            })
+                .ToList();
             await Task.WhenAll(tasks);
 
-            return metadata;
+            return tasks.Select(x => x.Result).Where(x => x.Id.HasValue).ToDictionary(x => x.Id.Value, x => x.BinaryInfo);
         }
     }
 }

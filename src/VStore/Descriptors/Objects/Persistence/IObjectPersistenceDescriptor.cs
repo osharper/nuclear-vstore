@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
-namespace NuClear.VStore.Descriptors.Objects
+namespace NuClear.VStore.Descriptors.Objects.Persistence
 {
     public interface IObjectPersistenceDescriptor : IDescriptor
     {

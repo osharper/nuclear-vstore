@@ -8,6 +8,16 @@ namespace NuClear.VStore.Json
 {
     public static class SerializerSettings
     {
+        private static readonly JsonConverter[] CustonConverters =
+            {
+                new StringEnumConverter { CamelCaseText = true },
+                new ElementDescriptorJsonConverter(),
+                new ElementDescriptorCollectionJsonConverter(),
+                new TemplateDescriptorJsonConverter(),
+                new ObjectElementPersistenceDescriptorJsonConverter(),
+                new ObjectDescriptorJsonConverter()
+            };
+
         static SerializerSettings()
         {
             Default = new JsonSerializerSettings
@@ -15,12 +25,10 @@ namespace NuClear.VStore.Json
                               Culture = CultureInfo.InvariantCulture,
                               ContractResolver = new CamelCasePropertyNamesContractResolver()
                           };
-            Default.Converters.Insert(0, new StringEnumConverter { CamelCaseText = true });
-            Default.Converters.Insert(1, new ElementDescriptorJsonConverter());
-            Default.Converters.Insert(2, new ElementDescriptorCollectionJsonConverter());
-            Default.Converters.Insert(3, new TemplateDescriptorJsonConverter());
-            Default.Converters.Insert(4, new ObjectElementDescriptorJsonConverter());
-            Default.Converters.Insert(5, new ObjectDescriptorJsonConverter());
+            for (var index = 0; index < CustonConverters.Length; index++)
+            {
+                Default.Converters.Insert(index, CustonConverters[index]);
+            }
         }
 
         public static JsonSerializerSettings Default { get; }

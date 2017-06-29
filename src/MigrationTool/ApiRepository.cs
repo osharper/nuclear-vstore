@@ -21,6 +21,7 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Objects;
 
 namespace MigrationTool
 {
@@ -35,7 +36,6 @@ namespace MigrationTool
         private readonly Uri _searchUri;
         private readonly ILogger<ApiRepository> _logger;
         private readonly HttpClient _httpClient;
-        private readonly string _logFormat = "Sending '{method}' request on '{url}', request id {requestId}, server {server}, got response: {response}";
 
         public ApiRepository(ILogger<ApiRepository> logger, Uri apiUri, Uri storageUri, string token)
         {
@@ -51,22 +51,25 @@ namespace MigrationTool
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        public async Task<string> CreateObjectAsync(string objectId, string firmId, ObjectDescriptor objectDescriptor)
+        public async Task<string> CreateObjectAsync(long id, string firmId, ObjectDescriptor objectDescriptor)
         {
+            var objectId = id.ToString();
             var methodUri = new Uri(_objectUri, objectId + "?firm=" + firmId);
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(objectDescriptor, ApiSerializerSettings.Default), Encoding.UTF8, "application/json"))
                 {
                     using (var response = await _httpClient.PutAsync(methodUri, content))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        response.Headers.TryGetValues(HeaderNames.Server, out server);
-                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                        (stringResponse, server, requestId) = await HandleResponse(response);
+                        if (response.StatusCode == HttpStatusCode.Conflict)
+                        {
+                            throw new ObjectAlreadyExistsException(id);
+                        }
+
                         response.EnsureSuccessStatusCode();
                         var res = JsonConvert.DeserializeObject<ObjectDescriptor>(stringResponse, SerializerSettings.Default);
                         if (res == null)
@@ -75,7 +78,8 @@ namespace MigrationTool
                         }
 
                         _logger.LogInformation("Imported object {id} got version: {version}", objectId, res.VersionId);
-                        return stringResponse;
+
+                        return res.VersionId;
                     }
                 }
             }
@@ -97,22 +101,64 @@ namespace MigrationTool
             }
         }
 
+        public async Task<ObjectDescriptor> GetObjectAsync(long id)
+        {
+            var objectId = id.ToString();
+            var methodUri = new Uri(_objectUri, objectId);
+            var server = string.Empty;
+            var requestId = string.Empty;
+            var stringResponse = string.Empty;
+            try
+            {
+                using (var response = await _httpClient.GetAsync(methodUri))
+                {
+                    (stringResponse, server, requestId) = await HandleResponse(response);
+                    response.EnsureSuccessStatusCode();
+                    var res = JsonConvert.DeserializeObject<IReadOnlyList<ObjectDescriptor>>(stringResponse, SerializerSettings.Default);
+                    if (res == null)
+                    {
+                        throw new SerializationException("Cannot deserialize response: " + stringResponse);
+                    }
+
+                    if (res.Count != 1)
+                    {
+                        throw new NotSupportedException("Unsupported count of objects in response: " + res.Count.ToString());
+                    }
+
+                    return res.First();
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(new EventId(),
+                                 ex,
+                                 "Request {requestId} to server {server} error while getting object {id} with response: {response}",
+                                 requestId,
+                                 server,
+                                 objectId,
+                                 stringResponse);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(new EventId(), ex, "Getting object {id} error", objectId);
+                throw;
+            }
+        }
+
         public async Task CreatePositionAsync(string positionId, object positionDescriptor)
         {
             var methodUri = new Uri(_devUri, "nomenclature");
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(positionDescriptor, SerializerSettings.Default), Encoding.UTF8, "application/json"))
                 {
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        response.Headers.TryGetValues(HeaderNames.Server, out server);
-                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                        (stringResponse, server, requestId) = await HandleResponse(response);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Position {id} has been created", positionId);
                     }
@@ -141,17 +187,14 @@ namespace MigrationTool
             var methodUri = new Uri(_positionUri, $"{positionId}/template/{templateId}");
             using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
             {
+                var server = string.Empty;
+                var requestId = string.Empty;
                 var stringResponse = string.Empty;
-                IEnumerable<string> server = Array.Empty<string>();
-                IEnumerable<string> requestId = Array.Empty<string>();
                 try
                 {
                     using (var response = await _httpClient.SendAsync(req))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        response.Headers.TryGetValues(HeaderNames.Server, out server);
-                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                        (stringResponse, server, requestId) = await HandleResponse(response);
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("Link has been created between position {positionId} and template {templateId}", positionId, templateId);
                     }
@@ -179,9 +222,9 @@ namespace MigrationTool
         public async Task<string> CreateTemplateAsync(string templateId, TemplateDescriptor template)
         {
             var methodUri = new Uri(_templateUri, templateId);
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 var descriptor = new
@@ -194,10 +237,7 @@ namespace MigrationTool
                 {
                     using (var response = await _httpClient.PostAsync(methodUri, content))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        response.Headers.TryGetValues(HeaderNames.Server, out server);
-                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                        (stringResponse, server, requestId) = await HandleResponse(response);
                         response.EnsureSuccessStatusCode();
 
                         _logger.LogInformation("Created template {id} got version: {version}", templateId, response.Headers.ETag.Tag);
@@ -228,17 +268,14 @@ namespace MigrationTool
             var methodUri = new Uri(_templateUri, $"{templateId}/session?languages={langCode}");
             using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
             {
+                var server = string.Empty;
+                var requestId = string.Empty;
                 var stringResponse = string.Empty;
-                IEnumerable<string> server = Array.Empty<string>();
-                IEnumerable<string> requestId = Array.Empty<string>();
                 try
                 {
                     using (var response = await _httpClient.SendAsync(req))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        response.Headers.TryGetValues(HeaderNames.Server, out server);
-                        response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                        (stringResponse, server, requestId) = await HandleResponse(response);
                         response.EnsureSuccessStatusCode();
                         var descriptor = JsonConvert.DeserializeObject<IReadOnlyCollection<ApiObjectDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                         if (descriptor == null)
@@ -271,18 +308,15 @@ namespace MigrationTool
 
         public async Task<IReadOnlyCollection<PositionDescriptor>> GetPositionsAsync()
         {
-            var methodUri = new Uri(_searchUri, "nomenclature?isDeleted=false&count=500");
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
+            var methodUri = new Uri(_searchUri, "nomenclature?isDeleted=false&count=500");
             try
             {
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
-                    stringResponse = await response.Content.ReadAsStringAsync();
-                    response.Headers.TryGetValues(HeaderNames.Server, out server);
-                    response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                    _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                    (stringResponse, server, requestId) = await HandleResponse(response);
                     response.EnsureSuccessStatusCode();
                     var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<PositionDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                     if (descriptors == null)
@@ -312,20 +346,17 @@ namespace MigrationTool
 
         public async Task<TemplateDescriptor> GetTemplateAsync(string templateId)
         {
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
             var methodUri = new Uri(_templateUri, templateId);
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
-                    stringResponse = await response.Content.ReadAsStringAsync();
-                    response.Headers.TryGetValues(HeaderNames.Server, out server);
-                    response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                    _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                    (stringResponse, server, requestId) = await HandleResponse(response);
                     if (response.StatusCode == HttpStatusCode.NotFound &&
-                        server?.FirstOrDefault() == "okapi")
+                        server == "okapi")
                     {
                         _logger.LogDebug("Template {id} not found", templateId);
                         return null;
@@ -383,8 +414,7 @@ namespace MigrationTool
 
                     using (var response = await _httpClient.PostAsync(url, content))
                     {
-                        stringResponse = await response.Content.ReadAsStringAsync();
-                        _logger.LogDebug(_logFormat, response.RequestMessage.Method, url, string.Empty, stringResponse);
+                        stringResponse = (await HandleResponse(response)).ResponseContent;
                         response.EnsureSuccessStatusCode();
                         _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
                         return JObject.Parse(stringResponse);
@@ -400,11 +430,11 @@ namespace MigrationTool
 
         public async Task UpdateTemplateAsync(TemplateDescriptor template)
         {
+            var server = string.Empty;
+            var requestId = string.Empty;
             var stringResponse = string.Empty;
             var templateId = template.Id.ToString();
             var methodUri = new Uri(_templateUri, templateId);
-            IEnumerable<string> server = Array.Empty<string>();
-            IEnumerable<string> requestId = Array.Empty<string>();
             try
             {
                 using (var content = new StringContent(JsonConvert.SerializeObject(template, SerializerSettings.Default), Encoding.UTF8, "application/json"))
@@ -415,10 +445,7 @@ namespace MigrationTool
                         request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{template.VersionId}\""));
                         using (var response = await _httpClient.SendAsync(request))
                         {
-                            stringResponse = await response.Content.ReadAsStringAsync();
-                            response.Headers.TryGetValues(HeaderNames.Server, out server);
-                            response.Headers.TryGetValues(HeaderNames.RequestId, out requestId);
-                            _logger.LogDebug(_logFormat, response.RequestMessage.Method, methodUri, requestId, server, stringResponse);
+                            (stringResponse, server, requestId) = await HandleResponse(response);
                             response.EnsureSuccessStatusCode();
                             _logger.LogInformation("Updated template with {id} got new version: {version}", templateId, response.Headers.ETag.Tag);
                         }
@@ -440,6 +467,83 @@ namespace MigrationTool
             {
                 _logger.LogError(new EventId(), ex, "Template {id} update error", templateId);
                 throw;
+            }
+        }
+
+        public async Task SelectObjectToWhitelist(string objectId)
+        {
+            var methodUri = new Uri(_objectUri, $"{objectId}/whiteList");
+            using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
+            {
+                var server = string.Empty;
+                var requestId = string.Empty;
+                var stringResponse = string.Empty;
+                try
+                {
+                    using (var response = await _httpClient.SendAsync(req))
+                    {
+                        (stringResponse, server, requestId) = await HandleResponse(response);
+                        response.EnsureSuccessStatusCode();
+                        _logger.LogInformation("Object {objectId} has been selected to whitelist", objectId);
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogError(new EventId(),
+                                     ex,
+                                     "Request {requestId} to server {server} error while selecting object {objectId} to whitelist with response: {response}",
+                                     requestId,
+                                     server,
+                                     objectId,
+                                     stringResponse);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(new EventId(), ex, "Error while selecting object {objectId} to whitelist", objectId);
+                    throw;
+                }
+            }
+        }
+
+        public async Task UpdateObjectModerationStatusAsync(string objectId, string versionId, ModerationResult moderationResult)
+        {
+            var methodUri = new Uri(_objectUri, $"{objectId}/version/{versionId}/moderation");
+            using (var content = new StringContent(JsonConvert.SerializeObject(moderationResult, SerializerSettings.Default), Encoding.UTF8, "application/json"))
+            {
+                using (var req = new HttpRequestMessage(HttpMethod.Put, methodUri))
+                {
+                    req.Content = content;
+                    var server = string.Empty;
+                    var requestId = string.Empty;
+                    var stringResponse = string.Empty;
+                    try
+                    {
+                        using (var response = await _httpClient.SendAsync(req))
+                        {
+                            (stringResponse, server, requestId) = await HandleResponse(response);
+                            response.EnsureSuccessStatusCode();
+                            _logger.LogInformation("Object {objectId} with version {versionId} has been updated with moderation status {status}", objectId, versionId, moderationResult.Status);
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogError(new EventId(),
+                                         ex,
+                                         "Request {requestId} to server {server} error while updating object {objectId} moderation status {status} with response: {response}",
+                                         requestId,
+                                         server,
+                                         objectId,
+                                         moderationResult.Status,
+                                         stringResponse);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(new EventId(), ex, "Error while updating object {objectId} moderation status {status}", objectId, moderationResult.Status);
+                        throw;
+                    }
+                }
             }
         }
 
@@ -480,6 +584,22 @@ namespace MigrationTool
             {
                 throw new WebException("Can't establish connection with API");
             }
+        }
+
+        private async Task<(string ResponseContent, string Server, string RequestId)> HandleResponse(HttpResponseMessage response)
+        {
+            var stringResponse = await response.Content.ReadAsStringAsync();
+            response.Headers.TryGetValues(HeaderNames.Server, out IEnumerable<string> server);
+            response.Headers.TryGetValues(HeaderNames.RequestId, out IEnumerable<string> requestId);
+            _logger.LogDebug(
+                "Sending '{method}' request on '{url}', request id {requestId}, server {server}, got status {status} with response: {response}",
+                response.RequestMessage.Method,
+                response.RequestMessage.RequestUri,
+                requestId,
+                server,
+                response.StatusCode,
+                stringResponse);
+            return (stringResponse, server?.FirstOrDefault(), requestId?.FirstOrDefault());
         }
     }
 }
