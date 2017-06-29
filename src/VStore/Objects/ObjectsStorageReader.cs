@@ -59,15 +59,19 @@ namespace NuClear.VStore.Objects
         {
             var versions = new List<ModifiedObjectDescriptor>();
 
-            async Task<IReadOnlyCollection<int>> GetModifiedElements(string key, string versionId)
+            async Task<(IReadOnlyCollection<int> ModifiedElements, AuthorInfo AuthorInfo)> GetElementMetadata(string key, string versionId)
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_bucketName, key, versionId);
 
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                 var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
-                return string.IsNullOrEmpty(modifiedElements)
-                           ? Array.Empty<int>()
-                           : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                var modifiedElementIds = string.IsNullOrEmpty(modifiedElements)
+                                             ? Array.Empty<int>()
+                                             : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+                return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
             async Task<ListVersionsResponse> ListVersions(string nextVersionIdMarker)
@@ -83,15 +87,16 @@ namespace NuClear.VStore.Objects
                                                    .ToArray();
 
                 var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
-                var tasks = versionInfos.Select(
-                    async (x, index) =>
-                        {
-                            var modifiedElements = await GetModifiedElements(x.Key, x.VersionId);
-                            descriptors[index] = new ModifiedObjectDescriptor(x.Key.AsRootObjectId(),
-                                                                              x.VersionId,
-                                                                              x.LastModified,
-                                                                              modifiedElements);
-                        });
+                var tasks = versionInfos.Select(async (x, index) =>
+                                                    {
+                                                        var elementMetadata = await GetElementMetadata(x.Key, x.VersionId);
+                                                        descriptors[index] = new ModifiedObjectDescriptor(
+                                                            x.Key.AsRootObjectId(),
+                                                            x.VersionId,
+                                                            x.LastModified,
+                                                            elementMetadata.AuthorInfo,
+                                                            elementMetadata.ModifiedElements);
+                                                    });
                 await Task.WhenAll(tasks);
 
                 versions.AddRange(descriptors);
