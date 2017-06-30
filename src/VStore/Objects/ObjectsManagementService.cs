@@ -304,8 +304,8 @@ namespace NuClear.VStore.Objects
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-
             var infoForBinaries = await RetrieveInfoForBinaries(id, objectDescriptor.Elements);
+
             var events = infoForBinaries.Select(x => new BinaryUsedEvent(id, x.Value.TemplateCode, x.Value.FileKey));
             foreach (var @event in events)
             {
@@ -366,7 +366,6 @@ namespace NuClear.VStore.Objects
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
             metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
-
             metadataWrapper.Write(
                 MetadataElement.ModifiedElements,
                 string.Join(Tokens.ModifiedElementsDelimiter.ToString(), objectDescriptor.Elements.Select(x => x.TemplateCode)));

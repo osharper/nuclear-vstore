@@ -44,7 +44,7 @@ namespace NuClear.VStore.GC.Jobs
 
             while (!expiredSessionsProcessed && !cancellationToken.IsCancellationRequested)
             {
-                var sessionCreatedEvents = _eventReader.Read<SessionCreatedEvent>(_sessionsTopicName, BatchSize);
+                var sessionCreatedEvents = _eventReader.Read<SessionCreatingEvent>(_sessionsTopicName, BatchSize);
                 var expiredSessionEvents = sessionCreatedEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
                 expiredSessionsProcessed = sessionCreatedEvents.Count > expiredSessionEvents.Count;
 

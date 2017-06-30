@@ -2,9 +2,9 @@
 
 namespace NuClear.VStore.Events
 {
-    public class SessionCreatedEvent : IEvent
+    public sealed class SessionCreatingEvent : IEvent
     {
-        public SessionCreatedEvent(Guid sessionId, DateTime expiresAt)
+        public SessionCreatingEvent(Guid sessionId, DateTime expiresAt)
         {
             SessionId = sessionId;
             ExpiresAt = expiresAt;
