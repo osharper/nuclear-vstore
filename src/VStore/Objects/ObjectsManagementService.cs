@@ -306,8 +306,15 @@ namespace NuClear.VStore.Objects
                 var value = elementDescriptor.Value;
                 if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
                 {
-                    var metadata = metadataForBinaries[elementDescriptor.Id];
-                    value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                    if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                    {
+                        value = new BinaryElementPersistenceValue(null, null, null);
+                    }
+                    else
+                    {
+                        var metadata = metadataForBinaries[elementDescriptor.Id];
+                        value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                    }
                 }
 
                 var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
@@ -410,14 +417,9 @@ namespace NuClear.VStore.Objects
                 .Select(async x =>
                             {
                                 var binaryElementValue = x.Value as IBinaryElementValue;
-                                if (binaryElementValue == null)
+                                if (binaryElementValue == null || string.IsNullOrEmpty(binaryElementValue.Raw))
                                 {
                                     return (Id: null, Metadata: null);
-                                }
-
-                                if (string.IsNullOrEmpty(binaryElementValue.Raw))
-                                {
-                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
                                 }
 
                                 try

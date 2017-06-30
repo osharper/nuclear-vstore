@@ -3,6 +3,6 @@
     public interface IBinaryElementPersistenceValue : IObjectElementRawValue
     {
         string Filename { get; }
-        long Filesize { get; }
+        long? Filesize { get; }
     }
 }
