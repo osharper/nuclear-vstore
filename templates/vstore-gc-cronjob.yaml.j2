@@ -15,7 +15,7 @@ spec:
           containers:
           - name: {{ app_name }}
             image: {{ vstore_gc_image_path }}:{{ image_version }}
-            command: ["/app/VStore.GC", "collect", "locks"]
+            command: ["/app/VStore.Worker", "gc-collect", "locks"]
             resources:
               limits:
                 cpu: {{ worker_app_limits_cpu }}

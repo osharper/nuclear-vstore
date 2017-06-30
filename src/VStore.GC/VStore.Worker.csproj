@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
-    <AssemblyName>VStore.GC</AssemblyName>
-    <RootNamespace>NuClear.VStore.GC</RootNamespace>
+    <AssemblyName>VStore.Worker</AssemblyName>
+    <RootNamespace>NuClear.VStore.Worker</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.GC</PackageId>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>

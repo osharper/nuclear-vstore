@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
-namespace NuClear.VStore.GC
+namespace NuClear.VStore.Worker
 {
     public sealed class JobRunner
     {
@@ -21,9 +21,9 @@ namespace NuClear.VStore.GC
             var job = _jobRegistry.GetJob(jobId);
             if (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Job '{gcJobType}' with id = '{gcJobId}' is starting.", job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' is starting.", job.GetType().Name, jobId);
                 await job.ExecuteAsync(cancellationToken);
-                _logger.LogInformation("Job '{gcJobType}' with id = '{gcJobId}' finished." , job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' finished." , job.GetType().Name, jobId);
             }
         }
     }

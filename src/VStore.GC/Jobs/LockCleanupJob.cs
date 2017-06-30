@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Locks;
 
-namespace NuClear.VStore.GC.Jobs
+namespace NuClear.VStore.Worker.Jobs
 {
     public sealed class LockCleanupJob : AsyncJob
     {

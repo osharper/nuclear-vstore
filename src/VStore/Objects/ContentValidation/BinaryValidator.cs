@@ -12,8 +12,12 @@ namespace NuClear.VStore.Objects.ContentValidation
         public static IEnumerable<ObjectElementValidationError> CheckFilename(IObjectElementValue elementValue, IElementConstraints elementConstraints)
         {
             var value = (IBinaryElementValue)elementValue;
-            var constraints = (IBinaryElementConstraints)elementConstraints;
+            if (string.IsNullOrEmpty(value.Filename))
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
 
+            var constraints = (IBinaryElementConstraints)elementConstraints;
             return constraints.MaxFilenameLength.HasValue && value.Filename.Length > constraints.MaxFilenameLength
                 ? new[] { new FilenameTooLongError(constraints.MaxFilenameLength.Value, value.Filename.Length) }
                 : Array.Empty<ObjectElementValidationError>();

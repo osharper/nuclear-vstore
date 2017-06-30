@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace NuClear.VStore.GC
+namespace NuClear.VStore.Worker
 {
     public sealed class JobNotFoundException : Exception
     {

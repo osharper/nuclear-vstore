@@ -11,20 +11,19 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Events;
 using NuClear.VStore.Json;
-using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Kafka
 {
     public sealed class EventReader
     {
         private readonly Dictionary<string, object> _consumerConfig = new Dictionary<string, object>();
-        private readonly ILogger<EventReader> _logger;
+        private readonly ILogger _logger;
 
-        public EventReader(KafkaOptions kafkaOptions, ILogger<EventReader> logger)
+        public EventReader(ILogger logger, string brokerEndpoints, string groupId)
         {
             _logger = logger;
-            _consumerConfig.Add("bootstrap.servers", kafkaOptions.BrokerEndpoints);
-            _consumerConfig.Add("group.id", kafkaOptions.GroupId);
+            _consumerConfig.Add("bootstrap.servers", brokerEndpoints);
+            _consumerConfig.Add("group.id", groupId);
             _consumerConfig.Add("api.version.request", true);
             _consumerConfig.Add("enable.auto.commit", false);
             _consumerConfig.Add(

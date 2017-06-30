@@ -11,7 +11,7 @@ using NuClear.VStore.Kafka;
 using NuClear.VStore.Options;
 using NuClear.VStore.Sessions;
 
-namespace NuClear.VStore.GC.Jobs
+namespace NuClear.VStore.Worker.Jobs
 {
     public class BinariesCleanupJob : AsyncJob
     {

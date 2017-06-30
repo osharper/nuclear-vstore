@@ -37,7 +37,7 @@ namespace NuClear.VStore.Objects
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly EventSender _eventSender;
         private readonly string _bucketName;
-        private readonly string _binariesUsingsTopicName;
+        private readonly string _objectEventsTopic;
 
         public ObjectsManagementService(
             CephOptions cephOptions,
@@ -56,7 +56,7 @@ namespace NuClear.VStore.Objects
             _lockSessionFactory = lockSessionFactory;
             _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
-            _binariesUsingsTopicName = kafkaOptions.BinariesUsingsTopic;
+            _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
         }
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
@@ -100,7 +100,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                return await PutObject(id, authorInfo, objectDescriptor);
+                return await PutObject(id, null, authorInfo, objectDescriptor);
             }
             finally
             {
@@ -145,7 +145,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
 
-                return await PutObject(id, authorInfo, modifiedObjectDescriptor);
+                return await PutObject(id, versionId, authorInfo, modifiedObjectDescriptor);
             }
             finally
             {
@@ -300,17 +300,13 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private async Task<string> PutObject(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
-            var infoForBinaries = await RetrieveInfoForBinaries(id, objectDescriptor.Elements);
+            var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
-            var events = infoForBinaries.Select(x => new BinaryUsedEvent(id, x.Value.TemplateCode, x.Value.FileKey));
-            foreach (var @event in events)
-            {
-                await _eventSender.SendAsync(_binariesUsingsTopicName, DateTime.UtcNow.DayOfYear, @event);
-            }
+            await _eventSender.SendAsync(_objectEventsTopic, new ObjectVersionCreatingEvent(id, versionId));
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -320,8 +316,15 @@ namespace NuClear.VStore.Objects
                 var value = elementDescriptor.Value;
                 if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
                 {
-                    var metadata = infoForBinaries[elementDescriptor.Id].BinaryMetadata;
-                    value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                    if (string.IsNullOrEmpty(binaryElementValue.Raw))
+                    {
+                        value = new BinaryElementPersistenceValue(null, null, null);
+                    }
+                    else
+                    {
+                        var metadata = metadataForBinaries[elementDescriptor.Id];
+                        value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                    }
                 }
 
                 var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
@@ -415,7 +418,7 @@ namespace NuClear.VStore.Objects
             await Task.WhenAll(tasks);
         }
 
-        private async Task<IReadOnlyDictionary<long, (int TemplateCode, string FileKey, BinaryMetadata BinaryMetadata)>> RetrieveInfoForBinaries(
+        private async Task<IReadOnlyDictionary<long, BinaryMetadata>> RetrieveMetadataForBinaries(
             long id,
             IEnumerable<IObjectElementDescriptor> objectElements)
         {
@@ -423,20 +426,15 @@ namespace NuClear.VStore.Objects
                 .Select(async x =>
                             {
                                 var binaryElementValue = x.Value as IBinaryElementValue;
-                                if (binaryElementValue == null)
+                                if (binaryElementValue == null || string.IsNullOrEmpty(binaryElementValue.Raw))
                                 {
-                                    return default((long, (int, string, BinaryMetadata)));
-                                }
-
-                                if (string.IsNullOrEmpty(binaryElementValue.Raw))
-                                {
-                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                                    return (Id: null, Metadata: null);
                                 }
 
                                 try
                                 {
                                     var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
-                                    return (Id: (long?)x.Id, BinaryInfo: (x.TemplateCode, binaryElementValue.Raw, binaryMetadata));
+                                    return (Id: (long?)x.Id, Metadata: binaryMetadata);
                                 }
                                 catch (ObjectNotFoundException ex)
                                 {
@@ -446,7 +444,7 @@ namespace NuClear.VStore.Objects
                 .ToList();
             await Task.WhenAll(tasks);
 
-            return tasks.Select(x => x.Result).Where(x => x.Id.HasValue).ToDictionary(x => x.Id.Value, x => x.BinaryInfo);
+            return tasks.Select(x => x.Result).Where(x => x.Id.HasValue).ToDictionary(x => x.Id.Value, x => x.Metadata);
         }
     }
 }

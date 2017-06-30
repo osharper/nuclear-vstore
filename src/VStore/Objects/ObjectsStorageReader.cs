@@ -159,14 +159,14 @@ namespace NuClear.VStore.Objects
                             await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
                         var binaryElementValue = elementPersistenceDescriptor.Value as IBinaryElementValue;
-                        if (binaryElementValue != null)
+                        if (binaryElementValue != null && !string.IsNullOrEmpty(binaryElementValue.Raw))
                         {
                             binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
-                        }
 
-                        if (binaryElementValue is IImageElementValue imageElementValue)
-                        {
-                            imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                            if (binaryElementValue is IImageElementValue imageElementValue)
+                            {
+                                imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                            }
                         }
 
                         elements[index] = new ObjectElementDescriptor

@@ -15,16 +15,16 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using NuClear.VStore.GC.Jobs;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
+using NuClear.VStore.Worker.Jobs;
 
 using Serilog;
 
-namespace NuClear.VStore.GC
+namespace NuClear.VStore.Worker
 {
     public sealed class Program
     {
@@ -51,57 +51,75 @@ namespace NuClear.VStore.GC
                                               cts.Cancel();
                                               eventArgs.Cancel = true;
                                           };
-            var app = new CommandLineApplication { Name = "VStore.GC" };
+            var app = new CommandLineApplication { Name = "VStore.Worker" };
             app.HelpOption("-h|--help");
             app.OnExecute(
                 () =>
                     {
-                        Console.WriteLine("VStore.GC job runner.");
+                        Console.WriteLine("VStore job runner.");
                         app.ShowHelp();
                         return 0;
                     });
+
+            var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
             app.Command(
                 "collect",
                 config =>
                     {
                         config.Description = "Run cleanup job. See available arguments for details.";
                         config.HelpOption("-h|--help");
-
-                        var locksArgument = config.Argument("locks", "Collect expired locks.");
-                        var binariesArgument = config.Argument("binaries", "Collect orphan binary files.");
-                        var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
-                        config.OnExecute(
-                            () =>
+                        config.Command(
+                            "locks",
+                            nestedConfig =>
                                 {
-                                    string jobId = null;
-                                    if (!string.IsNullOrEmpty(locksArgument?.Value))
-                                    {
-                                        jobId = locksArgument.Value;
-                                    }
-                                    else if (!string.IsNullOrEmpty(binariesArgument?.Value))
-                                    {
-                                        jobId = binariesArgument.Value;
-                                    }
-                                    else
-                                    {
-                                        config.ShowHelp();
-                                    }
-
-                                    ExecuteAsync(jobRunner, jobId, cts.Token).GetAwaiter().GetResult();
-
-                                    return 0;
+                                    nestedConfig.Description = "Collect expired locks.";
+                                    nestedConfig.HelpOption("-h|--help");
+                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
+                                });
+                        config.Command(
+                            "binaries",
+                            nestedConfig =>
+                                {
+                                    nestedConfig.Description = "Collect orphan binary files.";
+                                    nestedConfig.HelpOption("-h|--help");
+                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
+                                });
+                        config.OnExecute(() =>
+                                             {
+                                                 config.ShowHelp();
+                                                 return 0;
+                                             });
+                    });
+            app.Command(
+                "produce",
+                config =>
+                    {
+                        config.Description = "Run produce job. See available arguments for details.";
+                        config.HelpOption("-h|--help");
+                        config.Command(
+                            "events",
+                            nestedConfig =>
+                                {
+                                    nestedConfig.Description = "Produce events of object versions creating and binary files usings.";
+                                    nestedConfig.HelpOption("-h|--help");
+                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
                                 });
                     });
 
             var exitCode = 0;
             try
             {
-                logger.LogInformation("VStore GC started with options: {gcOptions}.", args.Length != 0 ? string.Join(" ", args) : "N/A");
+                logger.LogInformation("VStore Worker started with options: {workerOptions}.", args.Length != 0 ? string.Join(" ", args) : "N/A");
                 exitCode = app.Execute(args);
+            }
+            catch (CommandParsingException ex)
+            {
+                ex.Command.ShowHelp();
+                exitCode = 1;
             }
             catch (JobNotFoundException)
             {
-                exitCode = 1;
+                exitCode = 2;
             }
             catch (Exception ex)
             {
@@ -110,7 +128,7 @@ namespace NuClear.VStore.GC
             }
             finally
             {
-                logger.LogInformation("VStore GC is shutting down with code {gcExitCode}.", exitCode);
+                logger.LogInformation("VStore Worker is shutting down with code {workerExitCode}.", exitCode);
             }
 
             Environment.Exit(exitCode);
@@ -135,6 +153,7 @@ namespace NuClear.VStore.GC
                 .AddScoped<JobRunner>()
                 .AddScoped<LockCleanupJob>()
                 .AddScoped<BinariesCleanupJob>()
+                .AddScoped<ObjectEventsProcessingJob>()
 
                 .AddSingleton<IAmazonS3>(
                     x =>
@@ -161,7 +180,6 @@ namespace NuClear.VStore.GC
                             return new AmazonS3Client(credentials, config);
                         })
                 .AddSingleton<LockSessionManager>()
-                .AddSingleton<EventReader>()
                 .AddSingleton<SessionCleanupService>();
 
             var serviceProvider = services.BuildServiceProvider();
@@ -182,12 +200,12 @@ namespace NuClear.VStore.GC
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
         }
 
-        private static async Task ExecuteAsync(JobRunner jobRunner, string jobId, CancellationToken cancellationToken)
+        private static int Run(CommandLineApplication app, JobRunner jobRunner, CancellationTokenSource cts)
         {
-            if (!string.IsNullOrEmpty(jobId))
-            {
-                await jobRunner.RunAsync(jobId, cancellationToken);
-            }
+            async Task ExecuteAsync(JobRunner runner, string jobId, CancellationToken cancellationToken) => await runner.RunAsync(jobId, cancellationToken);
+
+            ExecuteAsync(jobRunner, app.Name, cts.Token).GetAwaiter().GetResult();
+            return 0;
         }
     }
 }

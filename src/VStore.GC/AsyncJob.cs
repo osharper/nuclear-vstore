@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 
-namespace NuClear.VStore.GC
+namespace NuClear.VStore.Worker
 {
     public abstract class AsyncJob
     {
