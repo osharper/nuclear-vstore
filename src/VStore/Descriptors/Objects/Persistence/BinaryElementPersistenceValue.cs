@@ -2,7 +2,7 @@
 {
     public sealed class BinaryElementPersistenceValue : IBinaryElementPersistenceValue
     {
-        public BinaryElementPersistenceValue(string raw, string filename, long filesize)
+        public BinaryElementPersistenceValue(string raw, string filename, long? filesize)
         {
             Raw = raw;
             Filename = filename;
@@ -11,6 +11,6 @@
 
         public string Raw { get; }
         public string Filename { get; }
-        public long Filesize { get; }
+        public long? Filesize { get; }
     }
 }
