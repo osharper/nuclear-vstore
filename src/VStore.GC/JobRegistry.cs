@@ -13,8 +13,9 @@ namespace NuClear.VStore.Worker
         private static readonly Dictionary<string, Type> Registry =
             new Dictionary<string, Type>
                 {
-                    { "locks", typeof(LockCleanupJob) },
-                    { "binaries", typeof(BinariesCleanupJob) }
+                    { "collect-locks", typeof(LockCleanupJob) },
+                    { "collect-binaries", typeof(BinariesCleanupJob) },
+                    { "produce-events", typeof(ObjectEventsProcessingJob) }
                 };
 
         private readonly IServiceProvider _serviceProvider;
@@ -26,9 +27,9 @@ namespace NuClear.VStore.Worker
             _logger = logger;
         }
 
-        public AsyncJob GetJob(string jobId)
+        public AsyncJob GetJob(string workerId, string jobId)
         {
-            if (Registry.TryGetValue(jobId, out Type jobType))
+            if (Registry.TryGetValue($"{workerId}-{jobId}", out Type jobType))
             {
                 return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
             }

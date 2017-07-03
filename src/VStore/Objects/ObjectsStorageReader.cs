@@ -56,7 +56,7 @@ namespace NuClear.VStore.Objects
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
-        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetAllObjectRootVersions(long id)
+        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetObjectVersions(long id, string initialVersionId)
         {
             var versions = new List<ModifiedObjectDescriptor>();
 
@@ -105,7 +105,7 @@ namespace NuClear.VStore.Objects
                 return versionsResponse;
             }
 
-            var response = await ListVersions(null);
+            var response = await ListVersions(initialVersionId);
             if (versions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");

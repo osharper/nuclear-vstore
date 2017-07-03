@@ -37,7 +37,7 @@ namespace NuClear.VStore.Worker.Jobs
             _sessionCleanupService = sessionCleanupService;
         }
 
-        protected override async Task ExecuteInternalAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
             var utcNow = DateTime.UtcNow;
             var expiredSessionsProcessed = false;

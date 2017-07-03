@@ -39,7 +39,7 @@ namespace NuClear.VStore.Kafka
             var isEofReached = false;
             var count = 0;
             var events = new List<KafkaEvent<TSourceEvent>>();
-            using (var consumer = new Consumer<Null, string>(_consumerConfig, null, new StringDeserializer(Encoding.UTF8)))
+            using (var consumer = new Consumer<string, string>(_consumerConfig, new StringDeserializer(Encoding.UTF8), new StringDeserializer(Encoding.UTF8)))
             {
                 consumer.OnLog += (_, logMessage) => Log(logMessage);
                 consumer.OnError += (_, error) => LogError(error);

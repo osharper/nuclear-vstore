@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
@@ -23,11 +23,17 @@ using NuClear.VStore.Sessions;
 using NuClear.VStore.Worker.Jobs;
 
 using Serilog;
+using NuClear.VStore.Objects;
+using NuClear.VStore.Templates;
+using NuClear.VStore.Kafka;
 
 namespace NuClear.VStore.Worker
 {
     public sealed class Program
     {
+        private const char ArgumentKeySeparator = '=';
+        private const char ArgumentValueSeparator = ';';
+
         public static void Main(string[] args)
         {
             var env = Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production";
@@ -70,19 +76,20 @@ namespace NuClear.VStore.Worker
                         config.HelpOption("-h|--help");
                         config.Command(
                             "locks",
-                            nestedConfig =>
+                            commandConfig =>
                                 {
-                                    nestedConfig.Description = "Collect expired locks.";
-                                    nestedConfig.HelpOption("-h|--help");
-                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
+                                    commandConfig.Description = "Collect expired locks.";
+                                    commandConfig.HelpOption("-h|--help");
+                                    commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                         config.Command(
                             "binaries",
-                            nestedConfig =>
+                            commandConfig =>
                                 {
-                                    nestedConfig.Description = "Collect orphan binary files.";
-                                    nestedConfig.HelpOption("-h|--help");
-                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
+                                    commandConfig.Description = "Collect orphan binary files.";
+                                    commandConfig.HelpOption("-h|--help");
+                                    commandConfig.Argument("range", "Time range in hours.");
+                                    commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                         config.OnExecute(() =>
                                              {
@@ -94,15 +101,18 @@ namespace NuClear.VStore.Worker
                 "produce",
                 config =>
                     {
-                        config.Description = "Run produce job. See available arguments for details.";
+                        config.Description = "Run produce events job. See available arguments for details.";
                         config.HelpOption("-h|--help");
                         config.Command(
                             "events",
-                            nestedConfig =>
+                            commandConfig =>
                                 {
-                                    nestedConfig.Description = "Produce events of object versions creating and binary files usings.";
-                                    nestedConfig.HelpOption("-h|--help");
-                                    nestedConfig.OnExecute(() => Run(nestedConfig, jobRunner, cts));
+                                    commandConfig.Description = "Produce events of created versions of objects and/or binary files usings.";
+                                    commandConfig.HelpOption("-h|--help");
+                                    commandConfig.Argument("mode",
+                                                           "Set 'versions' to produce events of created versions of objects, " +
+                                                           "and 'binaries' to produce events of binary files usings");
+                                    commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                     });
 
@@ -180,7 +190,11 @@ namespace NuClear.VStore.Worker
                             return new AmazonS3Client(credentials, config);
                         })
                 .AddSingleton<LockSessionManager>()
-                .AddSingleton<SessionCleanupService>();
+                .AddSingleton<SessionCleanupService>()
+                .AddScoped<TemplatesStorageReader>()
+                .AddScoped<ObjectsStorageReader>()
+                .AddScoped<EventReader>()
+                .AddScoped<EventSender>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -202,9 +216,17 @@ namespace NuClear.VStore.Worker
 
         private static int Run(CommandLineApplication app, JobRunner jobRunner, CancellationTokenSource cts)
         {
-            async Task ExecuteAsync(JobRunner runner, string jobId, CancellationToken cancellationToken) => await runner.RunAsync(jobId, cancellationToken);
+            var workerId = app.Parent.Name;
+            var jobId = app.Name;
+            var args = app.Arguments
+                          .Select(x => x.Value?.Split(ArgumentKeySeparator))
+                          .Where(x => x != null)
+                          .ToDictionary(
+                              x => x[0],
+                              x => x.Length < 2 ? null : x[1]?.Split(new[] { ArgumentValueSeparator }, StringSplitOptions.RemoveEmptyEntries).ToArray());
+            async Task ExecuteAsync() => await jobRunner.RunAsync(workerId, jobId, args, cts.Token);
 
-            ExecuteAsync(jobRunner, app.Name, cts.Token).GetAwaiter().GetResult();
+            ExecuteAsync().GetAwaiter().GetResult();
             return 0;
         }
     }

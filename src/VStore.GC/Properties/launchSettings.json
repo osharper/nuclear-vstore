@@ -1,8 +1,8 @@
 {
   "profiles": {
-    "VStore.GC": {
+    "VStore.Worker": {
       "commandName": "Project",
-      "commandLineArgs": "collect locks",
+      "commandLineArgs": "produce events mode=versions;binaries",
       "environmentVariables": {
         "VSTORE_ENVIRONMENT": "Development"
       }
