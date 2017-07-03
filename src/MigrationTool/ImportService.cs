@@ -611,7 +611,7 @@ namespace MigrationTool
                 if (string.IsNullOrEmpty(versionId))
                 {
                     _logger.LogWarning("VersionId for object {id} is unknown, need to get latest version", objectId);
-                    versionId = (await Repository.GetObjectAsync(advertisement.Id)).VersionId;
+                    versionId = await Repository.GetObjectVersionAsync(advertisement.Id);
                 }
 
                 await Repository.UpdateObjectModerationStatusAsync(objectId, versionId, moderationStatus);
