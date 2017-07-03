@@ -71,7 +71,7 @@ namespace MigrationTool
                         }
 
                         response.EnsureSuccessStatusCode();
-                        var res = JsonConvert.DeserializeObject<ObjectDescriptor>(stringResponse, SerializerSettings.Default);
+                        var res = JsonConvert.DeserializeObject<ApiVersionedDescriptor>(stringResponse, SerializerSettings.Default);
                         if (res == null)
                         {
                             throw new SerializationException("Cannot deserialize response: " + stringResponse);
@@ -101,7 +101,7 @@ namespace MigrationTool
             }
         }
 
-        public async Task<ObjectDescriptor> GetObjectAsync(long id)
+        public async Task<string> GetObjectVersionAsync(long id)
         {
             var objectId = id.ToString();
             var methodUri = new Uri(_objectUri, objectId);
@@ -114,7 +114,7 @@ namespace MigrationTool
                 {
                     (stringResponse, server, requestId) = await HandleResponse(response);
                     response.EnsureSuccessStatusCode();
-                    var res = JsonConvert.DeserializeObject<IReadOnlyList<ObjectDescriptor>>(stringResponse, SerializerSettings.Default);
+                    var res = JsonConvert.DeserializeObject<IReadOnlyList<ApiVersionedDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                     if (res == null)
                     {
                         throw new SerializationException("Cannot deserialize response: " + stringResponse);
@@ -125,7 +125,7 @@ namespace MigrationTool
                         throw new NotSupportedException("Unsupported count of objects in response: " + res.Count.ToString());
                     }
 
-                    return res.First();
+                    return res.First().VersionId;
                 }
             }
             catch (HttpRequestException ex)
