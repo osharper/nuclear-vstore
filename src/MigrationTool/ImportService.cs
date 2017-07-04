@@ -934,6 +934,7 @@ namespace MigrationTool
                 case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
+                case ElementDescriptorType.VideoLink:
                     return false;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptorType), descriptorType, "Unknown ElementDescriptorType");
@@ -1082,6 +1083,12 @@ namespace MigrationTool
                         {
                             Raw = element.Text,
                             Formatted = null
+                        };
+
+                case ElementDescriptorType.VideoLink:
+                    return new TextElementValue
+                        {
+                            Raw = element.Text
                         };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");

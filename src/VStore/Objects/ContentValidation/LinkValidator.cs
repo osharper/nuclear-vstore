@@ -17,7 +17,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var constraints = (LinkElementConstraints)elementConstraints;
+            var constraints = (ILinkElementConstraints)elementConstraints;
             if (!constraints.ValidLink)
             {
                 return Array.Empty<ObjectElementValidationError>();

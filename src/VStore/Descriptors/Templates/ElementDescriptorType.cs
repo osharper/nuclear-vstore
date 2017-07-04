@@ -9,6 +9,7 @@
         FasComment = 5,
         Date = 6,
         Link = 7,
-        Phone = 8
+        Phone = 8,
+        VideoLink = 9
     }
 }

@@ -2,7 +2,7 @@
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public class LinkElementConstraints : PlainTextElementConstraints, IEquatable<LinkElementConstraints>
+    public class LinkElementConstraints : PlainTextElementConstraints, ILinkElementConstraints, IEquatable<LinkElementConstraints>
     {
         public bool ValidLink => true;
 
@@ -12,8 +12,8 @@ namespace NuClear.VStore.Descriptors.Templates
             return Equals(other);
         }
 
-        public bool Equals(LinkElementConstraints other) => base.Equals(other);
+        public bool Equals(LinkElementConstraints other) => base.Equals(other) && ValidLink == other.ValidLink;
 
-        public override int GetHashCode() => base.GetHashCode();
+        public override int GetHashCode() => (base.GetHashCode() * 397) ^ ValidLink.GetHashCode();
     }
 }

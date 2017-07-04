@@ -13,6 +13,8 @@ namespace NuClear.VStore.Json
             {
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
+                case ElementDescriptorType.Link:
+                case ElementDescriptorType.VideoLink:
                     return valueToken.ToObject<TextElementValue>();
                 case ElementDescriptorType.Image:
                     return valueToken.ToObject<ImageElementValue>();
@@ -22,8 +24,6 @@ namespace NuClear.VStore.Json
                     return valueToken.ToObject<FasElementValue>();
                 case ElementDescriptorType.Date:
                     return valueToken.ToObject<DateElementValue>();
-                case ElementDescriptorType.Link:
-                    return valueToken.ToObject<TextElementValue>();
                 case ElementDescriptorType.Phone:
                     return valueToken.ToObject<PhoneElementValue>();
                 default:
