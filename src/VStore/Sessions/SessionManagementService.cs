@@ -23,6 +23,7 @@ using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.S3;
+using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
 
 namespace NuClear.VStore.Sessions
@@ -111,9 +112,9 @@ namespace NuClear.VStore.Sessions
             string contentType,
             int templateCode)
         {
-            if (!await IsSessionExists(sessionId))
+            if (string.IsNullOrEmpty(fileName))
             {
-                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+                throw new MissingFilenameException($"Filename has not been provided for the item '{templateCode}'");
             }
 
             SessionDescriptor sessionDescriptor = await GetSessionDescriptor(sessionId);
@@ -140,7 +141,7 @@ namespace NuClear.VStore.Sessions
             return new MultipartUploadSession(sessionId, fileKey, uploadResponse.UploadId);
         }
 
-        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, int templateCode)
+        public async Task UploadFilePart(MultipartUploadSession uploadSession, Stream inputStream, string fileName, int templateCode)
         {
             using (var memory = new MemoryStream())
             {
@@ -151,7 +152,7 @@ namespace NuClear.VStore.Sessions
                 {
                     SessionDescriptor sessionDescriptor = await GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
-                    EnsureFileHeaderIsValid(elementDescriptor, memory);
+                    EnsureFileIsValid(elementDescriptor, memory, sessionDescriptor.Language, fileName);
                 }
 
                 var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
@@ -199,6 +200,7 @@ namespace NuClear.VStore.Sessions
                 using (getResponse.ResponseStream)
                 {
                     EnsureUploadedFileIsValid(
+                        elementDescriptor.TemplateCode,
                         elementDescriptor.Type,
                         elementDescriptor.Constraints.For(sessionDescriptor.Language),
                         getResponse.ResponseStream,
@@ -238,8 +240,25 @@ namespace NuClear.VStore.Sessions
 
         private static bool IsSessionExpired(DateTime expiresAt) => expiresAt <= CurrentTime();
 
-        private static void EnsureFileHeaderIsValid(IElementDescriptor elementDescriptor, Stream inputStream)
+        private static void EnsureFileIsValid(IElementDescriptor elementDescriptor, Stream inputStream, Language language, string fileName)
         {
+            var constraints = (IBinaryElementConstraints)elementDescriptor.Constraints.For(language);
+            if (constraints.MaxFilenameLength.HasValue && constraints.MaxFilenameLength.Value < fileName.Length)
+            {
+                throw new InvalidBinaryException(elementDescriptor.TemplateCode, new FilenameTooLongError(fileName.Length));
+            }
+
+            if (constraints.MaxSize.HasValue && constraints.MaxSize.Value < inputStream.Length)
+            {
+                throw new InvalidBinaryException(elementDescriptor.TemplateCode, new BinaryTooLargeError(inputStream.Length));
+            }
+
+            var extension = GetDotLessExtension(fileName);
+            if (!ValidateFileExtension(extension, constraints))
+            {
+                throw new InvalidBinaryException(elementDescriptor.TemplateCode, new BinaryInvalidFormatError(extension));
+            }
+
             if (elementDescriptor.Type == ElementDescriptorType.Image)
             {
                 var maxHeaderSize = ImageFormatsMap.Values.Max(x => x.HeaderSize);
@@ -249,14 +268,22 @@ namespace NuClear.VStore.Sessions
                 inputStream.Read(header, 0, header.Length);
                 inputStream.Position = position;
 
-                if (!ImageFormatsMap.Values.Any(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray())))
+                var format = ImageFormatsMap.Values.FirstOrDefault(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray()));
+                if (format == null)
                 {
-                    throw new ImageIncorrectException("Input stream cannot be recognized as image.");
+                    throw new InvalidBinaryException(elementDescriptor.TemplateCode, new InvalidImageError());
+                }
+
+                // Image format is not consistent with filename extension:
+                if (!format.SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                {
+                    throw new InvalidBinaryException(elementDescriptor.TemplateCode, new BinaryExtensionMismatchContentError(extension, format.Extension.ToLowerInvariant()));
                 }
             }
         }
 
         private static void EnsureUploadedFileIsValid(
+            int templateCode,
             ElementDescriptorType elementDescriptorType,
             IElementConstraints elementDescriptorConstraints,
             Stream inputStream,
@@ -265,21 +292,21 @@ namespace NuClear.VStore.Sessions
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.Image:
-                    ValidateImage((ImageElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
+                    ValidateImage(templateCode, (ImageElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 case ElementDescriptorType.Article:
-                    ValidateArticle((ArticleElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
+                    ValidateArticle(templateCode, (ArticleElementConstraints)elementDescriptorConstraints, inputStream, inputStreamLength);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType));
             }
         }
 
-        private static void ValidateImage(ImageElementConstraints constraints, Stream inputStream, long inputStreamLength)
+        private static void ValidateImage(int templateCode, ImageElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
             if (inputStreamLength > constraints.MaxSize)
             {
-                throw new FilesizeMismatchException("Image exceeds the size limit.");
+                throw new InvalidBinaryException(templateCode, new BinaryTooLargeError(inputStreamLength));
             }
 
             var imageFormats = constraints.SupportedFileFormats
@@ -300,30 +327,65 @@ namespace NuClear.VStore.Sessions
             {
                 image = Image.Load(inputStream);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw new ImageIncorrectException("Image cannot be loaded from the stream.", ex);
+                throw new InvalidBinaryException(templateCode, new InvalidImageError());
             }
 
             using (image)
             {
                 if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
                 {
-                    throw new ImageIncorrectException($"Image has an incorrect format. Supported formats are: {string.Join(", ", constraints.SupportedFileFormats)}");
+                    throw new InvalidBinaryException(templateCode, new BinaryInvalidFormatError(image.CurrentImageFormat.Extension));
                 }
 
                 if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
                 {
-                    throw new ImageIncorrectException($"Image has an incorrect size. Supported image sizes are: {string.Join(", ", constraints.SupportedImageSizes)}");
+                    throw new InvalidBinaryException(templateCode, new ImageUnsupportedSizeError(new ImageSize { Height = image.Height, Width = image.Width }));
+                }
+
+                if (constraints.IsAlphaChannelRequired && !IsImageContainsAlphaChannel(image))
+                {
+                    throw new InvalidBinaryException(templateCode, new ImageAlphaChannelError());
                 }
             }
         }
 
-        private static void ValidateArticle(ArticleElementConstraints constraints, Stream inputStream, long inputStreamLength)
+        private static bool IsImageContainsAlphaChannel(IImageBase<Rgba32> image)
+        {
+            var pixels = image.Pixels;
+            for (var i = 0; i < pixels.Length; ++i)
+            {
+                if (pixels[i].A != byte.MaxValue)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ValidateFileExtension(string extension, IBinaryElementConstraints constraints)
+        {
+            return Enum.TryParse(extension, true, out FileFormat format)
+                   && Enum.IsDefined(typeof(FileFormat), format)
+                   && format.ToString().Equals(extension, StringComparison.OrdinalIgnoreCase)
+                   && constraints.SupportedFileFormats.Any(f => f == format);
+        }
+
+        private static string GetDotLessExtension(string path)
+        {
+            var dottedExtension = Path.GetExtension(path);
+            return string.IsNullOrEmpty(dottedExtension)
+                       ? dottedExtension
+                       : dottedExtension.Trim('.').ToLowerInvariant();
+        }
+
+        private static void ValidateArticle(int templateCode, ArticleElementConstraints constraints, Stream inputStream, long inputStreamLength)
         {
             if (inputStreamLength > constraints.MaxSize)
             {
-                throw new FilesizeMismatchException("Article exceeds the size limit");
+                throw new InvalidBinaryException(templateCode, new BinaryTooLargeError(inputStreamLength));
             }
 
             var enumeratorContext = new EnumeratorContext { IsGoalReached = false };
@@ -340,14 +402,14 @@ namespace NuClear.VStore.Sessions
                                enumeratorContext);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw new ArticleIncorrectException("Article cannot be loaded from the stream", ex);
+                throw new InvalidBinaryException(templateCode, new InvalidArticleError());
             }
 
             if (!enumeratorContext.IsGoalReached)
             {
-                throw new ArticleIncorrectException("Article must contain 'index.html'");
+                throw new InvalidBinaryException(templateCode, new ArticleMissingIndexError());
             }
         }
 
@@ -397,18 +459,6 @@ namespace NuClear.VStore.Sessions
 
             var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
             return new SessionDescriptorWrapper(sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
-        }
-
-        private async Task<bool> IsSessionExists(Guid sessionId)
-        {
-            var response = await _amazonS3.ListObjectsAsync(
-                               new ListObjectsRequest
-                                   {
-                                       BucketName = _filesBucketName,
-                                       Prefix = sessionId.ToString(),
-                                       MaxKeys = 1
-                                   });
-            return response.S3Objects.Count > 0;
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)

@@ -15,11 +15,6 @@
         NoNestedLists,
         ValidLink,
         ValidDateRange,
-        MaxSize,
-        MaxFilenameLength,
-        SupportedFileFormats,
-        BinaryExists,
-        ValidArticle,
-        ValidImage
+        BinaryExists
     }
 }

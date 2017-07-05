@@ -16,6 +16,8 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public bool ValidImage => true;
 
+        public bool ExtensionMatchContentFormat => true;
+
         public bool Equals(ImageElementConstraints other)
         {
             if (ReferenceEquals(null, other))
@@ -42,6 +44,9 @@ namespace NuClear.VStore.Descriptors.Templates
 
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
+                   BinaryExists == other.BinaryExists &&
+                   ValidImage == other.ValidImage &&
+                   ExtensionMatchContentFormat == other.ExtensionMatchContentFormat &&
                    (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats)) &&
                    (ReferenceEquals(SupportedImageSizes, other.SupportedImageSizes) || SupportedImageSizes.SequenceEqual(other.SupportedImageSizes)) &&
                    IsAlphaChannelRequired == other.IsAlphaChannelRequired;
@@ -58,6 +63,9 @@ namespace NuClear.VStore.Descriptors.Templates
             unchecked
             {
                 var hashCode = MaxSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ BinaryExists.GetHashCode();
+                hashCode = (hashCode * 397) ^ ValidImage.GetHashCode();
+                hashCode = (hashCode * 397) ^ ExtensionMatchContentFormat.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxFilenameLength.GetHashCode();
                 hashCode = (hashCode * 397) ^ (SupportedFileFormats?.GetHashCode() ?? 0);
                 hashCode = (hashCode * 397) ^ (SupportedImageSizes?.GetHashCode() ?? 0);

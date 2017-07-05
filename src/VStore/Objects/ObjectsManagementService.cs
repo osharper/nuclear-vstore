@@ -271,9 +271,6 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
-                case ElementDescriptorType.Image:
-                case ElementDescriptorType.Article:
-                    return new ValidationRule[] { BinaryValidator.CheckFilename };
                 case ElementDescriptorType.Date:
                     return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
@@ -285,6 +282,8 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
+                case ElementDescriptorType.Image:
+                case ElementDescriptorType.Article:
                 case ElementDescriptorType.Phone:
                     return new ValidationRule[] { };
                 case ElementDescriptorType.VideoLink:

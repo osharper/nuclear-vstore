@@ -8,10 +8,13 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
+using Newtonsoft.Json.Linq;
+
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Filters;
+using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 
@@ -88,7 +91,6 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
-        [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
@@ -118,7 +120,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (SessionCannotBeCreatedException ex)
             {
-                return Unprocessable(ex.Message);
+                return BadRequest(ex.Message);
             }
         }
 
@@ -126,7 +128,6 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
-        [ProducesResponseType(typeof(string), 422)]
         public async Task<IActionResult> SetupSession(
             [FromHeader(Name = Http.HeaderNames.AmsAuthor)] string author,
             [FromHeader(Name = Http.HeaderNames.AmsAuthorLogin)] string authorLogin,
@@ -157,7 +158,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (SessionCannotBeCreatedException ex)
             {
-                return Unprocessable(ex.Message);
+                return BadRequest(ex.Message);
             }
         }
 
@@ -208,12 +209,12 @@ namespace NuClear.VStore.Host.Controllers
                                             fileSection.FileName,
                                             section.ContentType,
                                             templateCode);
-                        _logger.LogInformation($"Multipart upload for file '{fileSection.FileName}' was initiated.");
+                        _logger.LogInformation("Multipart upload for file '{fileName}' in session '{sessionId}' was initiated.", fileSection.FileName, sessionId);
                     }
 
                     using (fileSection.FileStream)
                     {
-                        await _sessionManagementService.UploadFilePart(uploadSession, fileSection.FileStream, templateCode);
+                        await _sessionManagementService.UploadFilePart(uploadSession, fileSection.FileStream, fileSection.FileName, templateCode);
                     }
                 }
 
@@ -231,23 +232,15 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (InvalidTemplateException ex)
             {
-                return Unprocessable(ex.Message);
+                return BadRequest(ex.Message);
             }
-            catch (ArgumentOutOfRangeException ex)
+            catch (MissingFilenameException ex)
             {
-                return Unprocessable(ex.Message);
+                return BadRequest(ex.Message);
             }
-            catch (FilesizeMismatchException ex)
+            catch (InvalidBinaryException ex)
             {
-                return Unprocessable(ex.Message);
-            }
-            catch (ImageIncorrectException ex)
-            {
-                return Unprocessable(ex.Message);
-            }
-            catch (ArticleIncorrectException ex)
-            {
-                return Unprocessable(ex.Message);
+                return Unprocessable(GenerateErrorJsonResult(ex));
             }
             finally
             {
@@ -257,6 +250,13 @@ namespace NuClear.VStore.Host.Controllers
                 }
             }
         }
+
+        private static JToken GenerateErrorJsonResult(InvalidBinaryException ex) =>
+            new JObject
+                {
+                    { Tokens.ErrorsToken, new JArray() },
+                    { Tokens.ElementsToken, new JArray { ex.SerializeToJson() } }
+                };
 
         private sealed class UploadedFileValue : IObjectElementRawValue
         {

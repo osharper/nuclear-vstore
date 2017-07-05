@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -10,6 +12,8 @@ namespace NuClear.VStore.Host.Routing
 {
     public class LanguageRouteConstraint : IRouteConstraint
     {
+        private static readonly IReadOnlyList<string> LangNames = Enum.GetNames(typeof(Language));
+
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
             if (httpContext == null)
@@ -40,9 +44,7 @@ namespace NuClear.VStore.Host.Routing
                 }
 
                 var valueString = Convert.ToString(value, CultureInfo.InvariantCulture);
-                return Enum.TryParse(valueString, true, out Language language)
-                       && Enum.IsDefined(typeof(Language), language)
-                       && language.ToString().Equals(valueString, StringComparison.OrdinalIgnoreCase);
+                return LangNames.Contains(valueString, StringComparer.OrdinalIgnoreCase);
             }
 
             return false;
