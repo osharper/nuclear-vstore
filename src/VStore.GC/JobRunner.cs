@@ -22,9 +22,9 @@ namespace NuClear.VStore.Worker
             var job = _jobRegistry.GetJob(workerId, jobId);
             if (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' is starting.", job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' for worker '{workerId}' is starting.", job.GetType().Name, jobId, workerId);
                 await job.ExecuteAsync(args, cancellationToken);
-                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' finished." , job.GetType().Name, jobId);
+                _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' for worker '{workerId}' finished.", job.GetType().Name, jobId, workerId);
             }
         }
     }

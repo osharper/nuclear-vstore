@@ -34,7 +34,7 @@ namespace NuClear.VStore.Worker
                 return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
             }
 
-            _logger.LogCritical("Job with id = '{workerJobId}' has not beed registered.", jobId);
+            _logger.LogCritical("Job with id = '{workerJobId}' for worker '{workerId}' has not beed registered.", jobId, workerId);
             throw new JobNotFoundException(jobId);
         }
     }

@@ -39,20 +39,26 @@ namespace NuClear.VStore.Worker.Jobs
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
-            var utcNow = DateTime.UtcNow;
-            var expiredSessionsProcessed = false;
+            if (!args.TryGetValue("range", out var value) && value.Length == 0)
+            {
+                throw new ArgumentException("Range argument not specified.");
+            }
 
-            while (!expiredSessionsProcessed && !cancellationToken.IsCancellationRequested)
+            if (!TimeSpan.TryParse(value[0], out var range))
+            {
+                throw new ArgumentException("Range argument format is incorrect. Make sure that it's specified like 'd:hh:mm:ss'.");
+            }
+
+            var utcNow = DateTime.UtcNow;
+            while (!cancellationToken.IsCancellationRequested)
             {
                 var sessionCreatedEvents = _eventReader.Read<SessionCreatingEvent>(_sessionsTopicName, BatchSize);
                 var expiredSessionEvents = sessionCreatedEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
-                expiredSessionsProcessed = sessionCreatedEvents.Count > expiredSessionEvents.Count;
 
-                var yesterdayUsingEvents = _eventReader.ReadPartition<BinaryUsedEvent>(_binariesUsingsTopicName, utcNow.DayOfYear - 1);
-                var todayUsingEvents = _eventReader.ReadPartition<BinaryUsedEvent>(_binariesUsingsTopicName, utcNow.DayOfYear);
+                var referenceEvents = _eventReader.Read<BinaryUsedEvent>(_binariesUsingsTopicName, utcNow.Subtract(range), BatchSize);
 
                 Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
-                var usedBinariesSessions = new HashSet<Guid>(yesterdayUsingEvents.Concat(todayUsingEvents).Select(x => EvaluateSessionId(x.FileKey)));
+                var usedBinariesSessions = referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey));
 
                 foreach (var expiredSessionEvent in expiredSessionEvents)
                 {
@@ -63,14 +69,6 @@ namespace NuClear.VStore.Worker.Jobs
                         if (success)
                         {
                             _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unused and already expired.", sessionId);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Tried to delete non-existent session '{sessionId}'.", sessionId);
-                            if (sessionCreatedEvents.Count == 1 && expiredSessionEvents.Count == 1)
-                            {
-                                return;
-                            }
                         }
 
                         await _eventReader.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });

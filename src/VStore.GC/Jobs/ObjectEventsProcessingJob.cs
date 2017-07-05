@@ -44,38 +44,70 @@ namespace NuClear.VStore.Worker.Jobs
             _objectsStorageReader = objectsStorageReader;
             _eventSender = eventSender;
             _versionEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, VersionsGroupId);
-            _versionEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, BinariesGroupId);
+            _binariesEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, BinariesGroupId);
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
             if (args.TryGetValue("mode", out string[] modes))
             {
+                var tasks = new List<Task>();
                 if (modes.Contains("versions"))
                 {
-                    await Task.Run(
+                    var task = Run(
                         async () =>
                         {
                             while (!cancellationToken.IsCancellationRequested)
                             {
-                                await ProduceObjectVersionCreatedEvents();
+                                try
+                                {
+                                    await ProduceObjectVersionCreatedEvents();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(
+                                        new EventId(), 
+                                        ex, 
+                                        "[{taskName}] Unexpected error occured: {errorMessage}.", 
+                                        nameof(ProduceObjectVersionCreatedEvents),
+                                        ex.Message);
+                                }
                             }
                         },
                         cancellationToken);
+                    tasks.Add(task);
+
+                    _logger.LogInformation("[{taskName}] task started.", nameof(ProduceObjectVersionCreatedEvents));
                 }
 
                 if (modes.Contains("binaries"))
                 {
-                    await Task.Run(
+                    var task = Run(
                         async () =>
                         {
                             while (!cancellationToken.IsCancellationRequested)
                             {
-                                await ProduceBinaryUsedEvents();
+                                try
+                                {
+                                    await ProduceBinaryReferencesEvents();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(
+                                        new EventId(),
+                                        ex, "[{taskName}] Unexpected error occured: {errorMessage}.",
+                                        nameof(ProduceBinaryReferencesEvents),
+                                        ex.Message);
+                                }
                             }
                         },
                         cancellationToken);
+                    tasks.Add(task);
+
+                    _logger.LogInformation("[{taskName}] task started.", nameof(ProduceBinaryReferencesEvents));
                 }
+
+                await Task.WhenAll(tasks);
             }
             else
             {
@@ -83,28 +115,59 @@ namespace NuClear.VStore.Worker.Jobs
             }
         }
 
+        private static async Task Run(Func<Task> task, CancellationToken cancellationToken)
+        {
+            await Task.Factory.StartNew(
+                          async () => await task(),
+                          cancellationToken,
+                          TaskCreationOptions.LongRunning,
+                          TaskScheduler.Default)
+                      .Unwrap();
+        }
+
         private async Task ProduceObjectVersionCreatedEvents()
         {
             var events = _versionEventReader.Read<ObjectVersionCreatingEvent>(_objectEventsTopic, BatchSize);
             foreach (var @event in events)
             {
-                var versions = await _objectsStorageReader.GetObjectVersions(@event.Source.ObjectId, @event.Source.CurrentVersionId);
+                var objectId = @event.Source.ObjectId;
+                var versionId = @event.Source.CurrentVersionId;
+                var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
+                _logger.LogInformation(
+                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' for the object id = '{objectId}'.",
+                    nameof(ProduceObjectVersionCreatedEvents),
+                    versions.Count,
+                    versionId,
+                    objectId);
                 foreach (var descriptor in versions)
                 {
                     await _eventSender.SendAsync(_objectVersionsTopic, new ObjectVersionCreatedEvent(descriptor.Id, descriptor.VersionId));
+                    _logger.LogInformation(
+                        "[{taskName}] Event for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",
+                        nameof(ProduceObjectVersionCreatedEvents),
+                        descriptor.Id, 
+                        descriptor.VersionId,
+                        _objectVersionsTopic);
                 }
             }
 
             await _versionEventReader.CommitAsync(events.Select(x => x.TopicPartitionOffset));
         }
 
-        private async Task ProduceBinaryUsedEvents()
+        private async Task ProduceBinaryReferencesEvents()
         {
             var events = _binariesEventReader.Read<ObjectVersionCreatingEvent>(_objectEventsTopic, BatchSize);
             foreach (var @event in events)
             {
                 var objectId = @event.Source.ObjectId;
-                var versions = await _objectsStorageReader.GetObjectVersions(objectId, @event.Source.CurrentVersionId);
+                var versionId = @event.Source.CurrentVersionId;
+                var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
+                _logger.LogInformation(
+                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' for the object id = '{objectId}'.",
+                    nameof(ProduceBinaryReferencesEvents),
+                    versions.Count,
+                    versionId,
+                    objectId);
                 foreach (var descriptor in versions)
                 {
                     var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(objectId, descriptor.VersionId);
@@ -117,11 +180,20 @@ namespace NuClear.VStore.Worker.Jobs
                         await _eventSender.SendAsync(
                             _binariesUsingsTopic,
                             new BinaryUsedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
+                        _logger.LogInformation(
+                            "[{taskName}] Event for binary reference '{fileKey}' for element with templateCode = '{templateCode}' " +
+                            "for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",
+                            nameof(ProduceBinaryReferencesEvents),
+                            fileInfo.FileKey,
+                            fileInfo.TemplateCode,
+                            descriptor.Id,
+                            descriptor.VersionId,
+                            _binariesUsingsTopic);
                     }
                 }
             }
 
-            await _versionEventReader.CommitAsync(events.Select(x => x.TopicPartitionOffset));
+            await _binariesEventReader.CommitAsync(events.Select(x => x.TopicPartitionOffset));
         }
     }
 }

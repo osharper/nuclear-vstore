@@ -2,7 +2,7 @@
   "profiles": {
     "VStore.Worker": {
       "commandName": "Project",
-      "commandLineArgs": "produce events mode=versions;binaries",
+      "commandLineArgs": "produce events mode=binaries",
       "environmentVariables": {
         "VSTORE_ENVIRONMENT": "Development"
       }

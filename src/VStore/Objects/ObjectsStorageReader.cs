@@ -75,19 +75,35 @@ namespace NuClear.VStore.Objects
                 return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
-            async Task<ListVersionsResponse> ListVersions(string nextVersionIdMarker)
+            async Task<(bool IsTruncated, string NextVersionIdMarker)> ListVersions(string nextVersionIdMarker)
             {
-                var versionsResponse = await _amazonS3.ListVersionsAsync(new ListVersionsRequest
-                    {
-                        BucketName = _bucketName,
-                        Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
-                        VersionIdMarker = nextVersionIdMarker
-                    });
-                var versionInfos = versionsResponse.Versions.Where(x => !x.IsDeleteMarker)
-                                                   .Select(x => new { x.Key, x.VersionId, x.LastModified })
-                                                   .ToArray();
+                var versionsResponse = await _amazonS3.ListVersionsAsync(
+                    new ListVersionsRequest
+                        {
+                            BucketName = _bucketName,
+                            Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                            VersionIdMarker = nextVersionIdMarker
+                        });
 
-                var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
+                var initialVersionIdReached = false;
+                var versionInfos = versionsResponse.Versions
+                                                   .Where(x => !x.IsDeleteMarker)
+                                                   .Aggregate(
+                                                        new List<(string Key, string VersionId, DateTime LastModified)>(),
+                                                        (list, next) =>
+                                                        {
+                                                            initialVersionIdReached = initialVersionIdReached ||
+                                                                                      initialVersionId.Equals(next.VersionId, StringComparison.OrdinalIgnoreCase);
+                                                            if (!initialVersionIdReached)
+                                                            {
+                                                                list.Add((next.Key, next.VersionId, next.LastModified));
+                                                            }
+
+                                                            return list;
+                                                        }
+                                                    );
+
+                var descriptors = new ModifiedObjectDescriptor[versionInfos.Count];
                 var tasks = versionInfos.Select(async (x, index) =>
                                                     {
                                                         var elementMetadata = await GetElementMetadata(x.Key, x.VersionId);
@@ -102,18 +118,18 @@ namespace NuClear.VStore.Objects
 
                 versions.AddRange(descriptors);
 
-                return versionsResponse;
+                return (!initialVersionIdReached ? versionsResponse.IsTruncated : false, versionsResponse.NextVersionIdMarker);
             }
 
-            var response = await ListVersions(initialVersionId);
+            var result = await ListVersions(null);
             if (versions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
 
-            while (response.IsTruncated)
+            while (result.IsTruncated)
             {
-                response = await ListVersions(response.NextVersionIdMarker);
+                result = await ListVersions(result.NextVersionIdMarker);
             }
 
             return versions;

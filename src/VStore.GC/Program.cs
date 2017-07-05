@@ -107,11 +107,11 @@ namespace NuClear.VStore.Worker
                             "events",
                             commandConfig =>
                                 {
-                                    commandConfig.Description = "Produce events of created versions of objects and/or binary files usings.";
+                                    commandConfig.Description = "Produce events of created versions of objects and/or binary files references.";
                                     commandConfig.HelpOption("-h|--help");
                                     commandConfig.Argument("mode",
                                                            "Set 'versions' to produce events of created versions of objects, " +
-                                                           "and 'binaries' to produce events of binary files usings");
+                                                           "and 'binaries' to produce events of binary files references.");
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                     });
