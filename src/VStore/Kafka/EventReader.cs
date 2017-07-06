@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
@@ -11,8 +14,6 @@ using Newtonsoft.Json;
 
 using NuClear.VStore.Events;
 using NuClear.VStore.Json;
-using System;
-using System.Linq;
 
 namespace NuClear.VStore.Kafka
 {
@@ -33,7 +34,6 @@ namespace NuClear.VStore.Kafka
                     { "group.id", groupId },
                     { "api.version.request", true },
                     { "enable.auto.commit", false },
-                    { "socket.blocking.max.ms", 5 },
                     { "fetch.wait.max.ms", 5 },
                     { "fetch.error.backoff.ms", 50 },
                     {
@@ -44,6 +44,12 @@ namespace NuClear.VStore.Kafka
                             }
                     }
                 };
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                consumerConfig.Add("socket.blocking.max.ms", 5);
+            }
+
             _consumer = new Consumer<string, string>(consumerConfig, new StringDeserializer(Encoding.UTF8), new StringDeserializer(Encoding.UTF8));
             _consumer.OnLog += OnLog;
             _consumer.OnError += OnLogError;

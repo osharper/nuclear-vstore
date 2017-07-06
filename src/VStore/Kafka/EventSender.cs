@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
@@ -31,9 +32,14 @@ namespace NuClear.VStore.Kafka
                 {
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "socket.blocking.max.ms", 5 },
                     { "queue.buffering.max.ms", 5 }
                 };
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                producerConfig.Add("socket.blocking.max.ms", 5);
+            }
+
             _producer = new Producer<string, string>(producerConfig, new StringSerializer(Encoding.UTF8), new StringSerializer(Encoding.UTF8));
             _producer.OnLog += OnLog;
             _producer.OnError += OnLogError;
