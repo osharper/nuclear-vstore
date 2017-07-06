@@ -20,6 +20,8 @@ common:
   ceph_key_id: "{{ env='CEPH_STAGING_KEY_ID' }}"
   ceph_access_key: "{{ env='CEPH_STAGING_ACCESS_KEY' }}"
 
+  jwt_sign_key: "{{ env='JWT_SIGN_KEY' }}"
+
   templates_bucket_name: "vstore-templates-standalone"
   objects_bucket_name: "vstore-objects-standalone"
   files_bucket_name: "vstore-files-standalone"
