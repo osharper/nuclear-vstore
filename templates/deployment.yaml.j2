@@ -56,7 +56,7 @@ spec:
       - name: vstore-worker
         image: {{ vstore_worker_image_path }}:{{ image_version }}
         command: ["/app/VStore.Worker", "produce", "events"]
-		args: ["mode=binaries,versions"]
+        args: ["mode=binaries,versions"]
         resources:
           limits:
             cpu: {{ backend_app_limits_cpu }}
