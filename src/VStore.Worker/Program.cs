@@ -32,7 +32,7 @@ namespace NuClear.VStore.Worker
     public sealed class Program
     {
         private const char ArgumentKeySeparator = '=';
-        private const char ArgumentValueSeparator = ';';
+        private const char ArgumentValueSeparator = ',';
 
         public static void Main(string[] args)
         {
