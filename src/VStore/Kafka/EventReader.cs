@@ -81,7 +81,7 @@ namespace NuClear.VStore.Kafka
         }
 
         private IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(
-            Action<Consumer<string, string>> assignOfSubscribe, 
+            Action<Consumer<string, string>> assignOfSubscribe,
             int batchSize)
             where TSourceEvent : IEvent
         {
@@ -96,7 +96,7 @@ namespace NuClear.VStore.Kafka
                 ++count;
             }
 
-            void OnPartitionEOF(object sender, TopicPartitionOffset offset) => isEofReached = true;
+            void OnPartitionEof(object sender, TopicPartitionOffset offset) => isEofReached = true;
 
             void OnConsumeError(object sender, Message error)
             {
@@ -110,7 +110,7 @@ namespace NuClear.VStore.Kafka
             }
 
             _consumer.OnMessage += OnMessage;
-            _consumer.OnPartitionEOF += OnPartitionEOF;
+            _consumer.OnPartitionEOF += OnPartitionEof;
             _consumer.OnConsumeError += OnConsumeError;
 
             assignOfSubscribe(_consumer);
@@ -118,9 +118,9 @@ namespace NuClear.VStore.Kafka
             {
                 _consumer.Poll(TimeSpan.FromMilliseconds(100));
             }
-            
+
             _consumer.OnMessage -= OnMessage;
-            _consumer.OnPartitionEOF -= OnPartitionEOF;
+            _consumer.OnPartitionEOF -= OnPartitionEof;
             _consumer.OnConsumeError -= OnConsumeError;
 
             return events;
@@ -130,7 +130,7 @@ namespace NuClear.VStore.Kafka
         {
             var unixTimestamp = Timestamp.DateTimeToUnixTimestampMs(date);
             var timestampToSearch = new TopicPartitionTimestamp(topic, DefaultPartition, new Timestamp(unixTimestamp, TimestampType.CreateTime));
-            return _consumer.OffsetsForTimes(new[] { timestampToSearch }, TimeSpan.FromMilliseconds(1000));
+            return _consumer.OffsetsForTimes(new[] { timestampToSearch }, TimeSpan.FromSeconds(10));
         }
 
         private void OnLog(object sender, LogMessage logMessage)

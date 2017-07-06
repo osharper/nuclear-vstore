@@ -12,7 +12,7 @@ common:
   vstore_port: 5000
   vstore_probe_path: /healthcheck
   vstore_image_path: docker-hub.2gis.ru/ams/vstore
-  vstore_gc_image_path: docker-hub.2gis.ru/ams/vstore-gc
+  vstore_worker_image_path: docker-hub.2gis.ru/ams/vstore-worker
 
   image_version: "{{ env='CI_TAG' }}"
   
@@ -32,17 +32,17 @@ vstore:
 
   job_schedule: "*/1 * * * *"
 
-  backend_app_limits_cpu: 500m
-  backend_app_requests_cpu: 200m
+  backend_app_limits_cpu: 200m
+  backend_app_requests_cpu: 100m
   backend_app_limits_memory: 384Mi
   backend_app_requests_memory: 256Mi
 
   worker_app_limits_cpu: 200m
   worker_app_requests_cpu: 100m
-  worker_app_limits_memory: 192Mi
-  worker_app_requests_memory: 128Mi
+  worker_app_limits_memory: 96Mi
+  worker_app_requests_memory: 64Mi
 
   kubectl:
-  - template: vstore-deployment.yaml.j2
-  - template: vstore-service.yaml.j2
-  - template: vstore-gc-cronjob.yaml.j2
+  - template: deployment.yaml.j2
+  - template: service.yaml.j2
+  - template: cronjob-collect-locks.yaml.j2

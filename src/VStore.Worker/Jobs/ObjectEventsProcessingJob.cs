@@ -56,24 +56,25 @@ namespace NuClear.VStore.Worker.Jobs
                 {
                     var task = Run(
                         async () =>
-                        {
-                            while (!cancellationToken.IsCancellationRequested)
                             {
-                                try
+                                while (!cancellationToken.IsCancellationRequested)
                                 {
-                                    await ProduceObjectVersionCreatedEvents();
+                                    try
+                                    {
+                                        await ProduceObjectVersionCreatedEvents();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(
+                                            new EventId(),
+                                            ex,
+                                            "[{taskName}] Unexpected error occured: {errorMessage}.",
+                                            nameof(ProduceObjectVersionCreatedEvents),
+                                            ex.Message);
+                                        await Task.Delay(1000, cancellationToken);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(
-                                        new EventId(), 
-                                        ex, 
-                                        "[{taskName}] Unexpected error occured: {errorMessage}.", 
-                                        nameof(ProduceObjectVersionCreatedEvents),
-                                        ex.Message);
-                                }
-                            }
-                        },
+                            },
                         cancellationToken);
                     tasks.Add(task);
 
@@ -84,23 +85,25 @@ namespace NuClear.VStore.Worker.Jobs
                 {
                     var task = Run(
                         async () =>
-                        {
-                            while (!cancellationToken.IsCancellationRequested)
                             {
-                                try
+                                while (!cancellationToken.IsCancellationRequested)
                                 {
-                                    await ProduceBinaryReferencesEvents();
+                                    try
+                                    {
+                                        await ProduceBinaryReferencesEvents();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(
+                                            new EventId(),
+                                            ex,
+                                            "[{taskName}] Unexpected error occured: {errorMessage}.",
+                                            nameof(ProduceBinaryReferencesEvents),
+                                            ex.Message);
+                                        await Task.Delay(1000, cancellationToken);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(
-                                        new EventId(),
-                                        ex, "[{taskName}] Unexpected error occured: {errorMessage}.",
-                                        nameof(ProduceBinaryReferencesEvents),
-                                        ex.Message);
-                                }
-                            }
-                        },
+                            },
                         cancellationToken);
                     tasks.Add(task);
 
@@ -115,15 +118,13 @@ namespace NuClear.VStore.Worker.Jobs
             }
         }
 
-        private static async Task Run(Func<Task> task, CancellationToken cancellationToken)
-        {
+        private static async Task Run(Func<Task> task, CancellationToken cancellationToken) =>
             await Task.Factory.StartNew(
                           async () => await task(),
                           cancellationToken,
                           TaskCreationOptions.LongRunning,
                           TaskScheduler.Default)
                       .Unwrap();
-        }
 
         private async Task ProduceObjectVersionCreatedEvents()
         {
@@ -163,7 +164,8 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
                 var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' for the object id = '{objectId}'.",
+                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' " +
+                    "for the object id = '{objectId}'.",
                     nameof(ProduceBinaryReferencesEvents),
                     versions.Count,
                     versionId,
