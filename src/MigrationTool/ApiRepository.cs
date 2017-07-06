@@ -263,9 +263,9 @@ namespace MigrationTool
             }
         }
 
-        public async Task<ApiObjectDescriptor> GetNewObjectAsync(string templateId, string langCode)
+        public async Task<ApiObjectDescriptor> GetNewObjectAsync(string templateId, string langCode, string firmId)
         {
-            var methodUri = new Uri(_templateUri, $"{templateId}/session?languages={langCode}");
+            var methodUri = new Uri(_templateUri, $"{templateId}/session?languages={langCode}&firm={firmId}");
             using (var req = new HttpRequestMessage(HttpMethod.Post, methodUri))
             {
                 var server = string.Empty;

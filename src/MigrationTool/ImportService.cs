@@ -622,7 +622,7 @@ namespace MigrationTool
         {
             var templateId = _instanceTemplatesMap[advertisement.AdvertisementTemplateId];
 
-            var newObject = await Repository.GetNewObjectAsync(templateId.ToString(), _languageCode);
+            var newObject = await Repository.GetNewObjectAsync(templateId.ToString(), _languageCode, advertisement.FirmId.ToString());
             newObject.Properties[Tokens.NameToken] = advertisement.Name;
             newObject.Properties[Tokens.IsWhiteListedToken] = advertisement.IsSelectedToWhiteList;
 
