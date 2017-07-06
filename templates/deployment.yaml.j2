@@ -56,14 +56,14 @@ spec:
       - name: vstore-worker
         image: {{ vstore_worker_image_path }}:{{ image_version }}
         command: ["/app/VStore.Worker", "produce", "events"]
-        args: ["mode=binaries,versions"]
+        args: ['mode="binaries,versions"']
         resources:
           limits:
-            cpu: {{ backend_app_limits_cpu }}
-            memory: {{ backend_app_limits_memory }}
-          requests:
-            cpu: {{ backend_app_requests_cpu }}
-            memory: {{ backend_app_requests_memory }}
+            cpu: {{ worker_app_limits_cpu }}
+            memory: {{ worker_app_limits_memory }}
+            requests:
+            cpu: {{ worker_app_requests_cpu }}
+            memory: {{ worker_app_requests_memory }}
         env:
         - name: AWS_ACCESS_KEY_ID
           value: {{ ceph_key_id }}
