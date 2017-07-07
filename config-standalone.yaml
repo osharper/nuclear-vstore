@@ -50,3 +50,4 @@ vstore:
   - template: deployment.yaml.j2
   - template: service.yaml.j2
   - template: cronjob-collect-locks.yaml.j2
+  - template: cronjob-collect-binaries.yaml.j2
