@@ -183,6 +183,7 @@ namespace NuClear.VStore.Host
                     x.GetRequiredService<IAmazonS3>()));
             services.AddSingleton(
                 x => new SessionManagementService(
+                         x.GetRequiredService<VStoreOptions>().SessionExpiration,
                          x.GetRequiredService<VStoreOptions>().FileStorageEndpoint,
                          x.GetRequiredService<CephOptions>().FilesBucketName,
                          x.GetRequiredService<KafkaOptions>().SessionsTopic,

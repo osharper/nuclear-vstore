@@ -38,7 +38,7 @@ namespace NuClear.VStore.Worker.Jobs
         {
             _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
             _objectVersionsTopic = kafkaOptions.ObjectVersionsTopic;
-            _binariesUsingsTopic = kafkaOptions.BinariesUsingsTopic;
+            _binariesUsingsTopic = kafkaOptions.BinariesReferencesTopic;
 
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;

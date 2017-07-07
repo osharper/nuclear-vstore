@@ -32,9 +32,13 @@ vstore:
 
   ssl_enforce: true
 
+  session_expiration: "00:01:00"
+
   locks_job_schedule: "*/1 * * * *"
   binaries_job_schedule: "0 */2 * * *"
   binaries_job_timerange: "02:00:00"
+
+  kafka_endpoints: "kafka1.c.n3.hw,kafka2.c.n3.hw,kafka3.c.n3.hw"
 
   backend_app_limits_cpu: 200m
   backend_app_requests_cpu: 100m

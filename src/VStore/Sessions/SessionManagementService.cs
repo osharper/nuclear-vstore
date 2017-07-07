@@ -42,6 +42,7 @@ namespace NuClear.VStore.Sessions
                         { FileFormat.Png, new PngFormat() }
                 };
 
+        private readonly TimeSpan _sessionExpiration;
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly string _sessionsTopicName;
@@ -50,6 +51,7 @@ namespace NuClear.VStore.Sessions
         private readonly EventSender _eventSender;
 
         public SessionManagementService(
+            TimeSpan sessionExpiration,
             Uri fileStorageEndpointUri,
             string filesBucketName,
             string sessionsTopicName,
@@ -57,6 +59,7 @@ namespace NuClear.VStore.Sessions
             TemplatesStorageReader templatesStorageReader,
             EventSender eventSender)
         {
+            _sessionExpiration = sessionExpiration;
             _fileStorageEndpointUri = fileStorageEndpointUri;
             _filesBucketName = filesBucketName;
             _sessionsTopicName = sessionsTopicName;
@@ -103,7 +106,7 @@ namespace NuClear.VStore.Sessions
                                   ContentBody = JsonConvert.SerializeObject(sessionDescriptor, SerializerSettings.Default)
                               };
 
-            var expiresAt = CurrentTime().AddDays(1);
+            var expiresAt = CurrentTime().Add(_sessionExpiration);
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);

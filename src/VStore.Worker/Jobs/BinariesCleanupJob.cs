@@ -22,7 +22,7 @@ namespace NuClear.VStore.Worker.Jobs
 
         private readonly ILogger<BinariesCleanupJob> _logger;
         private readonly string _sessionsTopicName;
-        private readonly string _binariesUsingsTopicName;
+        private readonly string _binariesReferencesTopicName;
         private readonly SessionCleanupService _sessionCleanupService;
         private readonly EventReader _eventReader;
 
@@ -33,7 +33,7 @@ namespace NuClear.VStore.Worker.Jobs
         {
             _logger = logger;
             _sessionsTopicName = kafkaOptions.SessionsTopic;
-            _binariesUsingsTopicName = kafkaOptions.BinariesUsingsTopic;
+            _binariesReferencesTopicName = kafkaOptions.BinariesReferencesTopic;
             _sessionCleanupService = sessionCleanupService;
             _eventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, GroupId);
         }
@@ -51,33 +51,35 @@ namespace NuClear.VStore.Worker.Jobs
             }
 
             var utcNow = DateTime.UtcNow;
-            while (!cancellationToken.IsCancellationRequested)
+            var sessionCreatingEvents = _eventReader.Read<SessionCreatingEvent>(_sessionsTopicName, BatchSize);
+            var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
+
+            if (expiredSessionEvents.Count == 0)
             {
-                var sessionCreatedEvents = _eventReader.Read<SessionCreatingEvent>(_sessionsTopicName, BatchSize);
-                var expiredSessionEvents = sessionCreatedEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
+                return;
+            }
 
-                var referenceEvents = _eventReader.Read<BinaryUsedEvent>(_binariesUsingsTopicName, utcNow.Subtract(range), BatchSize);
+            var referenceEvents = _eventReader.Read<BinaryUsedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range), BatchSize);
 
-                Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
-                var referencedBinariesSessions = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
+            Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+            var referencedBinariesSessions = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
 
-                foreach (var expiredSessionEvent in expiredSessionEvents)
+            foreach (var expiredSessionEvent in expiredSessionEvents)
+            {
+                var sessionId = expiredSessionEvent.Source.SessionId;
+                if (!referencedBinariesSessions.Contains(sessionId))
                 {
-                    var sessionId = expiredSessionEvent.Source.SessionId;
-                    if (!referencedBinariesSessions.Contains(sessionId))
+                    var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
+                    if (success)
                     {
-                        var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
-                        if (success)
-                        {
-                            _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unused and already expired.", sessionId);
-                        }
-
-                        await _eventReader.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
-                        _logger.LogInformation(
-                            "Event of type '{eventType}' for expired session '{sessionId}' processed.",
-                            expiredSessionEvent.Source.GetType(),
-                            sessionId);
+                        _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unused and already expired.", sessionId);
                     }
+
+                    await _eventReader.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
+                    _logger.LogInformation(
+                        "Event of type '{eventType}' for expired session '{sessionId}' processed.",
+                        expiredSessionEvent.Source.GetType(),
+                        sessionId);
                 }
             }
         }

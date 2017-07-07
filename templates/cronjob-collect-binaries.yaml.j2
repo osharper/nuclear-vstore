@@ -37,3 +37,5 @@ spec:
               value: {{ files_bucket_name }}
             - name: COLLECT_TIME_RANGE
               value: {{ binaries_job_timerange }}
+            - name: VSTORE_Kafka__BrokerEndpoints
+              value: {{ kafka_endpoints }}
