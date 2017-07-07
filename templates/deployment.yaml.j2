@@ -54,7 +54,7 @@ spec:
         - name: VSTORE_VStore__FileStorageEndpoint
           value: {{ ceph_rgw_url }}/{{ files_bucket_name }}/
         - name: VSTORE_VStore__SessionExpiration
-          value: {{ session_expiration }}/
+          value: {{ session_expiration }}
         - name: VSTORE_Jwt__SecretKey
           value: {{ jwt_sign_key }}
         - name: VSTORE_Kafka__BrokerEndpoints
