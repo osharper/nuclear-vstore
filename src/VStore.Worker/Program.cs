@@ -31,9 +31,6 @@ namespace NuClear.VStore.Worker
 {
     public sealed class Program
     {
-        private const char ArgumentKeySeparator = '=';
-        private const char ArgumentValueSeparator = ',';
-
         public static void Main(string[] args)
         {
             var env = Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production";
@@ -58,7 +55,7 @@ namespace NuClear.VStore.Worker
                                               eventArgs.Cancel = true;
                                           };
             var app = new CommandLineApplication { Name = "VStore.Worker" };
-            app.HelpOption("-h|--help");
+            app.HelpOption(CommandLine.HelpOptionTemplate);
             app.OnExecute(
                 () =>
                     {
@@ -69,26 +66,26 @@ namespace NuClear.VStore.Worker
 
             var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
             app.Command(
-                "collect",
+                CommandLine.Commands.Collect,
                 config =>
                     {
                         config.Description = "Run cleanup job. See available arguments for details.";
-                        config.HelpOption("-h|--help");
+                        config.HelpOption(CommandLine.HelpOptionTemplate);
                         config.Command(
-                            "locks",
+                            CommandLine.Commands.Locks,
                             commandConfig =>
                                 {
                                     commandConfig.Description = "Collect expired locks.";
-                                    commandConfig.HelpOption("-h|--help");
+                                    commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                         config.Command(
-                            "binaries",
+                            CommandLine.Commands.Binaries,
                             commandConfig =>
                                 {
                                     commandConfig.Description = "Collect orphan binary files.";
-                                    commandConfig.HelpOption("-h|--help");
-                                    commandConfig.Argument("range", "Time range in hours.");
+                                    commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
+                                    commandConfig.Argument(CommandLine.Arguments.Range, "Time range in hours.");
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                         config.OnExecute(() =>
@@ -98,20 +95,20 @@ namespace NuClear.VStore.Worker
                                              });
                     });
             app.Command(
-                "produce",
+                CommandLine.Commands.Produce,
                 config =>
                     {
                         config.Description = "Run produce events job. See available arguments for details.";
-                        config.HelpOption("-h|--help");
+                        config.HelpOption(CommandLine.HelpOptionTemplate);
                         config.Command(
-                            "events",
+                            CommandLine.Commands.Events,
                             commandConfig =>
                                 {
                                     commandConfig.Description = "Produce events of created versions of objects and/or binary files references.";
-                                    commandConfig.HelpOption("-h|--help");
-                                    commandConfig.Argument("mode",
-                                                           "Set 'versions' to produce events of created versions of objects, " +
-                                                           "and 'binaries' to produce events of binary files references.");
+                                    commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
+                                    commandConfig.Argument(CommandLine.Arguments.Mode,
+                                                           $"Set '{CommandLine.ArgumentValues.Versions}' to produce events of created versions of objects, " +
+                                                           $"and '{CommandLine.ArgumentValues.Binaries}' to produce events of binary files references.");
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                     });
@@ -219,11 +216,11 @@ namespace NuClear.VStore.Worker
             var workerId = app.Parent.Name;
             var jobId = app.Name;
             var args = app.Arguments
-                          .Select(x => x.Value?.Split(ArgumentKeySeparator))
+                          .Select(x => x.Value?.Split(CommandLine.ArgumentKeySeparator))
                           .Where(x => x != null)
                           .ToDictionary(
                               x => x[0],
-                              x => x.Length < 2 ? null : x[1]?.Split(new[] { ArgumentValueSeparator }, StringSplitOptions.RemoveEmptyEntries).ToArray());
+                              x => x.Length < 2 ? null : x[1]?.Split(new[] { CommandLine.ArgumentValueSeparator }, StringSplitOptions.RemoveEmptyEntries).ToArray());
             async Task ExecuteAsync() => await jobRunner.RunAsync(workerId, jobId, args, cts.Token);
 
             ExecuteAsync().GetAwaiter().GetResult();

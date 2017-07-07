@@ -41,7 +41,7 @@ namespace NuClear.VStore.Locks
 
         public async Task<bool> IsLockSessionExpired(long rootObjectKey)
         {
-            var lockSessionDescriptor = await GetObjectFromS3<LockSessionDescriptor>(rootObjectKey.AsS3LockKey());
+            var lockSessionDescriptor = await GetLockSessionDescriptor(rootObjectKey.AsS3LockKey());
             var isExpired = lockSessionDescriptor?.ExpirationDate <= DateTime.UtcNow;
             if (isExpired)
             {
@@ -74,7 +74,7 @@ namespace NuClear.VStore.Locks
             }
         }
 
-        private async Task<T> GetObjectFromS3<T>(string key)
+        private async Task<LockSessionDescriptor> GetLockSessionDescriptor(string key)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -83,7 +83,7 @@ namespace NuClear.VStore.Locks
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
-                return default(T);
+                return null;
             }
 
             string content;
@@ -92,7 +92,7 @@ namespace NuClear.VStore.Locks
                 content = reader.ReadToEnd();
             }
 
-            return JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
+            return JsonConvert.DeserializeObject<LockSessionDescriptor>(content, SerializerSettings.Default);
         }
     }
 }

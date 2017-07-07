@@ -93,6 +93,7 @@ namespace NuClear.VStore.Objects
                         new List<(string Key, string VersionId, DateTime LastModified)>(),
                         (list, next) =>
                             {
+                                // TODO initialVersionId could be null
                                 initialVersionIdReached = initialVersionIdReached ||
                                                           initialVersionId.Equals(next.VersionId, StringComparison.OrdinalIgnoreCase);
                                 if (!initialVersionIdReached)

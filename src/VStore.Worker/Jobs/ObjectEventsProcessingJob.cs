@@ -49,10 +49,10 @@ namespace NuClear.VStore.Worker.Jobs
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
-            if (args.TryGetValue("mode", out string[] modes))
+            if (args.TryGetValue(CommandLine.Arguments.Mode, out string[] modes))
             {
                 var tasks = new List<Task>();
-                if (modes.Contains("versions"))
+                if (modes.Contains(CommandLine.ArgumentValues.Versions))
                 {
                     var task = Run(
                         async () =>
@@ -81,7 +81,7 @@ namespace NuClear.VStore.Worker.Jobs
                     _logger.LogInformation("[{taskName}] task started.", nameof(ProduceObjectVersionCreatedEvents));
                 }
 
-                if (modes.Contains("binaries"))
+                if (modes.Contains(CommandLine.ArgumentValues.Binaries))
                 {
                     var task = Run(
                         async () =>

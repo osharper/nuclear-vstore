@@ -40,7 +40,7 @@ namespace NuClear.VStore.Worker.Jobs
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
-            if (!args.TryGetValue("range", out var value) && value.Length == 0)
+            if (!args.TryGetValue(CommandLine.Arguments.Range, out var value) && value.Length == 0)
             {
                 throw new ArgumentException("Range argument not specified.");
             }

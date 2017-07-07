@@ -32,7 +32,9 @@ vstore:
 
   ssl_enforce: true
 
-  job_schedule: "*/1 * * * *"
+  locks_job_schedule: "*/1 * * * *"
+  binaries_job_schedule: "0 */2 * * *"
+  binaries_job_timerange: "02:00:00"
 
   backend_app_limits_cpu: 200m
   backend_app_requests_cpu: 100m
