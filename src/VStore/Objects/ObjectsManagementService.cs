@@ -279,9 +279,6 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
-                case ElementDescriptorType.Image:
-                case ElementDescriptorType.Article:
-                    return new ValidationRule[] { BinaryValidator.CheckFilename };
                 case ElementDescriptorType.Date:
                     return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
@@ -293,8 +290,12 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
+                case ElementDescriptorType.Image:
+                case ElementDescriptorType.Article:
                 case ElementDescriptorType.Phone:
                     return new ValidationRule[] { };
+                case ElementDescriptorType.VideoLink:
+                    return new ValidationRule[] { LinkValidator.CheckLink };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -407,6 +408,7 @@ namespace NuClear.VStore.Objects
                                     case ElementDescriptorType.Date:
                                     case ElementDescriptorType.Link:
                                     case ElementDescriptorType.Phone:
+                                    case ElementDescriptorType.VideoLink:
                                         break;
                                     default:
                                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),

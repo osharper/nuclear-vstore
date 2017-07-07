@@ -611,7 +611,7 @@ namespace MigrationTool
                 if (string.IsNullOrEmpty(versionId))
                 {
                     _logger.LogWarning("VersionId for object {id} is unknown, need to get latest version", objectId);
-                    versionId = (await Repository.GetObjectAsync(advertisement.Id)).VersionId;
+                    versionId = await Repository.GetObjectVersionAsync(advertisement.Id);
                 }
 
                 await Repository.UpdateObjectModerationStatusAsync(objectId, versionId, moderationStatus);
@@ -622,7 +622,7 @@ namespace MigrationTool
         {
             var templateId = _instanceTemplatesMap[advertisement.AdvertisementTemplateId];
 
-            var newObject = await Repository.GetNewObjectAsync(templateId.ToString(), _languageCode);
+            var newObject = await Repository.GetNewObjectAsync(templateId.ToString(), _languageCode, advertisement.FirmId.ToString());
             newObject.Properties[Tokens.NameToken] = advertisement.Name;
             newObject.Properties[Tokens.IsWhiteListedToken] = advertisement.IsSelectedToWhiteList;
 
@@ -934,6 +934,7 @@ namespace MigrationTool
                 case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
+                case ElementDescriptorType.VideoLink:
                     return false;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptorType), descriptorType, "Unknown ElementDescriptorType");
@@ -1082,6 +1083,12 @@ namespace MigrationTool
                         {
                             Raw = element.Text,
                             Formatted = null
+                        };
+
+                case ElementDescriptorType.VideoLink:
+                    return new TextElementValue
+                        {
+                            Raw = element.Text
                         };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");

@@ -1,4 +1,5 @@
-﻿using NuClear.VStore.Host.Routing;
+﻿using NuClear.VStore.Descriptors;
+using NuClear.VStore.Host.Routing;
 
 using Xunit;
 
@@ -25,7 +26,21 @@ namespace VStore.UnitTests
         [InlineData("-1", false)]
         [InlineData("0", false)]
         [InlineData("99", false)]
-        public void TestLanguageRouteConstraint(string parameterValue, bool expected)
+        public void TestLanguageRouteConstraintWithString(string parameterValue, bool expected)
+        {
+            var constraint = new LanguageRouteConstraint();
+            var actual = TestHelpers.TestRouteConstraint(constraint, parameterValue);
+            Assert.Equal(expected, actual);
+        }
+
+        [Theory]
+        [InlineData(Language.Unspecified, true)]
+        [InlineData(Language.Ru, true)]
+        [InlineData(Language.En, true)]
+        [InlineData((Language)(-1), false)]
+        [InlineData((Language)int.MaxValue, false)]
+        [InlineData((Language)int.MinValue, false)]
+        public void TestLanguageRouteConstraintWithLanguage(Language parameterValue, bool expected)
         {
             var constraint = new LanguageRouteConstraint();
             var actual = TestHelpers.TestRouteConstraint(constraint, parameterValue);

@@ -259,7 +259,6 @@ namespace NuClear.VStore.Host
                     });
 
             app.UseMvc();
-            app.UseApiVersioning();
 
             if (!env.IsProduction())
             {

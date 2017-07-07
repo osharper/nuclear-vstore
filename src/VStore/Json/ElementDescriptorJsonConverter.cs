@@ -76,6 +76,9 @@ namespace NuClear.VStore.Json
                     case ElementDescriptorType.Phone:
                         constraints = property.Value.ToObject<PhoneElementConstraints>();
                         break;
+                    case ElementDescriptorType.VideoLink:
+                        constraints = property.Value.ToObject<VideoLinkElementConstraints>();
+                        break;
                     default:
                         return null;
                 }

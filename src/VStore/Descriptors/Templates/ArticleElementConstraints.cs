@@ -14,6 +14,8 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public bool ValidArticle => true;
 
+        public bool ContainsIndexFile => true;
+
         public bool Equals(ArticleElementConstraints other)
         {
             if (ReferenceEquals(null, other))
@@ -34,6 +36,9 @@ namespace NuClear.VStore.Descriptors.Templates
 
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
+                   BinaryExists == other.BinaryExists &&
+                   ValidArticle == other.ValidArticle &&
+                   ContainsIndexFile == other.ContainsIndexFile &&
                    (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats));
         }
 
@@ -48,6 +53,9 @@ namespace NuClear.VStore.Descriptors.Templates
             unchecked
             {
                 var hashCode = MaxSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ BinaryExists.GetHashCode();
+                hashCode = (hashCode * 397) ^ ValidArticle.GetHashCode();
+                hashCode = (hashCode * 397) ^ ContainsIndexFile.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxFilenameLength.GetHashCode();
                 hashCode = (hashCode * 397) ^ (SupportedFileFormats?.GetHashCode() ?? 0);
                 return hashCode;

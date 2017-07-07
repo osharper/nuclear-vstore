@@ -18,6 +18,7 @@ namespace MigrationTool
     public class ConverterService
     {
         private const int BytesInKilobyte = 1024;
+        private const long VideoElementTemplateIdentifier = 1005145157231706304L;
         private readonly ILogger<ConverterService> _logger;
 
         public ConverterService(ILogger<ConverterService> logger)
@@ -183,6 +184,8 @@ namespace MigrationTool
                     return new DateElementConstraints();
                 case ElementDescriptorType.Phone:
                     return new PhoneElementConstraints();
+                case ElementDescriptorType.VideoLink:
+                    return new VideoLinkElementConstraints();
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");
             }
@@ -247,6 +250,11 @@ namespace MigrationTool
 
         public ElementDescriptorType ConvertRestrictionTypeToDescriptorType(AdvertisementElementTemplate elementTemplate)
         {
+            if (elementTemplate.Id == VideoElementTemplateIdentifier)
+            {
+                return ElementDescriptorType.VideoLink;
+            }
+
             switch (elementTemplate.RestrictionType)
             {
                 case ElementRestrictionType.Text:
