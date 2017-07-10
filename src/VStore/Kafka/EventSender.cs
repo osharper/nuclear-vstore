@@ -8,10 +8,7 @@ using Confluent.Kafka.Serialization;
 
 using Microsoft.Extensions.Logging;
 
-using Newtonsoft.Json;
-
 using NuClear.VStore.Events;
-using NuClear.VStore.Json;
 using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Kafka
@@ -49,7 +46,7 @@ namespace NuClear.VStore.Kafka
 
         public async Task SendAsync(string topic, IEvent @event)
         {
-            var message = JsonConvert.SerializeObject(@event, SerializerSettings.Default);
+            var message = @event.Serialize();
             try
             {
                 var result = await _producer.ProduceAsync(topic, @event.Key, message, DefaultPartition);

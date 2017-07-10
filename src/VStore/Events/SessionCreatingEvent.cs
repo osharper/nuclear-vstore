@@ -1,5 +1,9 @@
 ﻿using System;
 
+using Newtonsoft.Json;
+
+using NuClear.VStore.Json;
+
 namespace NuClear.VStore.Events
 {
     public sealed class SessionCreatingEvent : IEvent
@@ -13,5 +17,7 @@ namespace NuClear.VStore.Events
         public string Key => SessionId.ToString();
         public Guid SessionId { get; }
         public DateTime ExpiresAt { get; }
+
+        public string Serialize() => JsonConvert.SerializeObject(new { SessionId, ExpiresAt }, SerializerSettings.Default);
     }
 }

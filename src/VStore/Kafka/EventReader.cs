@@ -9,10 +9,7 @@ using Confluent.Kafka.Serialization;
 
 using Microsoft.Extensions.Logging;
 
-using Newtonsoft.Json;
-
 using NuClear.VStore.Events;
-using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Kafka
 {
@@ -50,14 +47,14 @@ namespace NuClear.VStore.Kafka
             _consumer.OnStatistics += OnStatistics;
         }
 
-        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, int batchSize) where TSourceEvent : IEvent 
+        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, int batchSize) where TSourceEvent : IEvent
             => Read<TSourceEvent>(c => c.Subscribe(topic), batchSize);
 
-        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, DateTime dateToStart, int batchSize)
+        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, DateTime dateToStart)
             where TSourceEvent : IEvent
         {
             var offsets = GetOffsets(topic, dateToStart);
-            return Read<TSourceEvent>(c => c.Assign(offsets), batchSize);
+            return Read<TSourceEvent>(c => c.Assign(offsets));
         }
 
         public async Task CommitAsync(IEnumerable<TopicPartitionOffset> topicPartitionOffsets)
@@ -82,7 +79,7 @@ namespace NuClear.VStore.Kafka
 
         private IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(
             Action<Consumer<string, string>> assignOfSubscribe,
-            int batchSize)
+            int batchSize = int.MaxValue)
             where TSourceEvent : IEvent
         {
             var isEofReached = false;
@@ -91,7 +88,7 @@ namespace NuClear.VStore.Kafka
 
             void OnMessage(object sender, Message<string, string> message)
             {
-                var @event = JsonConvert.DeserializeObject<TSourceEvent>(message.Value, SerializerSettings.Default);
+                var @event = Event.Deserialize<TSourceEvent>(message.Value);
                 events.Add(new KafkaEvent<TSourceEvent>(@event, message.TopicPartitionOffset));
                 ++count;
             }
@@ -113,15 +110,20 @@ namespace NuClear.VStore.Kafka
             _consumer.OnPartitionEOF += OnPartitionEof;
             _consumer.OnConsumeError += OnConsumeError;
 
-            assignOfSubscribe(_consumer);
-            while (!isEofReached && count < batchSize)
+            try
             {
-                _consumer.Poll(TimeSpan.FromMilliseconds(100));
+                assignOfSubscribe(_consumer);
+                while (!isEofReached && count < batchSize)
+                {
+                    _consumer.Poll(TimeSpan.FromMilliseconds(100));
+                }
             }
-
-            _consumer.OnMessage -= OnMessage;
-            _consumer.OnPartitionEOF -= OnPartitionEof;
-            _consumer.OnConsumeError -= OnConsumeError;
+            finally
+            {
+                _consumer.OnMessage -= OnMessage;
+                _consumer.OnPartitionEOF -= OnPartitionEof;
+                _consumer.OnConsumeError -= OnConsumeError;
+            }
 
             return events;
         }

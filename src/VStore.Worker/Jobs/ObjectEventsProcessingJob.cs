@@ -142,11 +142,13 @@ namespace NuClear.VStore.Worker.Jobs
                     objectId);
                 foreach (var descriptor in versions)
                 {
-                    await _eventSender.SendAsync(_objectVersionsTopic, new ObjectVersionCreatedEvent(descriptor.Id, descriptor.VersionId));
+                    await _eventSender.SendAsync(
+                        _objectVersionsTopic,
+                        new ObjectVersionCreatedEvent(descriptor.Id, descriptor.VersionId, descriptor.VersionIndex, descriptor.Author, descriptor.LastModified));
                     _logger.LogInformation(
                         "[{taskName}] Event for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",
                         nameof(ProduceObjectVersionCreatedEvents),
-                        descriptor.Id, 
+                        descriptor.Id,
                         descriptor.VersionId,
                         _objectVersionsTopic);
                 }
@@ -181,7 +183,7 @@ namespace NuClear.VStore.Worker.Jobs
                     {
                         await _eventSender.SendAsync(
                             _binariesUsingsTopic,
-                            new BinaryUsedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
+                            new BinaryReferencedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
                         _logger.LogInformation(
                             "[{taskName}] Event for binary reference '{fileKey}' for element with templateCode = '{templateCode}' " +
                             "for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",

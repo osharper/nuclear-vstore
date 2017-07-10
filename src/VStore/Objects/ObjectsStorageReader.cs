@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,6 +28,7 @@ namespace NuClear.VStore.Objects
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
+        private readonly int _degreeOfParallelism;
         private readonly Uri _fileStorageEndpoint;
 
         public ObjectsStorageReader(
@@ -38,6 +40,7 @@ namespace NuClear.VStore.Objects
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
+            _degreeOfParallelism = cephOptions.DegreeOfParallelism;
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
         }
 
@@ -58,7 +61,7 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetObjectVersions(long id, string initialVersionId)
         {
-            var versions = new List<ModifiedObjectDescriptor>();
+            var versions = new List<ObjectVersion>();
 
             async Task<(IReadOnlyCollection<int> ModifiedElements, AuthorInfo AuthorInfo)> GetElementMetadata(string key, string versionId)
             {
@@ -75,7 +78,7 @@ namespace NuClear.VStore.Objects
                 return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
-            async Task<(bool IsTruncated, string NextVersionIdMarker)> ListVersions(string nextVersionIdMarker)
+            async Task<(bool IsTruncated, int NextVersionIndex, string NextVersionIdMarker)> ListVersions(int nextVersionIndex, string nextVersionIdMarker)
             {
                 var versionsResponse = await _amazonS3.ListVersionsAsync(
                                            new ListVersionsRequest
@@ -90,7 +93,7 @@ namespace NuClear.VStore.Objects
                     .Versions
                     .Where(x => !x.IsDeleteMarker)
                     .Aggregate(
-                        new List<(string Key, string VersionId, DateTime LastModified)>(),
+                        new List<(string Key, string VersionId, int VersionIndex, DateTime LastModified)>(),
                         (list, next) =>
                             {
                                 initialVersionIdReached = initialVersionIdReached ||
@@ -98,31 +101,42 @@ namespace NuClear.VStore.Objects
                                                           initialVersionId.Equals(next.VersionId, StringComparison.OrdinalIgnoreCase);
                                 if (!initialVersionIdReached)
                                 {
-                                    list.Add((next.Key, next.VersionId, next.LastModified));
+                                    list.Add((next.Key, next.VersionId, nextVersionIndex, next.LastModified));
                                 }
+
+                                ++nextVersionIndex;
 
                                 return list;
                             });
 
-                var descriptors = new ModifiedObjectDescriptor[versionInfos.Count];
-                var tasks = versionInfos.Select(async (x, index) =>
-                                                    {
-                                                        var elementMetadata = await GetElementMetadata(x.Key, x.VersionId);
-                                                        descriptors[index] = new ModifiedObjectDescriptor(
-                                                            x.Key.AsRootObjectId(),
-                                                            x.VersionId,
-                                                            x.LastModified,
-                                                            elementMetadata.AuthorInfo,
-                                                            elementMetadata.ModifiedElements);
-                                                    });
+                var objectVersions = new ObjectVersion[versionInfos.Count];
+                var partitioner = Partitioner.Create(versionInfos);
+                var tasks = partitioner.GetOrderablePartitions(_degreeOfParallelism)
+                                       .Select(async partition =>
+                                                   {
+                                                       while (partition.MoveNext())
+                                                       {
+                                                           var index = partition.Current.Key;
+                                                           var versionInfo = partition.Current.Value;
+
+                                                           var elementMetadata = await GetElementMetadata(versionInfo.Key, versionInfo.VersionId);
+                                                           objectVersions[index] = new ObjectVersion(
+                                                               versionInfo.Key,
+                                                               versionInfo.VersionId,
+                                                               versionInfo.VersionIndex,
+                                                               versionInfo.LastModified,
+                                                               elementMetadata.AuthorInfo,
+                                                               elementMetadata.ModifiedElements);
+                                                       }
+                                                   });
                 await Task.WhenAll(tasks);
 
-                versions.AddRange(descriptors);
+                versions.AddRange(objectVersions);
 
-                return (!initialVersionIdReached && versionsResponse.IsTruncated, versionsResponse.NextVersionIdMarker);
+                return (!initialVersionIdReached && versionsResponse.IsTruncated, nextVersionIndex, versionsResponse.NextVersionIdMarker);
             }
 
-            var result = await ListVersions(null);
+            var result = await ListVersions(0, null);
             if (versions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
@@ -130,10 +144,34 @@ namespace NuClear.VStore.Objects
 
             while (result.IsTruncated)
             {
-                result = await ListVersions(result.NextVersionIdMarker);
+                result = await ListVersions(result.NextVersionIndex, result.NextVersionIdMarker);
             }
 
-            return versions;
+            var descriptors = new ModifiedObjectDescriptor[versions.Count];
+            var descriptorsPartitioner = Partitioner.Create(versions);
+            var descriptorsTasks =
+                descriptorsPartitioner.GetOrderablePartitions(_degreeOfParallelism)
+                                      .Select(
+                                          async partition => await Task.Run(
+                                                                 () =>
+                                                                     {
+                                                                         while (partition.MoveNext())
+                                                                         {
+                                                                             var index = (int)partition.Current.Key;
+                                                                             var objectVersion = partition.Current.Value;
+
+                                                                             descriptors[index] = new ModifiedObjectDescriptor(
+                                                                                 objectVersion.Key.AsRootObjectId(),
+                                                                                 objectVersion.VersionId,
+                                                                                 versions[versions.Count - index - 1].VersionIndex,
+                                                                                 objectVersion.LastModified,
+                                                                                 objectVersion.AuthorInfo,
+                                                                                 objectVersion.ModifiedElements);
+                                                                         }
+                                                                     }));
+            await Task.WhenAll(descriptorsTasks);
+
+            return descriptors;
         }
 
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
@@ -254,6 +292,32 @@ namespace NuClear.VStore.Objects
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
             return (obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
+        }
+
+        private struct ObjectVersion
+        {
+            public ObjectVersion(
+                string id,
+                string versionId,
+                int versionIndex,
+                DateTime lastModified,
+                AuthorInfo authorInfo,
+                IReadOnlyCollection<int> modifiedElements)
+            {
+                Key = id;
+                VersionId = versionId;
+                VersionIndex = versionIndex;
+                LastModified = lastModified;
+                AuthorInfo = authorInfo;
+                ModifiedElements = modifiedElements;
+            }
+
+            public string Key { get; }
+            public string VersionId { get; }
+            public int VersionIndex { get; }
+            public DateTime LastModified { get; }
+            public AuthorInfo AuthorInfo { get; }
+            public IReadOnlyCollection<int> ModifiedElements { get; }
         }
     }
 }

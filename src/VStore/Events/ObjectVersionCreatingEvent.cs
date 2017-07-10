@@ -1,4 +1,8 @@
-﻿namespace NuClear.VStore.Events
+﻿using Newtonsoft.Json;
+
+using NuClear.VStore.Json;
+
+namespace NuClear.VStore.Events
 {
     public sealed class ObjectVersionCreatingEvent : IEvent
     {
@@ -11,5 +15,7 @@
         public string Key => ObjectId.ToString();
         public long ObjectId { get; }
         public string CurrentVersionId { get; }
+
+        public string Serialize() => JsonConvert.SerializeObject(new { ObjectId, CurrentVersionId }, SerializerSettings.Default);
     }
 }

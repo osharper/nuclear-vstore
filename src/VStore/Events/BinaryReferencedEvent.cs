@@ -1,10 +1,12 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+
+using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Events
 {
-    public sealed class BinaryUsedEvent : IEvent
+    public sealed class BinaryReferencedEvent : IEvent
     {
-        public BinaryUsedEvent(long objectId, string objectVersionId, int elementTemplateCode, string fileKey)
+        public BinaryReferencedEvent(long objectId, string objectVersionId, int elementTemplateCode, string fileKey)
         {
             ObjectId = objectId;
             ObjectVersionId = objectVersionId;
@@ -17,5 +19,9 @@ namespace NuClear.VStore.Events
         public string ObjectVersionId { get; }
         public int ElementTemplateCode { get; }
         public string FileKey { get; }
+
+        public string Serialize() => JsonConvert.SerializeObject(
+            new { ObjectId, ObjectVersionId, ElementTemplateCode, FileKey },
+            SerializerSettings.Default);
     }
 }
