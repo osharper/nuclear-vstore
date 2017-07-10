@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
@@ -32,14 +31,16 @@ namespace NuClear.VStore.Kafka
                 {
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "queue.buffering.max.ms", 5 }
+                    { "socket.blocking.max.ms", 5 },
+                    { "queue.buffering.max.ms", 5 },
+                    {
+                        "default.topic.config",
+                        new Dictionary<string, object>
+                            {
+                                { "message.timeout.ms", 5000 }
+                            }
+                    }
                 };
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                producerConfig.Add("socket.blocking.max.ms", 5);
-            }
-
             _producer = new Producer<string, string>(producerConfig, new StringSerializer(Encoding.UTF8), new StringSerializer(Encoding.UTF8));
             _producer.OnLog += OnLog;
             _producer.OnError += OnLogError;
@@ -58,6 +59,10 @@ namespace NuClear.VStore.Kafka
                     result.Partition,
                     result.Offset,
                     message);
+                if (result.Error.HasError)
+                {
+                    throw new KafkaException(result.Error);
+                }
             }
             catch (Exception ex)
             {

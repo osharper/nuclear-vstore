@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
@@ -33,6 +32,7 @@ namespace NuClear.VStore.Kafka
                     { "bootstrap.servers", brokerEndpoints },
                     { "group.id", groupId },
                     { "api.version.request", true },
+                    { "socket.blocking.max.ms", 5 },
                     { "enable.auto.commit", false },
                     { "fetch.wait.max.ms", 5 },
                     { "fetch.error.backoff.ms", 50 },
@@ -44,12 +44,6 @@ namespace NuClear.VStore.Kafka
                             }
                     }
                 };
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                consumerConfig.Add("socket.blocking.max.ms", 5);
-            }
-
             _consumer = new Consumer<string, string>(consumerConfig, new StringDeserializer(Encoding.UTF8), new StringDeserializer(Encoding.UTF8));
             _consumer.OnLog += OnLog;
             _consumer.OnError += OnLogError;
