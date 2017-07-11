@@ -11,6 +11,7 @@ using NuClear.VStore.Events;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
+using NuClear.VStore.S3;
 
 namespace NuClear.VStore.Worker.Jobs
 {
@@ -64,6 +65,15 @@ namespace NuClear.VStore.Worker.Jobs
                                     {
                                         await ProduceObjectVersionCreatedEvents();
                                     }
+                                    catch (ObjectNotFoundException ex)
+                                    {
+                                        _logger.LogWarning(
+                                            new EventId(),
+                                            ex,
+                                            "[{taskName}] Got an event for the non-existing object. The event will be processed again.",
+                                            nameof(ProduceObjectVersionCreatedEvents));
+                                        await Task.Delay(1000, cancellationToken);
+                                    }
                                     catch (Exception ex)
                                     {
                                         _logger.LogError(
@@ -92,6 +102,15 @@ namespace NuClear.VStore.Worker.Jobs
                                     try
                                     {
                                         await ProduceBinaryReferencesEvents();
+                                    }
+                                    catch (ObjectNotFoundException ex)
+                                    {
+                                        _logger.LogWarning(
+                                            new EventId(),
+                                            ex,
+                                            "[{taskName}] Got an event for the non-existing object. The event will be processed again.",
+                                            nameof(ProduceBinaryReferencesEvents));
+                                        await Task.Delay(1000, cancellationToken);
                                     }
                                     catch (Exception ex)
                                     {
