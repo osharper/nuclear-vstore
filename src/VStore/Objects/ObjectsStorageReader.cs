@@ -61,7 +61,7 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetObjectVersions(long id, string initialVersionId)
         {
-            var versions = new List<ObjectVersion>();
+            var objectVersions = new List<ObjectVersion>();
 
             async Task<(IReadOnlyCollection<int> ModifiedElements, AuthorInfo AuthorInfo)> GetElementMetadata(string key, string versionId)
             {
@@ -93,7 +93,7 @@ namespace NuClear.VStore.Objects
                     .Versions
                     .Where(x => !x.IsDeleteMarker)
                     .Aggregate(
-                        new List<(string Key, string VersionId, int VersionIndex, DateTime LastModified)>(),
+                        new List<(string Key, string VersionId, DateTime LastModified)>(),
                         (list, next) =>
                             {
                                 initialVersionIdReached = initialVersionIdReached ||
@@ -101,15 +101,13 @@ namespace NuClear.VStore.Objects
                                                           initialVersionId.Equals(next.VersionId, StringComparison.OrdinalIgnoreCase);
                                 if (!initialVersionIdReached)
                                 {
-                                    list.Add((next.Key, next.VersionId, nextVersionIndex, next.LastModified));
+                                    list.Add((next.Key, next.VersionId, next.LastModified));
                                 }
-
-                                ++nextVersionIndex;
 
                                 return list;
                             });
 
-                var objectVersions = new ObjectVersion[versionInfos.Count];
+                var versions = new ObjectVersion[versionInfos.Count];
                 var partitioner = Partitioner.Create(versionInfos);
                 var tasks = partitioner.GetOrderablePartitions(_degreeOfParallelism)
                                        .Select(async partition =>
@@ -120,10 +118,9 @@ namespace NuClear.VStore.Objects
                                                            var versionInfo = partition.Current.Value;
 
                                                            var elementMetadata = await GetElementMetadata(versionInfo.Key, versionInfo.VersionId);
-                                                           objectVersions[index] = new ObjectVersion(
+                                                           versions[index] = new ObjectVersion(
                                                                versionInfo.Key,
                                                                versionInfo.VersionId,
-                                                               versionInfo.VersionIndex,
                                                                versionInfo.LastModified,
                                                                elementMetadata.AuthorInfo,
                                                                elementMetadata.ModifiedElements);
@@ -131,13 +128,14 @@ namespace NuClear.VStore.Objects
                                                    });
                 await Task.WhenAll(tasks);
 
-                versions.AddRange(objectVersions);
+                objectVersions.AddRange(versions);
+                nextVersionIndex += versions.Length;
 
                 return (!initialVersionIdReached && versionsResponse.IsTruncated, nextVersionIndex, versionsResponse.NextVersionIdMarker);
             }
 
             var result = await ListVersions(0, null);
-            if (versions.Count == 0)
+            if (objectVersions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
@@ -147,29 +145,19 @@ namespace NuClear.VStore.Objects
                 result = await ListVersions(result.NextVersionIndex, result.NextVersionIdMarker);
             }
 
-            var descriptors = new ModifiedObjectDescriptor[versions.Count];
-            var descriptorsPartitioner = Partitioner.Create(versions);
-            var descriptorsTasks =
-                descriptorsPartitioner.GetOrderablePartitions(_degreeOfParallelism)
-                                      .Select(
-                                          async partition => await Task.Run(
-                                                                 () =>
-                                                                     {
-                                                                         while (partition.MoveNext())
-                                                                         {
-                                                                             var index = (int)partition.Current.Key;
-                                                                             var objectVersion = partition.Current.Value;
-
-                                                                             descriptors[index] = new ModifiedObjectDescriptor(
-                                                                                 objectVersion.Key.AsRootObjectId(),
-                                                                                 objectVersion.VersionId,
-                                                                                 versions[versions.Count - index - 1].VersionIndex,
-                                                                                 objectVersion.LastModified,
-                                                                                 objectVersion.AuthorInfo,
-                                                                                 objectVersion.ModifiedElements);
-                                                                         }
-                                                                     }));
-            await Task.WhenAll(descriptorsTasks);
+            var maxVersionIndex = result.NextVersionIndex;
+            var descriptors = new ModifiedObjectDescriptor[objectVersions.Count];
+            for (var index = 0; index < objectVersions.Count; index++)
+            {
+                var objectVersion = objectVersions[index];
+                descriptors[index] = new ModifiedObjectDescriptor(
+                    objectVersion.Key.AsRootObjectId(),
+                    objectVersion.VersionId,
+                    --maxVersionIndex,
+                    objectVersion.LastModified,
+                    objectVersion.AuthorInfo,
+                    objectVersion.ModifiedElements);
+            }
 
             return descriptors;
         }
@@ -299,14 +287,12 @@ namespace NuClear.VStore.Objects
             public ObjectVersion(
                 string id,
                 string versionId,
-                int versionIndex,
                 DateTime lastModified,
                 AuthorInfo authorInfo,
                 IReadOnlyCollection<int> modifiedElements)
             {
                 Key = id;
                 VersionId = versionId;
-                VersionIndex = versionIndex;
                 LastModified = lastModified;
                 AuthorInfo = authorInfo;
                 ModifiedElements = modifiedElements;
@@ -314,7 +300,6 @@ namespace NuClear.VStore.Objects
 
             public string Key { get; }
             public string VersionId { get; }
-            public int VersionIndex { get; }
             public DateTime LastModified { get; }
             public AuthorInfo AuthorInfo { get; }
             public IReadOnlyCollection<int> ModifiedElements { get; }
