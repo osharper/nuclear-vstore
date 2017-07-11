@@ -190,7 +190,7 @@ namespace NuClear.VStore.Worker
                 .AddSingleton<SessionCleanupService>()
                 .AddScoped<TemplatesStorageReader>()
                 .AddScoped<ObjectsStorageReader>()
-                .AddScoped<EventReader>()
+                .AddScoped<EventReceiver>()
                 .AddScoped<EventSender>();
 
             var serviceProvider = services.BuildServiceProvider();

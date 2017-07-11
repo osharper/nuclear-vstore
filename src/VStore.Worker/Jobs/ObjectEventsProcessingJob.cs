@@ -18,8 +18,8 @@ namespace NuClear.VStore.Worker.Jobs
     {
         private const string VersionsGroupId = "vstore-versions-producer";
         private const string BinariesGroupId = "vstore-binaries-producer";
-        private const int BatchSize = 10;
 
+        private readonly int _consumingBatchSize;
         private readonly string _objectEventsTopic;
         private readonly string _objectVersionsTopic;
         private readonly string _binariesUsingsTopic;
@@ -27,8 +27,8 @@ namespace NuClear.VStore.Worker.Jobs
         private readonly ILogger<ObjectEventsProcessingJob> _logger;
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly EventSender _eventSender;
-        private readonly EventReader _versionEventReader;
-        private readonly EventReader _binariesEventReader;
+        private readonly EventReceiver _versionEventReceiver;
+        private readonly EventReceiver _binariesEventReceiver;
 
         public ObjectEventsProcessingJob(
             ILogger<ObjectEventsProcessingJob> logger,
@@ -36,6 +36,7 @@ namespace NuClear.VStore.Worker.Jobs
             KafkaOptions kafkaOptions,
             EventSender eventSender)
         {
+            _consumingBatchSize = kafkaOptions.ConsumingBatchSize;
             _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
             _objectVersionsTopic = kafkaOptions.ObjectVersionsTopic;
             _binariesUsingsTopic = kafkaOptions.BinariesReferencesTopic;
@@ -43,8 +44,8 @@ namespace NuClear.VStore.Worker.Jobs
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;
             _eventSender = eventSender;
-            _versionEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, VersionsGroupId);
-            _binariesEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, BinariesGroupId);
+            _versionEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, VersionsGroupId);
+            _binariesEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, BinariesGroupId);
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
@@ -128,7 +129,7 @@ namespace NuClear.VStore.Worker.Jobs
 
         private async Task ProduceObjectVersionCreatedEvents()
         {
-            var events = _versionEventReader.Read<ObjectVersionCreatingEvent>(_objectEventsTopic, BatchSize);
+            var events = _versionEventReceiver.Receive<ObjectVersionCreatingEvent>(_objectEventsTopic, _consumingBatchSize);
             foreach (var @event in events)
             {
                 var objectId = @event.Source.ObjectId;
@@ -154,12 +155,12 @@ namespace NuClear.VStore.Worker.Jobs
                 }
             }
 
-            await _versionEventReader.CommitAsync(events.Select(x => x.TopicPartitionOffset));
+            await _versionEventReceiver.CommitAsync(events.Select(x => x.TopicPartitionOffset));
         }
 
         private async Task ProduceBinaryReferencesEvents()
         {
-            var events = _binariesEventReader.Read<ObjectVersionCreatingEvent>(_objectEventsTopic, BatchSize);
+            var events = _binariesEventReceiver.Receive<ObjectVersionCreatingEvent>(_objectEventsTopic, _consumingBatchSize);
             foreach (var @event in events)
             {
                 var objectId = @event.Source.ObjectId;
@@ -197,7 +198,7 @@ namespace NuClear.VStore.Worker.Jobs
                 }
             }
 
-            await _binariesEventReader.CommitAsync(events.Select(x => x.TopicPartitionOffset));
+            await _binariesEventReceiver.CommitAsync(events.Select(x => x.TopicPartitionOffset));
         }
     }
 }

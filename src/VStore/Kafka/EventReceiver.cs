@@ -13,14 +13,14 @@ using NuClear.VStore.Events;
 
 namespace NuClear.VStore.Kafka
 {
-    public sealed class EventReader : IDisposable
+    public sealed class EventReceiver : IDisposable
     {
         private const int DefaultPartition = 0;
 
         private readonly ILogger _logger;
         private readonly Consumer<string, string> _consumer;
 
-        public EventReader(ILogger logger, string brokerEndpoints, string groupId)
+        public EventReceiver(ILogger logger, string brokerEndpoints, string groupId)
         {
             _logger = logger;
 
@@ -47,14 +47,14 @@ namespace NuClear.VStore.Kafka
             _consumer.OnStatistics += OnStatistics;
         }
 
-        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, int batchSize) where TSourceEvent : IEvent
-            => Read<TSourceEvent>(c => c.Subscribe(topic), batchSize);
+        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Receive<TSourceEvent>(string topic, int batchSize) where TSourceEvent : IEvent
+            => Receive<TSourceEvent>(c => c.Subscribe(topic), batchSize);
 
-        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(string topic, DateTime dateToStart)
+        public IReadOnlyCollection<KafkaEvent<TSourceEvent>> Receive<TSourceEvent>(string topic, DateTime dateToStart)
             where TSourceEvent : IEvent
         {
             var offsets = GetOffsets(topic, dateToStart);
-            return Read<TSourceEvent>(c => c.Assign(offsets));
+            return Receive<TSourceEvent>(c => c.Assign(offsets));
         }
 
         public async Task CommitAsync(IEnumerable<TopicPartitionOffset> topicPartitionOffsets)
@@ -77,7 +77,7 @@ namespace NuClear.VStore.Kafka
             }
         }
 
-        private IReadOnlyCollection<KafkaEvent<TSourceEvent>> Read<TSourceEvent>(
+        private IReadOnlyCollection<KafkaEvent<TSourceEvent>> Receive<TSourceEvent>(
             Action<Consumer<string, string>> assignOfSubscribe,
             int batchSize = int.MaxValue)
             where TSourceEvent : IEvent

@@ -16,26 +16,28 @@ namespace NuClear.VStore.Worker.Jobs
     public class BinariesCleanupJob : AsyncJob
     {
         private const string GroupId = "vstore-sessions-cleaner";
-
-        private const int BatchSize = 100;
         private const char SlashChar = '/';
 
-        private readonly ILogger<BinariesCleanupJob> _logger;
+        private readonly int _consumingBatchSize;
         private readonly string _sessionsTopicName;
         private readonly string _binariesReferencesTopicName;
+
+        private readonly ILogger<BinariesCleanupJob> _logger;
         private readonly SessionCleanupService _sessionCleanupService;
-        private readonly EventReader _eventReader;
+        private readonly EventReceiver _eventReceiver;
 
         public BinariesCleanupJob(
             ILogger<BinariesCleanupJob> logger,
             KafkaOptions kafkaOptions,
             SessionCleanupService sessionCleanupService)
         {
-            _logger = logger;
             _sessionsTopicName = kafkaOptions.SessionsTopic;
             _binariesReferencesTopicName = kafkaOptions.BinariesReferencesTopic;
+            _consumingBatchSize = kafkaOptions.ConsumingBatchSize;
+
+            _logger = logger;
             _sessionCleanupService = sessionCleanupService;
-            _eventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints, GroupId);
+            _eventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, GroupId);
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
@@ -53,7 +55,7 @@ namespace NuClear.VStore.Worker.Jobs
             var utcNow = DateTime.UtcNow;
             while (true)
             {
-                var sessionCreatingEvents = _eventReader.Read<SessionCreatingEvent>(_sessionsTopicName, BatchSize);
+                var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, _consumingBatchSize);
                 var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
 
                 if (expiredSessionEvents.Count == 0)
@@ -61,7 +63,7 @@ namespace NuClear.VStore.Worker.Jobs
                     return;
                 }
 
-                var referenceEvents = _eventReader.Read<BinaryReferencedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range));
+                var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range));
 
                 Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
                 var referencedBinariesSessions = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
@@ -77,7 +79,7 @@ namespace NuClear.VStore.Worker.Jobs
                             _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unused and already expired.", sessionId);
                         }
 
-                        await _eventReader.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
+                        await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
                         _logger.LogInformation(
                             "Event of type '{eventType}' for expired session '{sessionId}' processed.",
                             expiredSessionEvent.Source.GetType(),
