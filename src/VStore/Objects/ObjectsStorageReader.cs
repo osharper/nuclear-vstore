@@ -88,10 +88,11 @@ namespace NuClear.VStore.Objects
                                                    VersionIdMarker = nextVersionIdMarker
                                                });
 
+                var nonDeletedVersions = versionsResponse.Versions.FindAll(x => !x.IsDeleteMarker);
+                nextVersionIndex += nonDeletedVersions.Count;
+
                 var initialVersionIdReached = false;
-                var versionInfos = versionsResponse
-                    .Versions
-                    .Where(x => !x.IsDeleteMarker)
+                var versionInfos = nonDeletedVersions
                     .Aggregate(
                         new List<(string Key, string VersionId, DateTime LastModified)>(),
                         (list, next) =>
@@ -129,7 +130,6 @@ namespace NuClear.VStore.Objects
                 await Task.WhenAll(tasks);
 
                 objectVersions.AddRange(versions);
-                nextVersionIndex += versions.Length;
 
                 return (!initialVersionIdReached && versionsResponse.IsTruncated, nextVersionIndex, versionsResponse.NextVersionIdMarker);
             }
