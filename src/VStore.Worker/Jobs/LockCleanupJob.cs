@@ -1,11 +1,13 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Locks;
 
-namespace NuClear.VStore.GC.Jobs
+namespace NuClear.VStore.Worker.Jobs
 {
     public sealed class LockCleanupJob : AsyncJob
     {
@@ -18,7 +20,7 @@ namespace NuClear.VStore.GC.Jobs
             _lockSessionManager = lockSessionManager;
         }
 
-        protected override async Task ExecuteInternalAsync()
+        protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
             var objectIds = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
             var tasks = objectIds.Select(

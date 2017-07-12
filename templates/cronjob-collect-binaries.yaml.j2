@@ -1,9 +1,9 @@
 apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
-  name: {{ app_name }}
+  name: {{ app_name }}-collect-binaries-job
 spec:
-  schedule: "{{ job_schedule }}"
+  schedule: "{{ binaries_job_schedule }}"
   concurrencyPolicy: Forbid
 #  successfulJobsHistoryLimit: 5
 #  failedJobsHistoryLimit: 5
@@ -14,8 +14,9 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: {{ app_name }}
-            image: {{ vstore_gc_image_path }}:{{ image_version }}
-            command: ["/app/VStore.GC", "collect", "locks"]
+            image: {{ vstore_worker_image_path }}:{{ image_version }}
+            command: ["/app/VStore.Worker", "collect", "binaries"]
+            args: ["range=$(COLLECT_TIME_RANGE)"]
             resources:
               limits:
                 cpu: {{ worker_app_limits_cpu }}
@@ -34,5 +35,7 @@ spec:
               value: {{ ceph_rgw_url }}
             - name: VSTORE_Ceph__FilesBucketName
               value: {{ files_bucket_name }}
-            - name: VSTORE_Ceph__Locks__BucketName
-              value: {{ locks_bucket_name }}
+            - name: COLLECT_TIME_RANGE
+              value: {{ binaries_job_timerange }}
+            - name: VSTORE_Kafka__BrokerEndpoints
+              value: {{ kafka_endpoints }}

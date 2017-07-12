@@ -40,5 +40,11 @@ namespace NuClear.VStore.S3
             var separatorIndex = key.IndexOf(LockFinaliter, StringComparison.Ordinal);
             return long.Parse(key.Substring(0, separatorIndex));
         }
+
+        public static Guid AsSessionId(this string key)
+        {
+            var separatorIndex = key.IndexOf(Separator, StringComparison.Ordinal);
+            return new Guid(key.Substring(0, separatorIndex));
+        }
     }
 }

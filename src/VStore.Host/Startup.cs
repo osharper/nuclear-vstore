@@ -35,6 +35,7 @@ using NuClear.VStore.Host.Routing;
 using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
@@ -88,11 +89,13 @@ namespace NuClear.VStore.Host
                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
                 .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
+                .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
                 .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)))
                 .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
+                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
                 .AddSingleton(x => x.GetRequiredService<IOptions<JwtOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value);
+                .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value);
 
             services.AddMvcCore(
                         options =>
@@ -145,6 +148,7 @@ namespace NuClear.VStore.Host
                         options.OperationFilter<UploadFileOperationFilter>();
                     });
 
+            services.AddSingleton<EventSender>();
             services.AddSingleton<IAmazonS3>(
                 x =>
                     {
@@ -173,16 +177,8 @@ namespace NuClear.VStore.Host
             services.AddSingleton<LockSessionFactory>();
             services.AddSingleton<TemplatesStorageReader>();
             services.AddSingleton<TemplatesManagementService>();
-            services.AddSingleton(
-                x => new SessionStorageReader(
-                    x.GetService<CephOptions>().FilesBucketName,
-                    x.GetService<IAmazonS3>()));
-            services.AddSingleton(
-                x => new SessionManagementService(
-                         x.GetService<VStoreOptions>().FileStorageEndpoint,
-                         x.GetService<CephOptions>().FilesBucketName,
-                         x.GetService<IAmazonS3>(),
-                         x.GetService<TemplatesStorageReader>()));
+            services.AddSingleton<SessionStorageReader>();
+            services.AddSingleton<SessionManagementService>();
             services.AddSingleton<ObjectsStorageReader>();
             services.AddSingleton<ObjectsManagementService>();
         }

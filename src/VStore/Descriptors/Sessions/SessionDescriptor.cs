@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace NuClear.VStore.Descriptors.Sessions
 {
@@ -8,5 +9,7 @@ namespace NuClear.VStore.Descriptors.Sessions
         public string TemplateVersionId { get; set; }
         public Language Language { get; set; }
         public IEnumerable<int> BinaryElementTemplateCodes { get; set; }
+
+        public static DateTime CurrentTime() => DateTime.UtcNow;
     }
 }

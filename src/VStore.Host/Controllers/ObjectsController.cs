@@ -79,7 +79,7 @@ namespace NuClear.VStore.Host.Controllers
         {
             try
             {
-                var versions = await _objectsStorageReader.GetAllObjectRootVersions(id);
+                var versions = await _objectsStorageReader.GetObjectVersions(id, null);
                 return Json(versions);
             }
             catch (ObjectNotFoundException)

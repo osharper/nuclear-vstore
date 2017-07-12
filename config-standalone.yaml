@@ -12,13 +12,15 @@ common:
   vstore_port: 5000
   vstore_probe_path: /healthcheck
   vstore_image_path: docker-hub.2gis.ru/ams/vstore
-  vstore_gc_image_path: docker-hub.2gis.ru/ams/vstore-gc
+  vstore_worker_image_path: docker-hub.2gis.ru/ams/vstore-worker
 
   image_version: "{{ env='CI_TAG' }}"
   
   ceph_rgw_url: "{{ env='CEPH_RGW_URL' }}"
   ceph_key_id: "{{ env='CEPH_STAGING_KEY_ID' }}"
   ceph_access_key: "{{ env='CEPH_STAGING_ACCESS_KEY' }}"
+
+  jwt_sign_key: "{{ env='JWT_SIGN_KEY' }}"
 
   templates_bucket_name: "vstore-templates-standalone"
   objects_bucket_name: "vstore-objects-standalone"
@@ -30,19 +32,26 @@ vstore:
 
   ssl_enforce: true
 
-  job_schedule: "*/1 * * * *"
+  session_expiration: "00:01:00"
 
-  backend_app_limits_cpu: 500m
-  backend_app_requests_cpu: 200m
+  locks_job_schedule: "*/1 * * * *"
+  binaries_job_schedule: "0 */2 * * *"
+  binaries_job_timerange: "02:00:00"
+
+  kafka_endpoints: "kafka1.c.n3.hw,kafka2.c.n3.hw,kafka3.c.n3.hw"
+
+  backend_app_limits_cpu: 200m
+  backend_app_requests_cpu: 100m
   backend_app_limits_memory: 384Mi
   backend_app_requests_memory: 256Mi
 
   worker_app_limits_cpu: 200m
   worker_app_requests_cpu: 100m
-  worker_app_limits_memory: 192Mi
-  worker_app_requests_memory: 128Mi
+  worker_app_limits_memory: 96Mi
+  worker_app_requests_memory: 64Mi
 
   kubectl:
-  - template: vstore-deployment.yaml.j2
-  - template: vstore-service.yaml.j2
-  - template: vstore-gc-cronjob.yaml.j2
+  - template: deployment.yaml.j2
+  - template: service.yaml.j2
+  - template: cronjob-collect-locks.yaml.j2
+  - template: cronjob-collect-binaries.yaml.j2

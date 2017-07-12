@@ -4,16 +4,18 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using NuClear.VStore.GC.Jobs;
+using NuClear.VStore.Worker.Jobs;
 
-namespace NuClear.VStore.GC
+namespace NuClear.VStore.Worker
 {
     public sealed class JobRegistry
     {
         private static readonly Dictionary<string, Type> Registry =
             new Dictionary<string, Type>
                 {
-                    { "locks", typeof(LockCleanupJob) }
+                    { "collect-locks", typeof(LockCleanupJob) },
+                    { "collect-binaries", typeof(BinariesCleanupJob) },
+                    { "produce-events", typeof(ObjectEventsProcessingJob) }
                 };
 
         private readonly IServiceProvider _serviceProvider;
@@ -25,14 +27,14 @@ namespace NuClear.VStore.GC
             _logger = logger;
         }
 
-        public AsyncJob GetJob(string jobId)
+        public AsyncJob GetJob(string workerId, string jobId)
         {
-            if (Registry.TryGetValue(jobId, out Type jobType))
+            if (Registry.TryGetValue($"{workerId}-{jobId}", out Type jobType))
             {
                 return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
             }
 
-            _logger.LogCritical("Job with id = '{gcJobId}' has not beed registered.", jobId);
+            _logger.LogCritical("Job with id = '{workerJobId}' for worker '{workerId}' has not beed registered.", jobId, workerId);
             throw new JobNotFoundException(jobId);
         }
     }

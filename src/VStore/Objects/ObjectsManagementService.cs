@@ -13,8 +13,10 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Objects.Persistence;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
+using NuClear.VStore.Events;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
+using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects.ContentPreprocessing;
 using NuClear.VStore.Objects.ContentValidation;
@@ -33,22 +35,28 @@ namespace NuClear.VStore.Objects
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
+        private readonly EventSender _eventSender;
         private readonly string _bucketName;
+        private readonly string _objectEventsTopic;
 
         public ObjectsManagementService(
             CephOptions cephOptions,
+            KafkaOptions kafkaOptions,
             IAmazonS3 amazonS3,
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
-            LockSessionFactory lockSessionFactory)
+            LockSessionFactory lockSessionFactory,
+            EventSender eventSender)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
             _lockSessionFactory = lockSessionFactory;
+            _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
+            _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
         }
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
@@ -92,7 +100,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, templateDescriptor.Elements, objectDescriptor.Elements);
 
-                return await PutObject(id, authorInfo, objectDescriptor);
+                return await PutObject(id, null, authorInfo, objectDescriptor);
             }
             finally
             {
@@ -137,7 +145,7 @@ namespace NuClear.VStore.Objects
 
                 EnsureObjectElementsState(id, objectDescriptor.Elements, modifiedObjectDescriptor.Elements);
 
-                return await PutObject(id, authorInfo, modifiedObjectDescriptor);
+                return await PutObject(id, versionId, authorInfo, modifiedObjectDescriptor);
             }
             finally
             {
@@ -293,11 +301,13 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private async Task<string> PutObject(long id, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
+        private async Task<string> PutObject(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
             await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
+
+            await _eventSender.SendAsync(_objectEventsTopic, new ObjectVersionCreatingEvent(id, versionId));
 
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
@@ -360,7 +370,6 @@ namespace NuClear.VStore.Objects
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
             metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
-
             metadataWrapper.Write(
                 MetadataElement.ModifiedElements,
                 string.Join(Tokens.ModifiedElementsDelimiter.ToString(), objectDescriptor.Elements.Select(x => x.TemplateCode)));
@@ -419,17 +428,23 @@ namespace NuClear.VStore.Objects
                 .Select(async x =>
                             {
                                 var binaryElementValue = x.Value as IBinaryElementValue;
-                                if (binaryElementValue == null || string.IsNullOrEmpty(binaryElementValue.Raw))
+                                if (string.IsNullOrEmpty(binaryElementValue?.Raw))
                                 {
                                     return (Id: null, Metadata: null);
                                 }
 
                                 try
                                 {
+                                    await _sessionStorageReader.VerifySessionExpirationForBinary(binaryElementValue.Raw);
+
                                     var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
                                     return (Id: (long?)x.Id, Metadata: binaryMetadata);
                                 }
                                 catch (ObjectNotFoundException ex)
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                }
+                                catch (SessionExpiredException ex)
                                 {
                                     throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
                                 }

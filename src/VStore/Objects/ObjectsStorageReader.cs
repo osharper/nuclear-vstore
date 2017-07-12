@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,6 +28,7 @@ namespace NuClear.VStore.Objects
         private readonly IAmazonS3 _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
+        private readonly int _degreeOfParallelism;
         private readonly Uri _fileStorageEndpoint;
 
         public ObjectsStorageReader(
@@ -38,6 +40,7 @@ namespace NuClear.VStore.Objects
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _bucketName = cephOptions.ObjectsBucketName;
+            _degreeOfParallelism = cephOptions.DegreeOfParallelism;
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
         }
 
@@ -51,13 +54,14 @@ namespace NuClear.VStore.Objects
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            ObjectPersistenceDescriptor persistenceDescriptor = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
+            (var persistenceDescriptor, var _, var _) =
+                await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
-        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetAllObjectRootVersions(long id)
+        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetObjectVersions(long id, string initialVersionId)
         {
-            var versions = new List<ModifiedObjectDescriptor>();
+            var objectVersions = new List<ObjectVersion>();
 
             async Task<(IReadOnlyCollection<int> ModifiedElements, AuthorInfo AuthorInfo)> GetElementMetadata(string key, string versionId)
             {
@@ -74,48 +78,88 @@ namespace NuClear.VStore.Objects
                 return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
-            async Task<ListVersionsResponse> ListVersions(string nextVersionIdMarker)
+            async Task<(bool IsTruncated, int NextVersionIndex, string NextVersionIdMarker)> ListVersions(int nextVersionIndex, string nextVersionIdMarker)
             {
-                var versionsResponse = await _amazonS3.ListVersionsAsync(new ListVersionsRequest
-                    {
-                        BucketName = _bucketName,
-                        Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
-                        VersionIdMarker = nextVersionIdMarker
-                    });
-                var versionInfos = versionsResponse.Versions.Where(x => !x.IsDeleteMarker)
-                                                   .Select(x => new { x.Key, x.VersionId, x.LastModified })
-                                                   .ToArray();
+                var versionsResponse = await _amazonS3.ListVersionsAsync(
+                                           new ListVersionsRequest
+                                               {
+                                                   BucketName = _bucketName,
+                                                   Prefix = id.AsS3ObjectKey(Tokens.ObjectPostfix),
+                                                   VersionIdMarker = nextVersionIdMarker
+                                               });
 
-                var descriptors = new ModifiedObjectDescriptor[versionInfos.Length];
-                var tasks = versionInfos.Select(async (x, index) =>
-                                                    {
-                                                        var elementMetadata = await GetElementMetadata(x.Key, x.VersionId);
-                                                        descriptors[index] = new ModifiedObjectDescriptor(
-                                                            x.Key.AsRootObjectId(),
-                                                            x.VersionId,
-                                                            x.LastModified,
-                                                            elementMetadata.AuthorInfo,
-                                                            elementMetadata.ModifiedElements);
-                                                    });
+                var nonDeletedVersions = versionsResponse.Versions.FindAll(x => !x.IsDeleteMarker);
+                nextVersionIndex += nonDeletedVersions.Count;
+
+                var initialVersionIdReached = false;
+                var versionInfos = nonDeletedVersions
+                    .Aggregate(
+                        new List<(string Key, string VersionId, DateTime LastModified)>(),
+                        (list, next) =>
+                            {
+                                initialVersionIdReached = initialVersionIdReached ||
+                                                          !string.IsNullOrEmpty(initialVersionId) &&
+                                                          initialVersionId.Equals(next.VersionId, StringComparison.OrdinalIgnoreCase);
+                                if (!initialVersionIdReached)
+                                {
+                                    list.Add((next.Key, next.VersionId, next.LastModified));
+                                }
+
+                                return list;
+                            });
+
+                var versions = new ObjectVersion[versionInfos.Count];
+                var partitioner = Partitioner.Create(versionInfos);
+                var tasks = partitioner.GetOrderablePartitions(_degreeOfParallelism)
+                                       .Select(async partition =>
+                                                   {
+                                                       while (partition.MoveNext())
+                                                       {
+                                                           var index = partition.Current.Key;
+                                                           var versionInfo = partition.Current.Value;
+
+                                                           var elementMetadata = await GetElementMetadata(versionInfo.Key, versionInfo.VersionId);
+                                                           versions[index] = new ObjectVersion(
+                                                               versionInfo.Key,
+                                                               versionInfo.VersionId,
+                                                               versionInfo.LastModified,
+                                                               elementMetadata.AuthorInfo,
+                                                               elementMetadata.ModifiedElements);
+                                                       }
+                                                   });
                 await Task.WhenAll(tasks);
 
-                versions.AddRange(descriptors);
+                objectVersions.AddRange(versions);
 
-                return versionsResponse;
+                return (!initialVersionIdReached && versionsResponse.IsTruncated, nextVersionIndex, versionsResponse.NextVersionIdMarker);
             }
 
-            var response = await ListVersions(null);
-            if (versions.Count == 0)
+            var result = await ListVersions(0, null);
+            if (objectVersions.Count == 0)
             {
                 throw new ObjectNotFoundException($"Object '{id}' not found.");
             }
 
-            while (response.IsTruncated)
+            while (result.IsTruncated)
             {
-                response = await ListVersions(response.NextVersionIdMarker);
+                result = await ListVersions(result.NextVersionIndex, result.NextVersionIdMarker);
             }
 
-            return versions;
+            var maxVersionIndex = result.NextVersionIndex;
+            var descriptors = new ModifiedObjectDescriptor[objectVersions.Count];
+            for (var index = 0; index < objectVersions.Count; index++)
+            {
+                var objectVersion = objectVersions[index];
+                descriptors[index] = new ModifiedObjectDescriptor(
+                    objectVersion.Key.AsRootObjectId(),
+                    objectVersion.VersionId,
+                    --maxVersionIndex,
+                    objectVersion.LastModified,
+                    objectVersion.AuthorInfo,
+                    objectVersion.ModifiedElements);
+            }
+
+            return descriptors;
         }
 
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
@@ -147,15 +191,15 @@ namespace NuClear.VStore.Objects
                 objectVersionId = versionId;
             }
 
-            var persistenceDescriptorWrapper = await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
-            var persistenceDescriptor = (ObjectPersistenceDescriptor)persistenceDescriptorWrapper;
+            (var persistenceDescriptor, var objectAuthorInfo, var objectLastModified) =
+                await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
 
             var elements = new IObjectElementDescriptor[persistenceDescriptor.Elements.Count];
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        var elementPersistenceDescriptorWrapper = await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
-                        var elementPersistenceDescriptor = (ObjectElementPersistenceDescriptor)elementPersistenceDescriptorWrapper;
+                        (var elementPersistenceDescriptor, var _, var elementLastModified) =
+                            await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
                         var binaryElementValue = elementPersistenceDescriptor.Value as IBinaryElementValue;
                         if (binaryElementValue != null && !string.IsNullOrEmpty(binaryElementValue.Raw))
@@ -172,7 +216,7 @@ namespace NuClear.VStore.Objects
                             {
                                 Id = x.Id.AsSubObjectId(),
                                 VersionId = x.VersionId,
-                                LastModified = elementPersistenceDescriptorWrapper.LastModified,
+                                LastModified = elementLastModified,
                                 Type = elementPersistenceDescriptor.Type,
                                 TemplateCode = elementPersistenceDescriptor.TemplateCode,
                                 Properties = elementPersistenceDescriptor.Properties,
@@ -186,13 +230,13 @@ namespace NuClear.VStore.Objects
                                  {
                                      Id = id,
                                      VersionId = objectVersionId,
-                                     LastModified = persistenceDescriptorWrapper.LastModified,
+                                     LastModified = objectLastModified,
                                      TemplateId = persistenceDescriptor.TemplateId,
                                      TemplateVersionId = persistenceDescriptor.TemplateVersionId,
                                      Language = persistenceDescriptor.Language,
-                                     Author = persistenceDescriptorWrapper.AuthorInfo.Author,
-                                     AuthorLogin = persistenceDescriptorWrapper.AuthorInfo.AuthorLogin,
-                                     AuthorName = persistenceDescriptorWrapper.AuthorInfo.AuthorName,
+                                     Author = objectAuthorInfo.Author,
+                                     AuthorLogin = objectAuthorInfo.AuthorLogin,
+                                     AuthorName = objectAuthorInfo.AuthorName,
                                      Properties = persistenceDescriptor.Properties,
                                      Elements = elements
                                  };
@@ -211,7 +255,7 @@ namespace NuClear.VStore.Objects
             return listResponse.S3Objects.Count != 0;
         }
 
-        private async Task<ObjectWrapper<T>> GetObjectFromS3<T>(string key, string versionId)
+        private async Task<(T, AuthorInfo, DateTime)> GetObjectFromS3<T>(string key, string versionId)
         {
             GetObjectResponse getObjectResponse;
             try
@@ -235,27 +279,30 @@ namespace NuClear.VStore.Objects
             }
 
             var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return new ObjectWrapper<T>(obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
+            return (obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
         }
 
-        private class ObjectWrapper<T>
+        private struct ObjectVersion
         {
-            private readonly T _object;
-
-            public ObjectWrapper(T @object, AuthorInfo authorInfo, DateTime lastModified)
+            public ObjectVersion(
+                string id,
+                string versionId,
+                DateTime lastModified,
+                AuthorInfo authorInfo,
+                IReadOnlyCollection<int> modifiedElements)
             {
-                _object = @object;
-                AuthorInfo = authorInfo;
+                Key = id;
+                VersionId = versionId;
                 LastModified = lastModified;
+                AuthorInfo = authorInfo;
+                ModifiedElements = modifiedElements;
             }
 
-            public AuthorInfo AuthorInfo { get; }
+            public string Key { get; }
+            public string VersionId { get; }
             public DateTime LastModified { get; }
-
-            public static implicit operator T(ObjectWrapper<T> wrapper)
-            {
-                return wrapper._object;
-            }
+            public AuthorInfo AuthorInfo { get; }
+            public IReadOnlyCollection<int> ModifiedElements { get; }
         }
     }
 }
