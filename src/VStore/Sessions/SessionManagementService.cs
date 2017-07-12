@@ -3,8 +3,6 @@ using System.Collections.Generic;
 
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 
 using Amazon.S3;
@@ -24,6 +22,7 @@ using NuClear.VStore.Events;
 using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.Kafka;
+using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
@@ -47,30 +46,32 @@ namespace NuClear.VStore.Sessions
         private readonly string _filesBucketName;
         private readonly string _sessionsTopicName;
         private readonly IAmazonS3 _amazonS3;
+        private readonly SessionStorageReader _sessionStorageReader;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly EventSender _eventSender;
 
         public SessionManagementService(
-            TimeSpan sessionExpiration,
-            Uri fileStorageEndpointUri,
-            string filesBucketName,
-            string sessionsTopicName,
+            CephOptions cephOptions,
+            VStoreOptions vstoreOptions,
+            KafkaOptions kafkaOptions,
             IAmazonS3 amazonS3,
+            SessionStorageReader sessionStorageReader,
             TemplatesStorageReader templatesStorageReader,
             EventSender eventSender)
         {
-            _sessionExpiration = sessionExpiration;
-            _fileStorageEndpointUri = fileStorageEndpointUri;
-            _filesBucketName = filesBucketName;
-            _sessionsTopicName = sessionsTopicName;
+            _sessionExpiration = vstoreOptions.SessionExpiration;
+            _fileStorageEndpointUri = vstoreOptions.FileStorageEndpoint;
+            _filesBucketName = cephOptions.FilesBucketName;
+            _sessionsTopicName = kafkaOptions.SessionsTopic;
             _amazonS3 = amazonS3;
+            _sessionStorageReader = sessionStorageReader;
             _templatesStorageReader = templatesStorageReader;
             _eventSender = eventSender;
         }
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            (var sessionDescriptor, var authorInfo, var expiresAt) = await GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, var authorInfo, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
 
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
@@ -106,7 +107,7 @@ namespace NuClear.VStore.Sessions
                                   ContentBody = JsonConvert.SerializeObject(sessionDescriptor, SerializerSettings.Default)
                               };
 
-            var expiresAt = CurrentTime().Add(_sessionExpiration);
+            var expiresAt = SessionDescriptor.CurrentTime().Add(_sessionExpiration);
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
@@ -129,7 +130,7 @@ namespace NuClear.VStore.Sessions
                 throw new MissingFilenameException($"Filename has not been provided for the item '{templateCode}'");
             }
 
-            (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, var _, var _) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -162,7 +163,7 @@ namespace NuClear.VStore.Sessions
 
                 if (uploadSession.NextPartNumber == 1)
                 {
-                    (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(uploadSession.SessionId);
+                    (var sessionDescriptor, var _, var _) = await _sessionStorageReader.GetSessionDescriptor(uploadSession.SessionId);
                     var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
                     EnsureFileIsValid(elementDescriptor, memory, sessionDescriptor.Language, fileName);
                 }
@@ -204,7 +205,7 @@ namespace NuClear.VStore.Sessions
                                          });
             uploadSession.Complete();
 
-            (var sessionDescriptor, var _, var _) = await GetSessionDescriptor(uploadSession.SessionId);
+            (var sessionDescriptor, var _, var _) = await _sessionStorageReader.GetSessionDescriptor(uploadSession.SessionId);
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
             try
             {
@@ -247,10 +248,6 @@ namespace NuClear.VStore.Sessions
                 await _amazonS3.DeleteObjectAsync(_filesBucketName, uploadKey);
             }
         }
-
-        private static DateTime CurrentTime() => DateTime.UtcNow;
-
-        private static bool IsSessionExpired(DateTime expiresAt) => expiresAt <= CurrentTime();
 
         private static void EnsureFileIsValid(IElementDescriptor elementDescriptor, Stream inputStream, Language language, string fileName)
         {
@@ -434,43 +431,6 @@ namespace NuClear.VStore.Sessions
             }
 
             return EnumerateStatus.Continue;
-        }
-
-        private async Task<(SessionDescriptor, AuthorInfo, DateTime)> GetSessionDescriptor(Guid sessionId)
-        {
-            GetObjectResponse objectResponse;
-            try
-            {
-                objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
-            }
-            catch (Exception ex)
-            {
-                throw new S3Exception(ex);
-            }
-
-            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (IsSessionExpired(expiresAt))
-            {
-                throw new SessionExpiredException(sessionId, expiresAt);
-            }
-
-            var author = metadataWrapper.Read<string>(MetadataElement.Author);
-            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
-            string json;
-            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-            return (sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)

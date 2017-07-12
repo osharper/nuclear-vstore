@@ -428,17 +428,23 @@ namespace NuClear.VStore.Objects
                 .Select(async x =>
                             {
                                 var binaryElementValue = x.Value as IBinaryElementValue;
-                                if (binaryElementValue == null || string.IsNullOrEmpty(binaryElementValue.Raw))
+                                if (string.IsNullOrEmpty(binaryElementValue?.Raw))
                                 {
                                     return (Id: null, Metadata: null);
                                 }
 
                                 try
                                 {
+                                    await _sessionStorageReader.VerifySessionExpirationForBinary(binaryElementValue.Raw);
+
                                     var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
                                     return (Id: (long?)x.Id, Metadata: binaryMetadata);
                                 }
                                 catch (ObjectNotFoundException ex)
+                                {
+                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                }
+                                catch (SessionExpiredException ex)
                                 {
                                     throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
                                 }
