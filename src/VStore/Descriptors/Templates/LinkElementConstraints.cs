@@ -14,6 +14,6 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public bool Equals(LinkElementConstraints other) => base.Equals(other) && ValidLink == other.ValidLink;
 
-        public override int GetHashCode() => (base.GetHashCode() * 397) ^ ValidLink.GetHashCode();
+        public override int GetHashCode() => unchecked((base.GetHashCode() * 397) ^ ValidLink.GetHashCode());
     }
 }

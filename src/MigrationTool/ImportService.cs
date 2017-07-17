@@ -862,7 +862,8 @@ namespace MigrationTool
         {
             switch (descriptorType)
             {
-                case ElementDescriptorType.Image:
+                case ElementDescriptorType.BitmapImage:
+                case ElementDescriptorType.VectorImage:
                 case ElementDescriptorType.Article:
                     {
                         var existed = existedConstraint as IBinaryElementConstraints;
@@ -1012,54 +1013,37 @@ namespace MigrationTool
                         Text = raw != null ? element.Text : null
                     };
                 }
-                case ElementDescriptorType.Image:
+                case ElementDescriptorType.BitmapImage:
                     {
-                        if (element.FileId == null || element.File == null)
-                        {
-                            throw new ArgumentException("Element descriptor without image file");
-                        }
-
-                        if (string.IsNullOrEmpty(newElem.UploadUrl))
-                        {
-                            throw new ArgumentException("Generated uploadUrl from OkApi is empty for image element");
-                        }
-
-                        if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
-                        {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for image element");
-                        }
+                        EnsureFileElementIsValid(elementType, element, newElem);
 
                         var templateId = _instanceTemplatesMap[element.AdsTemplatesAdsElementTemplates.AdsTemplateId];
 
-                        var constraints = newElem.Constraints.For(Language.Unspecified) as ImageElementConstraints;
+                        var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
                         var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
                         var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
 
-                        return new ImageElementValue
+                        return new BitmapImageElementValue
                         {
                             Raw = json.Value<string>("raw")
                         };
                     }
 
+                case ElementDescriptorType.VectorImage:
+                {
+                    EnsureFileElementIsValid(elementType, element, newElem);
+                    var format = Converter.DetectFileFormat(element.File, templateCode);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    return new VectorImageElementValue
+                        {
+                            Raw = json.Value<string>("raw")
+                        };
+                }
+
                 case ElementDescriptorType.Article:
                     {
-                        if (element.FileId == null || element.File == null)
-                        {
-                            throw new ArgumentException("Element descriptor without article file");
-                        }
-
-                        if (string.IsNullOrEmpty(newElem.UploadUrl))
-                        {
-                            throw new ArgumentException("Generated uploadUri from OkApi is empty for article element");
-                        }
-
-                        if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
-                        {
-                            throw new ArgumentException("Generated uploadUri from OkApi is not well formed for article element");
-                        }
-
+                        EnsureFileElementIsValid(elementType, element, newElem);
                         var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
-
                         return new ArticleElementValue
                         {
                             Raw = json.Value<string>("raw")
@@ -1092,6 +1076,24 @@ namespace MigrationTool
                         };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");
+            }
+        }
+
+        private static void EnsureFileElementIsValid(ElementDescriptorType elementType, AdvertisementElement element, ApiObjectElementDescriptor newElem)
+        {
+            if (element.FileId == null || element.File == null)
+            {
+                throw new ArgumentException($"Element descriptor without {elementType.ToString()} file");
+            }
+
+            if (string.IsNullOrEmpty(newElem.UploadUrl))
+            {
+                throw new ArgumentException($"Generated uploadUri from OkApi is empty for {elementType.ToString()} element");
+            }
+
+            if (!Uri.IsWellFormedUriString(newElem.UploadUrl, UriKind.RelativeOrAbsolute))
+            {
+                throw new ArgumentException($"Generated uploadUri from OkApi is not well formed for {elementType.ToString()} element");
             }
         }
     }

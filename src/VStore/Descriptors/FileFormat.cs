@@ -7,6 +7,8 @@
         Bmp,
         Chm,
         Jpg,
-        Jpeg
+        Jpeg,
+        Svg,
+        Pdf
     }
 }

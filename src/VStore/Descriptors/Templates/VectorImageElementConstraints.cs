@@ -4,21 +4,15 @@ using System.Linq;
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public sealed class ImageElementConstraints : IBinaryElementConstraints, IEquatable<ImageElementConstraints>
+    public class VectorImageElementConstraints : IBinaryElementConstraints, IEquatable<VectorImageElementConstraints>
     {
         public int? MaxSize { get; set; }
         public int? MaxFilenameLength { get; set; }
         public IEnumerable<FileFormat> SupportedFileFormats { get; set; }
-        public IEnumerable<ImageSize> SupportedImageSizes { get; set; }
-        public bool IsAlphaChannelRequired { get; set; }
-
         public bool BinaryExists => true;
-
         public bool ValidImage => true;
 
-        public bool ExtensionMatchContentFormat => true;
-
-        public bool Equals(ImageElementConstraints other)
+        public bool Equals(VectorImageElementConstraints other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -36,25 +30,16 @@ namespace NuClear.VStore.Descriptors.Templates
                 return false;
             }
 
-            if (SupportedImageSizes == null && other.SupportedImageSizes != null ||
-                SupportedImageSizes != null && other.SupportedImageSizes == null)
-            {
-                return false;
-            }
-
             return MaxSize == other.MaxSize &&
                    MaxFilenameLength == other.MaxFilenameLength &&
-                   BinaryExists == other.BinaryExists &&
-                   ValidImage == other.ValidImage &&
-                   ExtensionMatchContentFormat == other.ExtensionMatchContentFormat &&
                    (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats)) &&
-                   (ReferenceEquals(SupportedImageSizes, other.SupportedImageSizes) || SupportedImageSizes.SequenceEqual(other.SupportedImageSizes)) &&
-                   IsAlphaChannelRequired == other.IsAlphaChannelRequired;
+                   BinaryExists == other.BinaryExists &&
+                   ValidImage == other.ValidImage;
         }
 
         public override bool Equals(object obj)
         {
-            var other = obj as ImageElementConstraints;
+            var other = obj as VectorImageElementConstraints;
             return Equals(other);
         }
 
@@ -63,13 +48,10 @@ namespace NuClear.VStore.Descriptors.Templates
             unchecked
             {
                 var hashCode = MaxSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ MaxFilenameLength.GetHashCode();
                 hashCode = (hashCode * 397) ^ BinaryExists.GetHashCode();
                 hashCode = (hashCode * 397) ^ ValidImage.GetHashCode();
-                hashCode = (hashCode * 397) ^ ExtensionMatchContentFormat.GetHashCode();
-                hashCode = (hashCode * 397) ^ MaxFilenameLength.GetHashCode();
-                hashCode = (hashCode * 397) ^ (SupportedFileFormats?.GetHashCode() ?? 0);
-                hashCode = (hashCode * 397) ^ (SupportedImageSizes?.GetHashCode() ?? 0);
-                hashCode = (hashCode * 397) ^ IsAlphaChannelRequired.GetHashCode();
+                hashCode = (hashCode * 397) ^ (SupportedFileFormats != null ? SupportedFileFormats.GetHashCode() : 0);
                 return hashCode;
             }
         }

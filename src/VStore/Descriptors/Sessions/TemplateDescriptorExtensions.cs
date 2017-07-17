@@ -10,7 +10,9 @@ namespace NuClear.VStore.Descriptors.Sessions
         public static IReadOnlyCollection<int> GetBinaryElementTemplateCodes(this ITemplateDescriptor templateDescriptor)
         {
             return templateDescriptor.Elements
-                                     .Where(x => x.Type == ElementDescriptorType.Article || x.Type == ElementDescriptorType.Image)
+                                     .Where(x => x.Type == ElementDescriptorType.Article ||
+                                                 x.Type == ElementDescriptorType.BitmapImage ||
+                                                 x.Type == ElementDescriptorType.VectorImage)
                                      .Select(x => x.TemplateCode)
                                      .ToArray();
         }

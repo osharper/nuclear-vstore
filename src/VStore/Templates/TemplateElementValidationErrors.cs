@@ -16,6 +16,7 @@
         InvalidMaxSymbolsPerWord,
         InvalidImageSize,
         UnsupportedArticleFileFormat,
-        UnsupportedImageFileFormat
+        UnsupportedImageFileFormat,
+        MaxSizeLimitExceeded
     }
 }

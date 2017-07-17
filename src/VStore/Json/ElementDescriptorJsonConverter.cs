@@ -58,8 +58,11 @@ namespace NuClear.VStore.Json
                     case ElementDescriptorType.FormattedText:
                         constraints = property.Value.ToObject<FormattedTextElementConstraints>();
                         break;
-                    case ElementDescriptorType.Image:
-                        constraints = property.Value.ToObject<ImageElementConstraints>();
+                    case ElementDescriptorType.BitmapImage:
+                        constraints = property.Value.ToObject<BitmapImageElementConstraints>();
+                        break;
+                    case ElementDescriptorType.VectorImage:
+                        constraints = property.Value.ToObject<VectorImageElementConstraints>();
                         break;
                     case ElementDescriptorType.Article:
                         constraints = property.Value.ToObject<ArticleElementConstraints>();

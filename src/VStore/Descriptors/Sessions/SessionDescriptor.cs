@@ -11,5 +11,7 @@ namespace NuClear.VStore.Descriptors.Sessions
         public IEnumerable<int> BinaryElementTemplateCodes { get; set; }
 
         public static DateTime CurrentTime() => DateTime.UtcNow;
+
+        public static bool IsSessionExpired(DateTime expiresAt) => expiresAt <= CurrentTime();
     }
 }

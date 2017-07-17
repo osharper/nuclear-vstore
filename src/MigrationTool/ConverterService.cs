@@ -21,28 +21,45 @@ namespace MigrationTool
         private const long VideoElementTemplateIdentifier = 1005145157231706304L;
         private readonly ILogger<ConverterService> _logger;
 
+        private static readonly IReadOnlyDictionary<string, FileFormat> MimeMapping = new Dictionary<string, FileFormat>
+            {
+                { "application/pdf", FileFormat.Pdf },
+                { "image/bmp", FileFormat.Bmp },
+                { "image/gif", FileFormat.Gif },
+                { "image/jpeg", FileFormat.Jpeg },
+                { "image/png", FileFormat.Png },
+                { "image/svg+xml", FileFormat.Svg },
+                { "image/x-png", FileFormat.Png }
+            };
+
+        private static readonly IReadOnlyCollection<string> VectorFileFormats = new[] { FileFormat.Pdf.ToString(), FileFormat.Svg.ToString() };
+
         public ConverterService(ILogger<ConverterService> logger)
         {
             _logger = logger;
         }
 
-        public FileFormat PreprocessImageFile(Models.File file, long templateId, int templateCode, ImageElementConstraints constraints)
+        public FileFormat DetectFileFormat(Models.File file, int templateCode)
+        {
+            if (!MimeMapping.ContainsKey(file.ContentType))
+            {
+                throw new InvalidOperationException($"Cannot determine file format by content type '{file.ContentType}', template code = {templateCode}");
+            }
+
+            return MimeMapping[file.ContentType];
+        }
+
+        public FileFormat PreprocessImageFile(Models.File file, long templateId, int templateCode, BitmapImageElementConstraints constraints)
         {
             var fileId = file.Id.ToString();
             var templateIdStr = templateId.ToString();
             var templateCodeStr = templateCode.ToString();
-            var format = file.ContentType.Replace("image/x-", string.Empty).Replace("image/", string.Empty);
-
-            if (!Enum.TryParse(format, true, out FileFormat fileFormat))
-            {
-                throw new InvalidOperationException($"Unknown image format '{file.ContentType}'; template code = {templateCodeStr}, template id = {templateIdStr}");
-            }
-
             if (constraints == null)
             {
                 throw new InvalidOperationException("Incorrect image constraints; template code = " + templateCodeStr + ", template id = " + templateIdStr);
             }
 
+            var fileFormat = DetectFileFormat(file, templateCode);
             if (constraints.SupportedFileFormats.Contains(fileFormat))
             {
                 return fileFormat;
@@ -164,11 +181,18 @@ namespace MigrationTool
                                                     ? elementTemplate.TextLengthRestriction
                                                     : elementTemplate.MaxSymbolsInWord
                     };
-                case ElementDescriptorType.Image:
-                    return new ImageElementConstraints
+                case ElementDescriptorType.BitmapImage:
+                    return new BitmapImageElementConstraints
                     {
                         SupportedImageSizes = ConvertImageDimensionToImageSizes(elementTemplate),
                         IsAlphaChannelRequired = elementTemplate.IsAlphaChannelRequired,
+                        MaxFilenameLength = elementTemplate.FileNameLengthRestriction,
+                        MaxSize = elementTemplate.FileSizeRestriction * BytesInKilobyte,
+                        SupportedFileFormats = ConvertFileExtenstionRestrictionToFileFormats(elementTemplate)
+                    };
+                case ElementDescriptorType.VectorImage:
+                    return new VectorImageElementConstraints
+                    {
                         MaxFilenameLength = elementTemplate.FileNameLengthRestriction,
                         MaxSize = elementTemplate.FileSizeRestriction * BytesInKilobyte,
                         SupportedFileFormats = ConvertFileExtenstionRestrictionToFileFormats(elementTemplate)
@@ -266,7 +290,9 @@ namespace MigrationTool
                 case ElementRestrictionType.Article:
                     return ElementDescriptorType.Article;
                 case ElementRestrictionType.Image:
-                    return ElementDescriptorType.Image;
+                    return VectorFileFormats.Contains(elementTemplate.FileExtensionRestriction, StringComparer.OrdinalIgnoreCase)
+                        ? ElementDescriptorType.VectorImage
+                        : ElementDescriptorType.BitmapImage;
                 case ElementRestrictionType.FasComment:
                     return ElementDescriptorType.FasComment;
                 case ElementRestrictionType.Date:

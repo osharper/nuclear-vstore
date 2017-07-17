@@ -23,8 +23,11 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesManagementService
     {
-        private static readonly IReadOnlyCollection<FileFormat> ImageFileFormats =
+        private static readonly IReadOnlyCollection<FileFormat> BitmapImageFileFormats =
             new[] { FileFormat.Bmp, FileFormat.Gif, FileFormat.Png };
+
+        private static readonly IReadOnlyCollection<FileFormat> VectorImageFileFormats =
+            new[] { FileFormat.Pdf, FileFormat.Svg };
 
         private static readonly IReadOnlyCollection<FileFormat> ArticleFileFormats =
             new[] { FileFormat.Chm };
@@ -33,8 +36,10 @@ namespace NuClear.VStore.Templates
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
+        private readonly long _maxBinarySize;
 
         public TemplatesManagementService(
+            VStoreOptions vstoreOptions,
             CephOptions cephOptions,
             IAmazonS3 amazonS3,
             TemplatesStorageReader templatesStorageReader,
@@ -44,6 +49,7 @@ namespace NuClear.VStore.Templates
             _templatesStorageReader = templatesStorageReader;
             _lockSessionFactory = lockSessionFactory;
             _bucketName = cephOptions.TemplatesBucketName;
+            _maxBinarySize = vstoreOptions.MaxBinarySize;
         }
 
         public IReadOnlyCollection<IElementDescriptor> GetAvailableElementDescriptors()
@@ -52,13 +58,14 @@ namespace NuClear.VStore.Templates
                        {
                            new ElementDescriptor(ElementDescriptorType.PlainText, 1, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.FormattedText, 2, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new FormattedTextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Image, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ImageElementConstraints { SupportedFileFormats = ImageFileFormats }) })),
-                           new ElementDescriptor(ElementDescriptorType.Article, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints { SupportedFileFormats = ArticleFileFormats }) })),
-                           new ElementDescriptor(ElementDescriptorType.FasComment, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Date, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.Phone, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.VideoLink, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new VideoLinkElementConstraints()) }))
+                           new ElementDescriptor(ElementDescriptorType.BitmapImage, 3, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new BitmapImageElementConstraints { SupportedFileFormats = BitmapImageFileFormats }) })),
+                           new ElementDescriptor(ElementDescriptorType.VectorImage, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new VectorImageElementConstraints { SupportedFileFormats = VectorImageFileFormats }) })),
+                           new ElementDescriptor(ElementDescriptorType.Article, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints { SupportedFileFormats = ArticleFileFormats }) })),
+                           new ElementDescriptor(ElementDescriptorType.FasComment, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Date, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Link, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.Phone, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
+                           new ElementDescriptor(ElementDescriptorType.VideoLink, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new VideoLinkElementConstraints()) }))
                        };
         }
 
@@ -149,20 +156,26 @@ namespace NuClear.VStore.Templates
 
                                        foreach (var constraints in x.Constraints)
                                        {
-                                           TextElementConstraints textElementConstraints;
-                                           ImageElementConstraints imageElementConstraints;
-                                           ArticleElementConstraints articleElementConstraints;
-                                           if ((textElementConstraints = constraints.ElementConstraints as TextElementConstraints) != null)
+                                           switch (constraints.ElementConstraints)
                                            {
-                                               VerifyTextConstraints(x.TemplateCode, textElementConstraints);
-                                           }
-                                           else if ((imageElementConstraints = constraints.ElementConstraints as ImageElementConstraints) != null)
-                                           {
-                                               VerifyImageConstraints(x.TemplateCode, imageElementConstraints);
-                                           }
-                                           else if ((articleElementConstraints = constraints.ElementConstraints as ArticleElementConstraints) != null)
-                                           {
-                                               VerifyArticleConstraints(x.TemplateCode, articleElementConstraints);
+                                               case TextElementConstraints textElementConstraints:
+                                                   VerifyTextConstraints(x.TemplateCode, textElementConstraints);
+                                                   break;
+                                               case BitmapImageElementConstraints imageElementConstraints:
+                                                   VerifyBitmapImageConstraints(x.TemplateCode, imageElementConstraints);
+                                                   break;
+                                               case VectorImageElementConstraints vectorImageElementConstraints:
+                                                   VerifyVectorImageConstraints(x.TemplateCode, vectorImageElementConstraints);
+                                                   break;
+                                               case ArticleElementConstraints articleElementConstraints:
+                                                   VerifyArticleConstraints(x.TemplateCode, articleElementConstraints);
+                                                   break;
+                                               case DateElementConstraints _:
+                                               case PhoneElementConstraints _:
+                                               case VideoLinkElementConstraints _:
+                                                   break;
+                                               default:
+                                                   throw new ArgumentOutOfRangeException(nameof(constraints.ElementConstraints), constraints.ElementConstraints, "Unsupported element contraints");
                                            }
                                        }
                                    }));
@@ -170,7 +183,7 @@ namespace NuClear.VStore.Templates
         }
 
         // ReSharper disable once UnusedParameter.Local
-        private static void VerifyBinaryConstraints(int templateCode, IBinaryElementConstraints binaryElementConstraints)
+        private void VerifyBinaryConstraints(int templateCode, IBinaryElementConstraints binaryElementConstraints)
         {
             if (binaryElementConstraints.SupportedFileFormats == null)
             {
@@ -191,10 +204,15 @@ namespace NuClear.VStore.Templates
             {
                 throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSize);
             }
+
+            if (binaryElementConstraints.MaxSize > _maxBinarySize)
+            {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.MaxSizeLimitExceeded);
+            }
         }
 
         // ReSharper disable once SuggestBaseTypeForParameter
-        private static void VerifyArticleConstraints(int templateCode, ArticleElementConstraints articleElementConstraints)
+        private void VerifyArticleConstraints(int templateCode, ArticleElementConstraints articleElementConstraints)
         {
             VerifyBinaryConstraints(templateCode, articleElementConstraints);
 
@@ -204,11 +222,22 @@ namespace NuClear.VStore.Templates
             }
         }
 
-        private static void VerifyImageConstraints(int templateCode, ImageElementConstraints imageElementConstraints)
+        // ReSharper disable once SuggestBaseTypeForParameter
+        private void VerifyVectorImageConstraints(int templateCode, VectorImageElementConstraints vectorImageConstraints)
+        {
+            VerifyBinaryConstraints(templateCode, vectorImageConstraints);
+
+            if (vectorImageConstraints.SupportedFileFormats.Any(x => !VectorImageFileFormats.Contains(x)))
+            {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.UnsupportedImageFileFormat);
+            }
+        }
+
+        private void VerifyBitmapImageConstraints(int templateCode, BitmapImageElementConstraints imageElementConstraints)
         {
             VerifyBinaryConstraints(templateCode, imageElementConstraints);
 
-            if (imageElementConstraints.SupportedFileFormats.Any(x => !ImageFileFormats.Contains(x)))
+            if (imageElementConstraints.SupportedFileFormats.Any(x => !BitmapImageFileFormats.Contains(x)))
             {
                 throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.UnsupportedImageFileFormat);
             }

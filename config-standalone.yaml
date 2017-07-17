@@ -10,6 +10,7 @@ common:
   
   vstore_env: "{{ env='VSTORE_ENVIRONMENT' }}"
   vstore_port: 5000
+  vstore_temp_dir: /tmp/files
   vstore_probe_path: /healthcheck
   vstore_image_path: docker-hub.2gis.ru/ams/vstore
   vstore_worker_image_path: docker-hub.2gis.ru/ams/vstore-worker

@@ -14,6 +14,9 @@ spec:
     spec:
       nodeSelector:
         role: worker
+      volumes:
+      - name: vstore-temp
+        emptyDir: {}
       containers:
       - name: vstore
         image: {{ vstore_image_path }}:{{ image_version }}
@@ -26,6 +29,9 @@ spec:
           requests:
             cpu: {{ backend_app_requests_cpu }}
             memory: {{ backend_app_requests_memory }}
+        volumeMounts:
+        - mountPath: {{ vstore_temp_dir }}
+          name: vstore-temp
         readinessProbe:
           httpGet: { path: '{{ vstore_probe_path }}', port: {{ vstore_port }}, scheme: 'HTTP' }
           initialDelaySeconds: 10
@@ -37,6 +43,8 @@ spec:
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: {{ vstore_env }}
+        - name: ASPNETCORE_TEMP
+          value: {{ vstore_temp_dir }}
         - name: AWS_ACCESS_KEY_ID
           value: {{ ceph_key_id }}
         - name: AWS_SECRET_ACCESS_KEY

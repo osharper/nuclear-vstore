@@ -6,5 +6,7 @@ namespace NuClear.VStore.Options
     {
         public TimeSpan SessionExpiration { get; set; }
         public Uri FileStorageEndpoint { get; set; }
+
+        public long MaxBinarySize { get; set; }
     }
 }

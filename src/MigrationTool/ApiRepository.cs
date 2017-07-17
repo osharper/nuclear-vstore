@@ -403,6 +403,10 @@ namespace MigrationTool
                     fileName = $"file_{fileIdStr}.{format.ToString().ToLowerInvariant()}";
                     _logger.LogWarning("File {id} hasn't name and will have generated name: {name}", fileIdStr, fileName);
                 }
+                else
+                {
+                    fileName = Path.ChangeExtension(fileName, format.ToString());
+                }
 
                 using (var content = new MultipartFormDataContent())
                 {

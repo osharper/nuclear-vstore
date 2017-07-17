@@ -67,5 +67,11 @@ namespace NuClear.VStore.Host.Controllers
         {
             return new BadRequestContentResult(message) { ContentType = ContentType.PlainText };
         }
+
+        [NonAction]
+        public RequestTooLargeContentResult RequestTooLarge(string message)
+        {
+            return new RequestTooLargeContentResult(message) { ContentType = ContentType.PlainText };
+        }
     }
 }

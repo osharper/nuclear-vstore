@@ -16,8 +16,10 @@ namespace NuClear.VStore.Json
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.VideoLink:
                     return valueToken.ToObject<TextElementValue>();
-                case ElementDescriptorType.Image:
-                    return valueToken.ToObject<ImageElementValue>();
+                case ElementDescriptorType.BitmapImage:
+                    return valueToken.ToObject<BitmapImageElementValue>();
+                case ElementDescriptorType.VectorImage:
+                    return valueToken.ToObject<VectorImageElementValue>();
                 case ElementDescriptorType.Article:
                     return valueToken.ToObject<ArticleElementValue>();
                 case ElementDescriptorType.FasComment:

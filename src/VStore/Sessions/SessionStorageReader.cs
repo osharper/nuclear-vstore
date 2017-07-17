@@ -46,7 +46,7 @@ namespace NuClear.VStore.Sessions
 
             var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
             var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (IsSessionExpired(expiresAt))
+            if (SessionDescriptor.IsSessionExpired(expiresAt))
             {
                 throw new SessionExpiredException(sessionId, expiresAt);
             }
@@ -85,7 +85,7 @@ namespace NuClear.VStore.Sessions
             var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
             var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
 
-            if (IsSessionExpired(expiresAt))
+            if (SessionDescriptor.IsSessionExpired(expiresAt))
             {
                 throw new SessionExpiredException(sessionId, expiresAt);
             }
@@ -110,7 +110,5 @@ namespace NuClear.VStore.Sessions
                 throw new S3Exception(ex);
             }
         }
-
-        private static bool IsSessionExpired(DateTime expiresAt) => expiresAt <= SessionDescriptor.CurrentTime();
     }
 }

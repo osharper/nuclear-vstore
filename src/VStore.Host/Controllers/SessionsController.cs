@@ -1,10 +1,13 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
@@ -165,11 +168,13 @@ namespace NuClear.VStore.Host.Controllers
         [AllowAnonymous]
         [HttpPost("{sessionId:guid}/upload/{templateCode:int}")]
         [DisableFormValueModelBinding]
-        [MultipartBodyLengthLimit(1024)]
+        [MultipartBodyLengthLimit]
         [ProducesResponseType(typeof(UploadedFileValue), 201)]
         [ProducesResponseType(typeof(string), 400)]
         [ProducesResponseType(typeof(string), 404)]
+        [ProducesResponseType(typeof(string), 410)]
         [ProducesResponseType(typeof(object), 422)]
+        [ProducesResponseType(typeof(string), 452)]
         public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
@@ -179,43 +184,28 @@ namespace NuClear.VStore.Host.Controllers
             }
 
             MultipartUploadSession uploadSession = null;
-            var reader = new MultipartReader(multipartBoundary, HttpContext.Request.Body);
-            var section = await reader.ReadNextSectionAsync();
-            var contentLength = HttpContext.Request.ContentLength;
-            if (section == null || contentLength == null)
-            {
-                return BadRequest("Request body is empty or doesn't contain sections.");
-            }
-
             try
             {
-                for (; section != null; section = await reader.ReadNextSectionAsync())
+                var formFeature = Request.HttpContext.Features.Get<IFormFeature>();
+                var form = await formFeature.ReadFormAsync(CancellationToken.None);
+
+                if (form.Files.Count != 1)
                 {
-                    var fileSection = section.AsFileSection();
-                    if (fileSection == null)
-                    {
-                        if (uploadSession != null)
-                        {
-                            await _sessionManagementService.AbortMultipartUpload(uploadSession);
-                        }
+                    return BadRequest("Request body must contain single file section.");
+                }
 
-                        return BadRequest("File upload supported only during single request.");
-                    }
+                var file = form.Files.First();
+                uploadSession = await _sessionManagementService.InitiateMultipartUpload(
+                                    sessionId,
+                                    file.FileName,
+                                    file.ContentType,
+                                    file.Length,
+                                    templateCode);
+                _logger.LogInformation("Multipart upload for file '{fileName}' in session '{sessionId}' was initiated.", file.FileName, sessionId);
 
-                    if (uploadSession == null)
-                    {
-                        uploadSession = await _sessionManagementService.InitiateMultipartUpload(
-                                            sessionId,
-                                            fileSection.FileName,
-                                            section.ContentType,
-                                            templateCode);
-                        _logger.LogInformation("Multipart upload for file '{fileName}' in session '{sessionId}' was initiated.", fileSection.FileName, sessionId);
-                    }
-
-                    using (fileSection.FileStream)
-                    {
-                        await _sessionManagementService.UploadFilePart(uploadSession, fileSection.FileStream, fileSection.FileName, templateCode);
-                    }
+                using (var inputStream = file.OpenReadStream())
+                {
+                    await _sessionManagementService.UploadFilePart(uploadSession, inputStream, templateCode);
                 }
 
                 var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
@@ -233,6 +223,10 @@ namespace NuClear.VStore.Host.Controllers
             catch (InvalidTemplateException ex)
             {
                 return BadRequest(ex.Message);
+            }
+            catch (InvalidDataException ex)
+            {
+                return RequestTooLarge(ex.Message);
             }
             catch (MissingFilenameException ex)
             {

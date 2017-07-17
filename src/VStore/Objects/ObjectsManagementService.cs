@@ -290,7 +290,8 @@ namespace NuClear.VStore.Objects
                                    PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
-                case ElementDescriptorType.Image:
+                case ElementDescriptorType.BitmapImage:
+                case ElementDescriptorType.VectorImage:
                 case ElementDescriptorType.Article:
                 case ElementDescriptorType.Phone:
                     return new ValidationRule[] { };
@@ -403,7 +404,8 @@ namespace NuClear.VStore.Objects
                                         ((FasElementValue)descriptor.Value).Text =
                                             ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
                                         break;
-                                    case ElementDescriptorType.Image:
+                                    case ElementDescriptorType.BitmapImage:
+                                    case ElementDescriptorType.VectorImage:
                                     case ElementDescriptorType.Article:
                                     case ElementDescriptorType.Date:
                                     case ElementDescriptorType.Link:
