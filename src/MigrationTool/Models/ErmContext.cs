@@ -38,6 +38,8 @@ namespace MigrationTool.Models
 
         public virtual DbSet<Order> Orders { get; set; }
 
+        public virtual DbSet<OrganizationUnit> OrganizationUnits { get; set; }
+
         public virtual DbSet<Position> Positions { get; set; }
 
         public virtual DbSet<PositionChildren> PositionChildren { get; set; }
@@ -402,6 +404,57 @@ namespace MigrationTool.Models
                 entity.Property(e => e.RejectionDate).HasColumnType("datetime2(2)");
 
                 entity.Property(e => e.SignupDate).HasColumnType("datetime2(2)");
+
+                entity.HasOne(d => d.DestOrganizationUnit)
+                    .WithMany(p => p.OrdersDestOrganizationUnit)
+                    .HasForeignKey(d => d.DestOrganizationUnitId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_DestOrgUnitOrder");
+
+                entity.HasOne(d => d.SourceOrganizationUnit)
+                    .WithMany(p => p.OrdersSourceOrganizationUnit)
+                    .HasForeignKey(d => d.SourceOrganizationUnitId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_SourceOrgUnitOrder");
+            });
+
+            modelBuilder.Entity<OrganizationUnit>(entity =>
+            {
+                entity.ToTable("OrganizationUnits", "Billing");
+
+                entity.HasIndex(e => e.Name)
+                    .HasName("IX_OrganizationUnits_Name");
+
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.Code)
+                    .IsRequired()
+                    .HasMaxLength(5);
+
+                entity.Property(e => e.CreatedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.ElectronicMedia)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasDefaultValueSql("N''");
+
+                entity.Property(e => e.ErmLaunchDate).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.FirstEmitDate).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.InfoRussiaLaunchDate).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.IsActive).HasDefaultValueSql("1");
+
+                entity.Property(e => e.IsDeleted).HasDefaultValueSql("0");
+
+                entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.SyncCode1C).HasMaxLength(50);
             });
 
             modelBuilder.Entity<Position>(entity =>
