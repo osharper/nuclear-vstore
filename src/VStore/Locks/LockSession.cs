@@ -56,18 +56,11 @@ namespace NuClear.VStore.Locks
 
         private async Task EnsureLockNotExistsAsync()
         {
-            try
+            var response = await _amazonS3.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = _lockKey });
+            if (response.Versions.Count > 0)
             {
-                using (await _amazonS3.GetObjectAsync(new GetObjectRequest { BucketName = _bucketName, Key = _lockKey }))
-                {
-                }
+                throw new SessionLockAlreadyExistsException(_rootObjectId);
             }
-            catch (AmazonS3Exception ex) when(ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return;
-            }
-
-            throw new SessionLockAlreadyExistsException(_rootObjectId);
         }
 
         private async Task<string> CreateSessionLockAsync(LockSessionDescriptor lockSessionDescriptor)

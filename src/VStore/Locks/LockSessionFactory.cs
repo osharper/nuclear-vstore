@@ -11,16 +11,16 @@ namespace NuClear.VStore.Locks
     {
         private readonly IAmazonS3 _amazonS3;
         private readonly string _bucketName;
-        private readonly DateTime _expirationDate;
+        private readonly TimeSpan _expiration;
 
         public LockSessionFactory(IAmazonS3 amazonS3, LockOptions lockOptions)
         {
             _amazonS3 = amazonS3;
             _bucketName = lockOptions.BucketName;
-            _expirationDate = DateTime.UtcNow.Add(lockOptions.Expiration);
+            _expiration = lockOptions.Expiration;
         }
 
         public async Task<LockSession> CreateLockSessionAsync(long rootObjectId)
-            => await LockSession.CreateAsync(_amazonS3, _bucketName, rootObjectId, _expirationDate);
+            => await LockSession.CreateAsync(_amazonS3, _bucketName, rootObjectId, DateTime.UtcNow.Add(_expiration));
     }
 }
