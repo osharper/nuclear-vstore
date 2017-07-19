@@ -342,7 +342,7 @@ namespace NuClear.VStore.Objects
                 metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
                 metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
                 metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
-                metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
+                metadataWrapper.WriteEncoded(MetadataElement.AuthorName, authorInfo.AuthorName);
 
                 await _amazonS3.PutObjectAsync(putRequest);
             }
@@ -370,7 +370,7 @@ namespace NuClear.VStore.Objects
             metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
-            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
+            metadataWrapper.WriteEncoded(MetadataElement.AuthorName, authorInfo.AuthorName);
             metadataWrapper.Write(
                 MetadataElement.ModifiedElements,
                 string.Join(Tokens.ModifiedElementsDelimiter.ToString(), objectDescriptor.Elements.Select(x => x.TemplateCode)));

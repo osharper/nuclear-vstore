@@ -22,23 +22,34 @@ namespace VStore.UnitTests
         }
 
         [Fact]
-        public void ShouldWrapFilenameAsBase64()
+        public void ShouldWrapFilename()
         {
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
             var value = "my_file.png";
-            wrapper.Write(MetadataElement.Filename, value);
-            var res = wrapper.Read<string>(MetadataElement.Filename);
+            wrapper.WriteEncoded(MetadataElement.Filename, value);
+            var res = wrapper.ReadEncoded<string>(MetadataElement.Filename);
             Assert.Equal(value, res);
-
-            var unwrapped = wrapper.Unwrap();
-            var keys = new string[unwrapped.Keys.Count];
-            unwrapped.Keys.CopyTo(keys, 0);
-            Assert.True(IsBase64String(unwrapped[keys[0]]));
         }
 
-        private bool IsBase64String(string s)
+        [Fact]
+        public void ShouldWorkForNonUsAsciiSymbols()
         {
-            return (s.Length % 4 == 0) && Regex.IsMatch(s, @"^[a-zA-Z0-9\+/]*={0,3}$", RegexOptions.None);
+            var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
+            var value = "Вася Пупкин";
+            wrapper.WriteEncoded(MetadataElement.AuthorName, value);
+            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            Assert.Equal(value, res);
+        }
+
+        [Fact]
+        public void ShouldWorkForAlreadyEncodedValue()
+        {
+            var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
+            var value = "Вася Пупкин";
+            var encodedValue = Uri.EscapeDataString(value);
+            wrapper.WriteEncoded(MetadataElement.AuthorName, "utf-8''" + encodedValue);
+            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            Assert.Equal(value, res);
         }
     }
 }

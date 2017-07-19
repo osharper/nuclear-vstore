@@ -59,7 +59,7 @@ namespace NuClear.VStore.Templates
                                         var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                                         var author = metadataWrapper.Read<string>(MetadataElement.Author);
                                         var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                                        var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+                                        var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
 
                                         var versionId = await GetTemplateLatestVersion(templateId);
                                         descriptor = new ModifiedTemplateDescriptor(
@@ -97,7 +97,7 @@ namespace NuClear.VStore.Templates
             var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
             var author = metadataWrapper.Read<string>(MetadataElement.Author);
             var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+            var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
 
             string json;
             using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
