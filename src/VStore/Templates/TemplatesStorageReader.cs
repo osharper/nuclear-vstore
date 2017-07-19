@@ -21,11 +21,11 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesStorageReader
     {
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3 amazonS3)
+        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3)
         {
             _amazonS3 = amazonS3;
             _bucketName = cephOptions.TemplatesBucketName;
@@ -84,45 +84,46 @@ namespace NuClear.VStore.Templates
         {
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetTemplateLatestVersion(id) : versionId;
 
-            GetObjectResponse response;
             try
             {
-                response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId);
+                using (var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId))
+                {
+                    var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
+                    string json;
+                    using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
+                    {
+                        json = reader.ReadToEnd();
+                    }
+
+                    var descriptor = new TemplateDescriptor
+                        {
+                            Id = id,
+                            VersionId = objectVersionId,
+                            LastModified = response.LastModified,
+                            Author = author,
+                            AuthorLogin = authorLogin,
+                            AuthorName = authorName
+                        };
+                    JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
+
+                    return descriptor;
+                }
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
             }
-
-            var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
-            var author = metadataWrapper.Read<string>(MetadataElement.Author);
-            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
-            string json;
-            using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            var descriptor = new TemplateDescriptor
-                {
-                    Id = id,
-                    VersionId = objectVersionId,
-                    LastModified = response.LastModified,
-                    Author = author,
-                    AuthorLogin = authorLogin,
-                    AuthorName = authorName
-                };
-            JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
-
-            return descriptor;
         }
 
         public async Task<string> GetTemplateLatestVersion(long id)
         {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString());
-            var version = versionsResponse.Versions.Find(x => !x.IsDeleteMarker && x.IsLatest);
+            var idAsString = id.ToString();
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, idAsString);
+            var version = versionsResponse.Versions.Find(x => x.Key == idAsString && !x.IsDeleteMarker && x.IsLatest);
             if (version == null)
             {
                 throw new ObjectNotFoundException($"Template '{id}' versions not found");
@@ -133,13 +134,14 @@ namespace NuClear.VStore.Templates
 
         public async Task<bool> IsTemplateExists(long id)
         {
+            var idAsString = id.ToString();
             var listResponse = await _amazonS3.ListObjectsV2Async(
-                                   new ListObjectsV2Request
-                                       {
-                                           BucketName = _bucketName,
-                                           Prefix = id.ToString()
-                                       });
-            return listResponse.S3Objects.SingleOrDefault(o => o.Key == id.ToString()) != null;
+                                    new ListObjectsV2Request
+                                        {
+                                            BucketName = _bucketName,
+                                            Prefix = idAsString
+                                    });
+            return listResponse.S3Objects.Any(o => o.Key == idAsString);
         }
     }
 }

@@ -222,41 +222,43 @@ namespace NuClear.VStore.Sessions
 
             try
             {
-                var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey);
-                using (getResponse.ResponseStream)
+                using (var getResponse = await _amazonS3.GetObjectAsync(_filesBucketName, uploadKey))
                 {
-                    var sessionDescriptor = uploadSession.SessionDescriptor;
-                    var elementDescriptor = uploadSession.ElementDescriptor;
-                    EnsureFileContentIsValid(
-                        elementDescriptor.TemplateCode,
-                        uploadSession.FileName,
-                        elementDescriptor.Type,
-                        elementDescriptor.Constraints.For(sessionDescriptor.Language),
-                        getResponse.ResponseStream);
+                    using (getResponse.ResponseStream)
+                    {
+                        var sessionDescriptor = uploadSession.SessionDescriptor;
+                        var elementDescriptor = uploadSession.ElementDescriptor;
+                        EnsureFileContentIsValid(
+                            elementDescriptor.TemplateCode,
+                            uploadSession.FileName,
+                            elementDescriptor.Type,
+                            elementDescriptor.Constraints.For(sessionDescriptor.Language),
+                            getResponse.ResponseStream);
+                    }
+
+                    var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
+                    var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
+
+                    var fileExtension = Path.GetExtension(fileName);
+                    var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
+                    var copyRequest = new CopyObjectRequest
+                        {
+                            SourceBucket = _filesBucketName,
+                            SourceKey = uploadKey,
+                            DestinationBucket = _filesBucketName,
+                            DestinationKey = fileKey,
+                            MetadataDirective = S3MetadataDirective.REPLACE,
+                            CannedACL = S3CannedACL.PublicRead
+                        };
+                    foreach (var metadataKey in getResponse.Metadata.Keys)
+                    {
+                        copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
+                    }
+
+                    await _amazonS3.CopyObjectAsync(copyRequest);
+
+                    return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
                 }
-
-                var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
-                var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
-
-                var fileExtension = Path.GetExtension(fileName);
-                var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
-                var copyRequest = new CopyObjectRequest
-                                      {
-                                          SourceBucket = _filesBucketName,
-                                          SourceKey = uploadKey,
-                                          DestinationBucket = _filesBucketName,
-                                          DestinationKey = fileKey,
-                                          MetadataDirective = S3MetadataDirective.REPLACE,
-                                          CannedACL = S3CannedACL.PublicRead
-                                      };
-                foreach (var metadataKey in getResponse.Metadata.Keys)
-                {
-                    copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
-                }
-
-                await _amazonS3.CopyObjectAsync(copyRequest);
-
-                return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
             }
             finally
             {

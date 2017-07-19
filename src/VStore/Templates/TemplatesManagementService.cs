@@ -32,7 +32,7 @@ namespace NuClear.VStore.Templates
         private static readonly IReadOnlyCollection<FileFormat> ArticleFileFormats =
             new[] { FileFormat.Chm };
 
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionFactory _lockSessionFactory;
         private readonly string _bucketName;
@@ -41,7 +41,7 @@ namespace NuClear.VStore.Templates
         public TemplatesManagementService(
             VStoreOptions vstoreOptions,
             CephOptions cephOptions,
-            IAmazonS3 amazonS3,
+            IAmazonS3Proxy amazonS3,
             TemplatesStorageReader templatesStorageReader,
             LockSessionFactory lockSessionFactory)
         {

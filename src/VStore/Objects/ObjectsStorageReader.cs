@@ -25,7 +25,7 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectsStorageReader
     {
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
@@ -34,7 +34,7 @@ namespace NuClear.VStore.Objects
         public ObjectsStorageReader(
             CephOptions cephOptions,
             VStoreOptions vStoreOptions,
-            IAmazonS3 amazonS3,
+            IAmazonS3Proxy amazonS3,
             TemplatesStorageReader templatesStorageReader)
         {
             _amazonS3 = amazonS3;
@@ -147,7 +147,7 @@ namespace NuClear.VStore.Objects
 
             var maxVersionIndex = result.NextVersionIndex;
             var descriptors = new ModifiedObjectDescriptor[objectVersions.Count];
-            for (var index = 0; index < objectVersions.Count; index++)
+            for (var index = 0; index < objectVersions.Count; ++index)
             {
                 var objectVersion = objectVersions[index];
                 descriptors[index] = new ModifiedObjectDescriptor(
@@ -201,8 +201,8 @@ namespace NuClear.VStore.Objects
                         (var elementPersistenceDescriptor, var _, var elementLastModified) =
                             await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
-                        var binaryElementValue = elementPersistenceDescriptor.Value as IBinaryElementValue;
-                        if (binaryElementValue != null && !string.IsNullOrEmpty(binaryElementValue.Raw))
+                        if (elementPersistenceDescriptor.Value is IBinaryElementValue binaryElementValue &&
+                            !string.IsNullOrEmpty(binaryElementValue.Raw))
                         {
                             binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
 
@@ -257,29 +257,29 @@ namespace NuClear.VStore.Objects
 
         private async Task<(T, AuthorInfo, DateTime)> GetObjectFromS3<T>(string key, string versionId)
         {
-            GetObjectResponse getObjectResponse;
             try
             {
-                getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key, versionId);
+                using (var getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key, versionId))
+                {
+                    var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
+                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
+                    string content;
+                    using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
+                    {
+                        content = reader.ReadToEnd();
+                    }
+
+                    var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
+                    return (obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
+                }
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 throw new ObjectNotFoundException($"Object '{key}' with versionId '{versionId}' not found.");
             }
-
-            var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
-            var author = metadataWrapper.Read<string>(MetadataElement.Author);
-            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
-            string content;
-            using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
-            {
-                content = reader.ReadToEnd();
-            }
-
-            var obj = JsonConvert.DeserializeObject<T>(content, SerializerSettings.Default);
-            return (obj, new AuthorInfo(author, authorLogin, authorName), getObjectResponse.LastModified);
         }
 
         private struct ObjectVersion
