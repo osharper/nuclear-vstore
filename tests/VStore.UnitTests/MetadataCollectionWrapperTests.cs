@@ -2,7 +2,7 @@
 using NuClear.VStore.S3;
 using System;
 using System.Globalization;
-using System.Text.RegularExpressions;
+
 using Xunit;
 
 namespace VStore.UnitTests
