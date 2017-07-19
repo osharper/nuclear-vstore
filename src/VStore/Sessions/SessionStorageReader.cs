@@ -20,9 +20,9 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionStorageReader
     {
         private readonly string _filesBucketName;
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
 
-        public SessionStorageReader(CephOptions options, IAmazonS3 amazonS3)
+        public SessionStorageReader(CephOptions options, IAmazonS3Proxy amazonS3)
         {
             _filesBucketName = options.FilesBucketName;
             _amazonS3 = amazonS3;
@@ -30,10 +30,30 @@ namespace NuClear.VStore.Sessions
 
         public async Task<(SessionDescriptor SessionDescriptor, AuthorInfo AuthorInfo, DateTime ExpiresAt)> GetSessionDescriptor(Guid sessionId)
         {
-            GetObjectResponse objectResponse;
             try
             {
-                objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+                using (var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
+                {
+                    var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
+                    var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+                    if (SessionDescriptor.IsSessionExpired(expiresAt))
+                    {
+                        throw new SessionExpiredException(sessionId, expiresAt);
+                    }
+
+            var author = metadataWrapper.Read<string>(MetadataElement.Author);
+            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+            var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+
+                    string json;
+                    using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
+                    {
+                        json = reader.ReadToEnd();
+                    }
+
+                    var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+                    return (sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
+                }
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
@@ -43,26 +63,6 @@ namespace NuClear.VStore.Sessions
             {
                 throw new S3Exception(ex);
             }
-
-            var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-            if (SessionDescriptor.IsSessionExpired(expiresAt))
-            {
-                throw new SessionExpiredException(sessionId, expiresAt);
-            }
-
-            var author = metadataWrapper.Read<string>(MetadataElement.Author);
-            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
-
-            string json;
-            using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-            return (sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
         }
 
         public async Task VerifySessionExpirationForBinary(string key)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
@@ -39,9 +40,13 @@ using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
+using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
+
+using Prometheus.Client.Collectors;
+using Prometheus.Client.Owin;
 
 using Serilog;
 using Serilog.Events;
@@ -173,6 +178,8 @@ namespace NuClear.VStore.Host
 
                         return new AmazonS3Client(credentials, config);
                     });
+            services.AddSingleton<MetricsProvider>();
+            services.AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()));
             services.AddSingleton<LockSessionManager>();
             services.AddSingleton<LockSessionFactory>();
             services.AddSingleton<TemplatesStorageReader>();
@@ -219,6 +226,11 @@ namespace NuClear.VStore.Host
                                 }
                     });
             app.UseMiddleware<HealthCheckMiddleware>();
+            app.UsePrometheusServer(
+                new PrometheusOptions
+                    {
+                        Collectors = new List<IOnDemandCollector> { new DotNetStatsCollector(), new WindowsDotNetStatsCollector() }
+                    });
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
 

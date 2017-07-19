@@ -22,11 +22,11 @@ namespace NuClear.VStore.Locks
 {
     public sealed class LockSessionManager
     {
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
         private readonly ILogger<LockSessionManager> _logger;
         private readonly string _bucketName;
 
-        public LockSessionManager(IAmazonS3 amazonS3, LockOptions lockOptions, ILogger<LockSessionManager> logger)
+        public LockSessionManager(IAmazonS3Proxy amazonS3, LockOptions lockOptions, ILogger<LockSessionManager> logger)
         {
             _amazonS3 = amazonS3;
             _logger = logger;
@@ -76,20 +76,20 @@ namespace NuClear.VStore.Locks
 
         private async Task<LockSessionDescriptor> GetLockSessionDescriptor(string key)
         {
-            GetObjectResponse getObjectResponse;
+            string content;
             try
             {
-                getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key);
+                using (var getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key))
+                {
+                    using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
+                    {
+                        content = reader.ReadToEnd();
+                    }
+                }
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
-            }
-
-            string content;
-            using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
-            {
-                content = reader.ReadToEnd();
             }
 
             return JsonConvert.DeserializeObject<LockSessionDescriptor>(content, SerializerSettings.Default);
