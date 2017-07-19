@@ -311,21 +311,39 @@ namespace MigrationTool
             var server = string.Empty;
             var requestId = string.Empty;
             var stringResponse = string.Empty;
-            var methodUri = new Uri(_searchUri, "nomenclature?isDeleted=false&count=500");
+            var allDescriptors = new List<PositionDescriptor>();
             try
             {
-                using (var response = await _httpClient.GetAsync(methodUri))
+                for (var pageNum = 1; ; ++pageNum)
                 {
-                    (stringResponse, server, requestId) = await HandleResponse(response);
-                    response.EnsureSuccessStatusCode();
-                    var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<PositionDescriptor>>(stringResponse, ApiSerializerSettings.Default);
-                    if (descriptors == null)
+                    var methodUri = new Uri(_searchUri, $"nomenclature?isDeleted=false&count=500&page={pageNum}");
+                    using (var response = await _httpClient.GetAsync(methodUri))
                     {
-                        throw new SerializationException("Cannot deserialize positions: " + stringResponse);
-                    }
+                        (stringResponse, server, requestId) = await HandleResponse(response);
+                        response.EnsureSuccessStatusCode();
+                        var descriptors = JsonConvert.DeserializeObject<IReadOnlyCollection<PositionDescriptor>>(stringResponse, ApiSerializerSettings.Default);
+                        if (descriptors == null)
+                        {
+                            throw new SerializationException("Cannot deserialize positions: " + stringResponse);
+                        }
 
-                    return descriptors;
+                        if (descriptors.Count < 1)
+                        {
+                            break;
+                        }
+
+                        allDescriptors.AddRange(descriptors);
+
+                        if (response.Headers.TryGetValues("X-Pagination-Total-Count", out var values) &&
+                            int.TryParse(values.FirstOrDefault(), out var count) &&
+                            count == allDescriptors.Count)
+                        {
+                            break;
+                        }
+                    }
                 }
+
+                return allDescriptors;
             }
             catch (HttpRequestException ex)
             {

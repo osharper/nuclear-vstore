@@ -23,5 +23,7 @@ namespace MigrationTool
         public int InitialPingTries { get; set; }
 
         public int InitialPingInterval { get; set; }
+
+        public int? DestOrganizationUnitBranchCode { get; set; }
     }
 }

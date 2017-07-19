@@ -42,6 +42,8 @@ namespace MigrationTool.Models
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
 
+        public OrganizationUnit DestOrganizationUnit { get; set; }
+        public OrganizationUnit SourceOrganizationUnit { get; set; }
         public ICollection<OrderPosition> OrderPositions { get; set; }
     }
 }

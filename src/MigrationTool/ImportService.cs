@@ -37,6 +37,7 @@ namespace MigrationTool
         private readonly int _maxDegreeOfParallelism;
         private readonly int _truncatedImportSize;
         private readonly int _maxImportTries;
+        private readonly int? _destOrganizationUnitBranchCode;
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
@@ -69,6 +70,7 @@ namespace MigrationTool
             _instanceTemplatesMap = instanceTemplatesMap;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
+            _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
             Repository = repository;
             Converter = converter;
         }
@@ -120,18 +122,22 @@ namespace MigrationTool
                                               && p.BeginDate >= _positionsBeginDate
                                               && !pp.IsDeleted
                                               && !pos.IsDeleted
+                                              && pos.AdvertisementTemplateId != null
                                         select pos.Id)
                                       // And from orders in migration:
                                       .Union(from o in context.Orders
                                              join op in context.OrderPositions on o.Id equals op.OrderId
                                              join pp in context.PricePositions on op.PricePositionId equals pp.Id
                                              join p in context.Positions on pp.PositionId equals p.Id
-                                             where !o.IsDeleted && !o.IsTerminated
-                                                   && o.EndDistributionDateFact >= _thresholdDate
-                                                   && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
+                                             where !o.IsDeleted
+                                                   && o.IsActive
+                                                   && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
+                                                       o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Future and current orders that are not in the archive
                                                    && !op.IsDeleted
+                                                   && op.IsActive
                                                    && !pp.IsDeleted
                                                    && !p.IsDeleted
+                                                   && p.AdvertisementTemplateId != null
                                              select p.Id)
                                       .Distinct()
                                       .ToListAsync();
@@ -142,7 +148,8 @@ namespace MigrationTool
                            join pos in context.Positions on pc.ChildPositionId equals pos.Id
                            where positionIds.Contains(pc.MasterPositionId)
                                  && !pos.IsDeleted
-                           select pc.ChildPositionId)
+                                 && pos.AdvertisementTemplateId != null
+                          select pos.Id)
                         .Distinct()
                         .ToListAsync());
 
@@ -169,17 +176,19 @@ namespace MigrationTool
 
                                          try
                                          {
+                                             PositionDescriptor apiPosition = null;
                                              if (existedPositions.ContainsKey(position.Id))
                                              {
                                                  _logger.LogInformation("Position {position} already exists, skip creation", positionDef);
                                                  EnsurePositionsAreEqual(existedPositions[position.Id], position);
+                                                 apiPosition = existedPositions[position.Id];
                                              }
                                              else
                                              {
                                                  await ImportPositionAsync(position);
                                              }
 
-                                             await ImportPositionLinkAsync(position);
+                                             await ImportPositionLinkAsync(position, apiPosition);
                                              _logger.LogInformation("Position import succeeded: {position}", positionDef);
                                              Interlocked.Increment(ref importedCount);
                                          }
@@ -202,12 +211,24 @@ namespace MigrationTool
 
         private void EnsurePositionsAreEqual(PositionDescriptor apiPosition, Position ermPosition)
         {
-            if (apiPosition.IsContentSales != ermPosition.IsContentSales ||
-                apiPosition.IsDeleted != ermPosition.IsDeleted ||
-                apiPosition.Name != ermPosition.Name)
+            if (apiPosition.Template == null)
+            {
+                return;
+            }
+
+            if (ermPosition.AdvertisementTemplateId.HasValue &&
+                _instanceTemplatesMap.ContainsKey(ermPosition.AdvertisementTemplateId.Value) &&
+                (apiPosition.Template.Id != _instanceTemplatesMap[ermPosition.AdvertisementTemplateId.Value]))
             {
                 var apiObject = JsonConvert.SerializeObject(apiPosition);
-                var ermObject = JsonConvert.SerializeObject(ermPosition);
+                var ermObject = JsonConvert.SerializeObject(new PositionDescriptor
+                {
+                    Id = ermPosition.Id,
+                    Name = ermPosition.Name,
+                    IsContentSales = ermPosition.IsContentSales,
+                    Template = new PositionDescriptor.TemplateDescriptor { Id = ermPosition.AdvertisementTemplateId.Value, Name = ermPosition.AdvertisementTemplate.Name },
+                    IsDeleted = ermPosition.IsDeleted
+                });
                 throw new InvalidOperationException("Positions are not equal: from API " + apiObject + " and from ERM " + ermObject);
             }
         }
@@ -226,12 +247,12 @@ namespace MigrationTool
             await Repository.CreatePositionAsync(positionId, positionDescriptor);
         }
 
-        private async Task ImportPositionLinkAsync(Position position)
+        private async Task ImportPositionLinkAsync(Position ermPosition, PositionDescriptor apiPosition)
         {
-            var positionId = position.Id.ToString();
-            var templateId = position.AdvertisementTemplateId;
+            var templateId = ermPosition.AdvertisementTemplateId;
             if (templateId.HasValue)
             {
+                var positionId = ermPosition.Id.ToString();
                 if (!_instanceTemplatesMap.ContainsKey(templateId.Value))
                 {
                     _logger.LogWarning("Can't create link between position {id} and template {template}: template doesn't present in config!",
@@ -240,12 +261,21 @@ namespace MigrationTool
                     return;
                 }
 
-                var mappedId = _instanceTemplatesMap[templateId.Value].ToString();
+                var mappedId = _instanceTemplatesMap[templateId.Value];
+                if (apiPosition?.Template?.Id == mappedId)
+                {
+                    _logger.LogInformation("Link between position {id} and template {template} (mapped {mappedId}) already exists, skip linking",
+                                           positionId,
+                                           templateId.Value.ToString(),
+                                           mappedId);
+                    return;
+                }
+
                 _logger.LogInformation("Creating link between position {id} and template {template} (mapped {mappedId})",
                                        positionId,
                                        templateId.Value.ToString(),
                                        mappedId);
-                await Repository.CreatePositionTemplateLinkAsync(positionId, mappedId);
+                await Repository.CreatePositionTemplateLinkAsync(positionId, mappedId.ToString());
             }
         }
 
@@ -257,23 +287,26 @@ namespace MigrationTool
                 context.Database.SetCommandTimeout(60000);
 
                 files = await (from o in context.Orders
-                                   join op in context.OrderPositions on o.Id equals op.OrderId
-                                   join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
-                                   join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
-                                   join ae in context.AdvertisementElements on adv.Id equals ae.AdvertisementId
-                                   join t in context.AdvertisementTemplates on adv.AdvertisementTemplateId equals t.Id
-                                   join aet in context.AdvertisementElementTemplates on ae.AdvertisementElementTemplateId equals aet.Id
-                                   join f in context.Files on ae.FileId equals f.Id
-                                   where !o.IsDeleted && !o.IsTerminated
-                                         && !op.IsDeleted && !adv.IsDeleted
-                                         && o.EndDistributionDateFact >= _thresholdDate
-                                         && (o.ApprovalDate != null || o.BeginDistributionDate >= DateTime.UtcNow)
-                                         && !ae.IsDeleted && !aet.IsDeleted
-                                         && aet.RestrictionType == ElementRestrictionType.Image
-                                         && !aet.FileExtensionRestriction.Contains(f.ContentType.Replace("image/x-", string.Empty).Replace("image/", string.Empty))
-                                   select f)
-                                .Distinct()
-                                .ToListAsync();
+                               join op in context.OrderPositions on o.Id equals op.OrderId
+                               join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
+                               join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
+                               join ae in context.AdvertisementElements on adv.Id equals ae.AdvertisementId
+                               join t in context.AdvertisementTemplates on adv.AdvertisementTemplateId equals t.Id
+                               join aet in context.AdvertisementElementTemplates on ae.AdvertisementElementTemplateId equals aet.Id
+                               join f in context.Files on ae.FileId equals f.Id
+                               where !o.IsDeleted
+                                     && o.IsActive
+                                     && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate ||  // Archived orders that were placed
+                                         o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)    // Future and current orders that are not in the archive
+                                     && !op.IsDeleted
+                                     && op.IsActive
+                                     && !adv.IsDeleted
+                                     && !ae.IsDeleted && !aet.IsDeleted
+                                     && aet.RestrictionType == ElementRestrictionType.Image
+                                     && !aet.FileExtensionRestriction.Contains(f.ContentType.Replace("image/x-", string.Empty).Replace("image/", string.Empty))
+                               select f)
+                            .Distinct()
+                            .ToListAsync();
             }
 
             var dirPath = $@".{Path.DirectorySeparatorChar.ToString()}download";
@@ -418,6 +451,18 @@ namespace MigrationTool
             long[] advertisementsToImport;
             using (var context = GetNewContext())
             {
+                OrganizationUnit organizationUnit = null;
+                if (_destOrganizationUnitBranchCode != null)
+                {
+                    organizationUnit = await context.OrganizationUnits.SingleOrDefaultAsync(ou => ou.DgppId == _destOrganizationUnitBranchCode.Value);
+                    if (organizationUnit == null)
+                    {
+                        throw new InvalidOperationException($"There are no organization unit with branch code {_destOrganizationUnitBranchCode}");
+                    }
+
+                    _logger.LogInformation("Import orders to organization unit {name} with branch code {code}", organizationUnit.Name, organizationUnit.DgppId);
+                }
+
                 var advertisementIds = await (from o in context.Orders
                                               join op in context.OrderPositions on o.Id equals op.OrderId
                                               join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
@@ -430,6 +475,7 @@ namespace MigrationTool
                                                     && op.IsActive
                                                     && !adv.IsDeleted
                                                     && adv.FirmId != null // Do not import stubs
+                                                    && (organizationUnit == null || o.DestOrganizationUnitId == organizationUnit.Id)
                                               select new { adv.Id, TemplateId = adv.AdvertisementTemplateId })
                                            .Distinct()
                                            .ToListAsync();
