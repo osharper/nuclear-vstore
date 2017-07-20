@@ -25,9 +25,9 @@ namespace NuClear.VStore.S3
 
         public T Read<T>(MetadataElement metadataElement) => Read<T>(metadataElement, false);
 
-        public void WriteEncoded<T>(MetadataElement metadataElement, T value) => Write<T>(metadataElement, value, true);
+        public void WriteEncoded<T>(MetadataElement metadataElement, T value) => Write(metadataElement, value, true);
 
-        public void Write<T>(MetadataElement metadataElement, T value) => Write<T>(metadataElement, value, false);
+        public void Write<T>(MetadataElement metadataElement, T value) => Write(metadataElement, value, false);
 
         private static string AsMetadataKey(MetadataElement metadataElement, bool encoded)
         {
@@ -38,12 +38,6 @@ namespace NuClear.VStore.S3
             }
 
             return headerName;
-        }
-
-        public static bool IsJson(string input)
-        {
-            input = input.Trim();
-            return input.StartsWith("{") && input.EndsWith("}") || input.StartsWith("[") && input.EndsWith("]");
         }
 
         private T Read<T>(MetadataElement metadataElement, bool decode)
@@ -61,7 +55,7 @@ namespace NuClear.VStore.S3
                 value = Uri.UnescapeDataString(value.Substring(Utf8Token.Length));
             }
 
-            if (!IsJson(value) && typeof(T) == typeof(string))
+            if (typeof(T) == typeof(string))
             {
                 return (T)(object)value;
             }
