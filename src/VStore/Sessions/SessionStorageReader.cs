@@ -41,9 +41,9 @@ namespace NuClear.VStore.Sessions
                         throw new SessionExpiredException(sessionId, expiresAt);
                     }
 
-            var author = metadataWrapper.Read<string>(MetadataElement.Author);
-            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-            var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                    var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
 
                     string json;
                     using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))

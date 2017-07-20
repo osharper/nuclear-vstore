@@ -236,8 +236,8 @@ namespace NuClear.VStore.Sessions
                             getResponse.ResponseStream);
                     }
 
-                var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
-                var fileName = metadataWrapper.ReadEncoded<string>(MetadataElement.Filename);
+                    var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
+                    var fileName = metadataWrapper.ReadEncoded<string>(MetadataElement.Filename);
 
                     var fileExtension = Path.GetExtension(fileName);
                     var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
