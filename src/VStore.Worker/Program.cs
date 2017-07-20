@@ -26,6 +26,7 @@ using Serilog;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Templates;
 using NuClear.VStore.Kafka;
+using NuClear.VStore.Prometheus;
 
 namespace NuClear.VStore.Worker
 {
@@ -186,6 +187,8 @@ namespace NuClear.VStore.Worker
 
                             return new AmazonS3Client(credentials, config);
                         })
+                .AddSingleton<MetricsProvider>()
+                .AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()))
                 .AddSingleton<LockSessionManager>()
                 .AddSingleton<SessionCleanupService>()
                 .AddScoped<TemplatesStorageReader>()
