@@ -186,6 +186,7 @@ namespace NuClear.VStore.Worker
 
                             return new AmazonS3Client(credentials, config);
                         })
+                .AddSingleton<IAmazonS3Proxy>(x => new AmazonS3SimpleProxy(x.GetRequiredService<IAmazonS3>()))
                 .AddSingleton<LockSessionManager>()
                 .AddSingleton<SessionCleanupService>()
                 .AddScoped<TemplatesStorageReader>()
