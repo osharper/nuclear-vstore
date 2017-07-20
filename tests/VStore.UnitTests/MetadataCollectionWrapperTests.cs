@@ -51,5 +51,15 @@ namespace VStore.UnitTests
             var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
             Assert.Equal(value, res);
         }
+
+        [Fact]
+        public void ShouldWorkForAlmostJson()
+        {
+            var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
+            const string Value = " { Вася Пупкин } ";
+            wrapper.WriteEncoded(MetadataElement.AuthorName, Value);
+            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            Assert.Equal(Value, res);
+        }
     }
 }
