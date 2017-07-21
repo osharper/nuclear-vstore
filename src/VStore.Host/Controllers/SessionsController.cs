@@ -59,12 +59,13 @@ namespace NuClear.VStore.Host.Controllers
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");
-                Response.Headers[Http.HeaderNames.AmsAuthor] = sessionContext.AuthorInfo.Author;
-                Response.Headers[Http.HeaderNames.AmsAuthorLogin] = sessionContext.AuthorInfo.AuthorLogin;
-                Response.Headers[Http.HeaderNames.AmsAuthorName] = sessionContext.AuthorInfo.AuthorName;
+
                 return Json(
                     new
                         {
+                            sessionContext.AuthorInfo.Author,
+                            sessionContext.AuthorInfo.AuthorLogin,
+                            sessionContext.AuthorInfo.AuthorName,
                             sessionContext.Language,
                             Template = new
                                 {
