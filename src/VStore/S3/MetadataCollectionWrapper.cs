@@ -49,8 +49,7 @@ namespace NuClear.VStore.S3
                 return default(T);
             }
 
-            var tokenIndex = value.LastIndexOf(Utf8Token, StringComparison.OrdinalIgnoreCase);
-            if (tokenIndex != -1)
+            if (value.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
             {
                 value = Uri.UnescapeDataString(value.Substring(Utf8Token.Length));
             }
@@ -67,7 +66,7 @@ namespace NuClear.VStore.S3
         {
             var stringValue = value as string;
             var valueToWrite = stringValue ?? JsonConvert.SerializeObject(value);
-            if (encode && !valueToWrite.StartsWith(Utf8Token))
+            if (encode && !valueToWrite.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
             {
                 valueToWrite = Utf8Token + Uri.EscapeDataString(valueToWrite);
             }
