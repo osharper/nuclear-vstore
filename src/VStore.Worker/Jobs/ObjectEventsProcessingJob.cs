@@ -196,7 +196,7 @@ namespace NuClear.VStore.Worker.Jobs
                 {
                     var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(objectId, descriptor.VersionId);
                     var fileInfos = objectDescriptor.Elements
-                                                    .Where(x => x.Value is IBinaryElementValue)
+                                                    .Where(x => x.Value is IBinaryElementValue binaryValue && !string.IsNullOrEmpty(binaryValue.Raw))
                                                     .Select(x => (TemplateCode: x.TemplateCode, FileKey: ((IBinaryElementValue)x.Value).Raw))
                                                     .ToList();
                     foreach (var fileInfo in fileInfos)
