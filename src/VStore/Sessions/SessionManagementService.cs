@@ -117,7 +117,7 @@ namespace NuClear.VStore.Sessions
             metadataWrapper.Write(MetadataElement.ExpiresAt, expiresAt);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
-            metadataWrapper.WriteEncoded(MetadataElement.AuthorName, authorInfo.AuthorName);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             await _eventSender.SendAsync(_sessionsTopicName, new SessionCreatingEvent(sessionId, expiresAt));
 
@@ -156,7 +156,7 @@ namespace NuClear.VStore.Sessions
                                   ContentType = contentType
                               };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
-            metadataWrapper.WriteEncoded(MetadataElement.Filename, fileName);
+            metadataWrapper.Write(MetadataElement.Filename, fileName);
 
             var uploadResponse = await _amazonS3.InitiateMultipartUploadAsync(request);
 
@@ -237,7 +237,7 @@ namespace NuClear.VStore.Sessions
                     }
 
                     var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
-                    var fileName = metadataWrapper.ReadEncoded<string>(MetadataElement.Filename);
+                    var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
 
                     var fileExtension = Path.GetExtension(fileName);
                     var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);

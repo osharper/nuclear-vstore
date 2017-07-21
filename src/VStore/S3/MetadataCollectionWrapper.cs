@@ -21,28 +21,9 @@ namespace NuClear.VStore.S3
             return new MetadataCollectionWrapper(metadataCollection);
         }
 
-        public T ReadEncoded<T>(MetadataElement metadataElement) => Read<T>(metadataElement, true);
-
-        public T Read<T>(MetadataElement metadataElement) => Read<T>(metadataElement, false);
-
-        public void WriteEncoded<T>(MetadataElement metadataElement, T value) => Write(metadataElement, value, true);
-
-        public void Write<T>(MetadataElement metadataElement, T value) => Write(metadataElement, value, false);
-
-        private static string AsMetadataKey(MetadataElement metadataElement, bool encoded)
+        public T Read<T>(MetadataElement metadataElement)
         {
-            var headerName = $"x-amz-meta-{metadataElement.ToString().ToLower()}";
-            if (encoded)
-            {
-                headerName += "*";
-            }
-
-            return headerName;
-        }
-
-        private T Read<T>(MetadataElement metadataElement, bool decode)
-        {
-            var name = AsMetadataKey(metadataElement, decode);
+            var name = AsMetadataKey(metadataElement);
             var value = _metadataCollection[name];
             if (value == null)
             {
@@ -62,17 +43,19 @@ namespace NuClear.VStore.S3
             return JsonConvert.DeserializeObject<T>(value);
         }
 
-        private void Write<T>(MetadataElement metadataElement, T value, bool encode)
+        public void Write<T>(MetadataElement metadataElement, T value)
         {
             var stringValue = value as string;
             var valueToWrite = stringValue ?? JsonConvert.SerializeObject(value);
-            if (encode && !valueToWrite.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
+            if (!valueToWrite.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
             {
                 valueToWrite = Utf8Token + Uri.EscapeDataString(valueToWrite);
             }
 
-            var name = AsMetadataKey(metadataElement, encode);
+            var name = AsMetadataKey(metadataElement);
             _metadataCollection[name] = valueToWrite;
         }
+
+        private static string AsMetadataKey(MetadataElement metadataElement) => $"x-amz-meta-{metadataElement.ToString().ToLower()}";
     }
 }

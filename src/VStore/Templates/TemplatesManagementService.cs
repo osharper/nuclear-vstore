@@ -301,7 +301,7 @@ namespace NuClear.VStore.Templates
             var metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
-            metadataWrapper.WriteEncoded(MetadataElement.AuthorName, authorInfo.AuthorName);
+            metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
             await _amazonS3.PutObjectAsync(putRequest);
         }

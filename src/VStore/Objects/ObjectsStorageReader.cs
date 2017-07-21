@@ -74,7 +74,7 @@ namespace NuClear.VStore.Objects
                                              : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
                 var author = metadataWrapper.Read<string>(MetadataElement.Author);
                 var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+                var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
                 return (modifiedElementIds, new AuthorInfo(author, authorLogin, authorName));
             }
 
@@ -264,7 +264,7 @@ namespace NuClear.VStore.Objects
                     var metadataWrapper = MetadataCollectionWrapper.For(getObjectResponse.Metadata);
                     var author = metadataWrapper.Read<string>(MetadataElement.Author);
                     var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                    var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
                     string content;
                     using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))

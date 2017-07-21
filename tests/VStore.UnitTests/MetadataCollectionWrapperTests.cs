@@ -26,8 +26,8 @@ namespace VStore.UnitTests
         {
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
             var value = "my_file.png";
-            wrapper.WriteEncoded(MetadataElement.Filename, value);
-            var res = wrapper.ReadEncoded<string>(MetadataElement.Filename);
+            wrapper.Write(MetadataElement.Filename, value);
+            var res = wrapper.Read<string>(MetadataElement.Filename);
             Assert.Equal(value, res);
         }
 
@@ -36,8 +36,8 @@ namespace VStore.UnitTests
         {
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
             var value = "Вася Пупкин";
-            wrapper.WriteEncoded(MetadataElement.AuthorName, value);
-            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            wrapper.Write(MetadataElement.AuthorName, value);
+            var res = wrapper.Read<string>(MetadataElement.AuthorName);
             Assert.Equal(value, res);
         }
 
@@ -47,8 +47,8 @@ namespace VStore.UnitTests
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
             var value = "Вася Пупкин";
             var encodedValue = Uri.EscapeDataString(value);
-            wrapper.WriteEncoded(MetadataElement.AuthorName, "utf-8''" + encodedValue);
-            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            wrapper.Write(MetadataElement.AuthorName, "utf-8''" + encodedValue);
+            var res = wrapper.Read<string>(MetadataElement.AuthorName);
             Assert.Equal(value, res);
         }
 
@@ -57,8 +57,8 @@ namespace VStore.UnitTests
         {
             var wrapper = MetadataCollectionWrapper.For(new MetadataCollection());
             const string Value = " { Вася Пупкин } ";
-            wrapper.WriteEncoded(MetadataElement.AuthorName, Value);
-            var res = wrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+            wrapper.Write(MetadataElement.AuthorName, Value);
+            var res = wrapper.Read<string>(MetadataElement.AuthorName);
             Assert.Equal(Value, res);
         }
     }

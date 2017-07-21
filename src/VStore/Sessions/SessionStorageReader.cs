@@ -43,7 +43,7 @@ namespace NuClear.VStore.Sessions
 
                     var author = metadataWrapper.Read<string>(MetadataElement.Author);
                     var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                    var authorName = metadataWrapper.ReadEncoded<string>(MetadataElement.AuthorName);
+                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
                     string json;
                     using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
@@ -97,7 +97,7 @@ namespace NuClear.VStore.Sessions
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
-                var filename = metadataWrapper.ReadEncoded<string>(MetadataElement.Filename);
+                var filename = metadataWrapper.Read<string>(MetadataElement.Filename);
 
                 return new BinaryMetadata(filename, metadataResponse.ContentLength);
             }
