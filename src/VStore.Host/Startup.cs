@@ -232,6 +232,7 @@ namespace NuClear.VStore.Host
                         Collectors = new List<IOnDemandCollector> { new DotNetStatsCollector(), new WindowsDotNetStatsCollector() }
                     });
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
+            app.UseMiddleware<RequestHeadersLoggingMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
 
             var jwtOptions = app.ApplicationServices.GetRequiredService<JwtOptions>();
