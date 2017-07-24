@@ -59,6 +59,10 @@ namespace NuClear.VStore.Sessions
             {
                 throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
             }
+            catch (SessionExpiredException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 throw new S3Exception(ex);
