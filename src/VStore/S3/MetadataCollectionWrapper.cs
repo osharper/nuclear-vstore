@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 
 using Amazon.S3.Model;
 using Newtonsoft.Json;
@@ -8,18 +7,18 @@ namespace NuClear.VStore.S3
 {
     public sealed class MetadataCollectionWrapper
     {
-        private readonly MetadataCollection _metadataCollection;
-        private readonly Encoding _defaultEncoding;
+        private const string Utf8Token = "utf-8''";
 
-        private MetadataCollectionWrapper(MetadataCollection metadataCollection, Encoding defaultEncoding)
+        private readonly MetadataCollection _metadataCollection;
+
+        private MetadataCollectionWrapper(MetadataCollection metadataCollection)
         {
             _metadataCollection = metadataCollection;
-            _defaultEncoding = defaultEncoding;
         }
 
         public static MetadataCollectionWrapper For(MetadataCollection metadataCollection)
         {
-            return new MetadataCollectionWrapper(metadataCollection, Encoding.UTF8);
+            return new MetadataCollectionWrapper(metadataCollection);
         }
 
         public T Read<T>(MetadataElement metadataElement)
@@ -31,9 +30,14 @@ namespace NuClear.VStore.S3
                 return default(T);
             }
 
-            if (metadataElement == MetadataElement.Filename)
+            if (value.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
             {
-                value = _defaultEncoding.GetString(Convert.FromBase64String(value));
+                value = Uri.UnescapeDataString(value.Substring(Utf8Token.Length));
+            }
+
+            if (typeof(T) == typeof(string))
+            {
+                return (T)(object)value;
             }
 
             return JsonConvert.DeserializeObject<T>(value);
@@ -41,17 +45,16 @@ namespace NuClear.VStore.S3
 
         public void Write<T>(MetadataElement metadataElement, T value)
         {
-            var name = AsMetadataKey(metadataElement);
-            var valueToWrite = JsonConvert.SerializeObject(value);
-            if (metadataElement == MetadataElement.Filename)
+            var stringValue = value as string;
+            var valueToWrite = stringValue ?? JsonConvert.SerializeObject(value);
+            if (!valueToWrite.StartsWith(Utf8Token, StringComparison.OrdinalIgnoreCase))
             {
-                valueToWrite = Convert.ToBase64String(_defaultEncoding.GetBytes(valueToWrite));
+                valueToWrite = Utf8Token + Uri.EscapeDataString(valueToWrite);
             }
 
+            var name = AsMetadataKey(metadataElement);
             _metadataCollection[name] = valueToWrite;
         }
-
-        public MetadataCollection Unwrap() => _metadataCollection;
 
         private static string AsMetadataKey(MetadataElement metadataElement) => $"x-amz-meta-{metadataElement.ToString().ToLower()}";
     }

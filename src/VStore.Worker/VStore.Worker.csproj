@@ -6,6 +6,7 @@
     <RootNamespace>NuClear.VStore.Worker</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.GC</PackageId>
+    <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
