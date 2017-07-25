@@ -122,7 +122,6 @@ namespace MigrationTool
                                               && p.BeginDate >= _positionsBeginDate
                                               && !pp.IsDeleted
                                               && !pos.IsDeleted
-                                              && pos.AdvertisementTemplateId != null
                                         select pos.Id)
                                       // And from orders in migration:
                                       .Union(from o in context.Orders
@@ -137,7 +136,6 @@ namespace MigrationTool
                                                    && op.IsActive
                                                    && !pp.IsDeleted
                                                    && !p.IsDeleted
-                                                   && p.AdvertisementTemplateId != null
                                              select p.Id)
                                       .Distinct()
                                       .ToListAsync();
@@ -148,13 +146,12 @@ namespace MigrationTool
                            join pos in context.Positions on pc.ChildPositionId equals pos.Id
                            where positionIds.Contains(pc.MasterPositionId)
                                  && !pos.IsDeleted
-                                 && pos.AdvertisementTemplateId != null
                           select pos.Id)
                         .Distinct()
                         .ToListAsync());
 
                 positions = await context.Positions
-                    .Where(p => positionIds.Contains(p.Id))
+                    .Where(p => positionIds.Contains(p.Id) && p.AdvertisementTemplateId != null)
                     .Include(p => p.AdvertisementTemplate)
                     .ToArrayAsync();
             }
@@ -878,8 +875,8 @@ namespace MigrationTool
                     || !firstElementProps.SequenceEqual(secondElementProps, _jsonEqualityComparer))
                 {
                     var first = new { firstElement.TemplateCode, Type = firstElement.Type.ToString(), Constraints = firstConstraints.Count, Props = new JObject(firstElementProps) };
-                    var second = new { generatedElementTemplateId, secondElement.TemplateCode, Type = secondElement.Type.ToString(), Constraints = secondConstraints.Count, Props = new JObject(secondElementProps) };
-                    _logger.LogInformation("Different elements headers, existed: {existed} and generated: {generated}", first, second);
+                    var second = new { secondElement.TemplateCode, Type = secondElement.Type.ToString(), Constraints = secondConstraints.Count, Props = new JObject(secondElementProps) };
+                    _logger.LogInformation("Different elements headers for template {id}, existed: {existed} and generated: {generated}", existedTemplate.Id, first, second);
                     return false;
                 }
 
@@ -890,12 +887,13 @@ namespace MigrationTool
                 {
                     var first = JsonConvert.SerializeObject(firstConstraint, SerializerSettings.Default);
                     var second = JsonConvert.SerializeObject(secondConstraint, SerializerSettings.Default);
-                    _logger.LogInformation("Different element constraints, existed: {existed} and generated: {generated}", first, second);
+                    _logger.LogInformation("Different element constraints for template {id}, existed: {existed} and generated: {generated}", existedTemplate.Id, first, second);
                     if (!TryToMergeElementConstraints(firstElement.Type, firstConstraint, secondConstraint, generatedElementTemplateId))
                     {
-                        _logger.LogWarning("Automatic merge of element template costraints failed, element id {elementId}, template code {templateCode}",
+                        _logger.LogWarning("Automatic merge of template element costraints failed, element id {elementId}, template code {templateCode}, template {id}",
                                            generatedElementTemplateId.ToString(),
-                                           firstElement.TemplateCode.ToString());
+                                           firstElement.TemplateCode.ToString(),
+                                           existedTemplate.Id);
                         return false;
                     }
                 }
