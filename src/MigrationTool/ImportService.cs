@@ -497,7 +497,7 @@ namespace MigrationTool
             }
 
             var importedCount = 0L;
-            var failedAds = new List<long>();
+            var failedAds = new List<Advertisement>();
             for (var segmentNum = 0; ; ++segmentNum)
             {
                 var offset = segmentNum * _batchSize;
@@ -535,10 +535,10 @@ namespace MigrationTool
         /// </summary>
         /// <param name="advIds">identifiers of advertisements to import</param>
         /// <returns>Identifiers of failed advertisements</returns>
-        private async Task<IReadOnlyCollection<long>> ImportAdvertisementsByIdsAsync(IReadOnlyCollection<long> advIds)
+        private async Task<IReadOnlyCollection<Advertisement>> ImportAdvertisementsByIdsAsync(IReadOnlyCollection<long> advIds)
         {
             var batchImportedCount = 0;
-            var failedIds = new ConcurrentBag<long>();
+            var failedAds = new ConcurrentBag<Advertisement>();
             var advertisements = await GetAdvertisementsByIds(advIds);
             await ParallelImport(advertisements,
                                  async advertisement =>
@@ -550,13 +550,13 @@ namespace MigrationTool
                                          }
                                          catch (Exception ex)
                                          {
-                                             failedIds.Add(advertisement.Id);
+                                             failedAds.Add(advertisement);
                                              _logger.LogError(new EventId(), ex, "Advertisement {id} import error", advertisement.Id.ToString());
                                          }
                                      });
 
             _logger.LogInformation("Imported advertisements in batch: {imported} of {total}", batchImportedCount.ToString(), advIds.Count.ToString());
-            return failedIds;
+            return failedAds;
         }
 
         private async Task<Advertisement[]> GetAdvertisementsByIds(IReadOnlyCollection<long> ids)
@@ -579,35 +579,55 @@ namespace MigrationTool
             }
         }
 
-        private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<long> failedAds)
+        private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<Advertisement> failedAds)
         {
             var imported = 0;
+            var totallyFailedAds = new ConcurrentBag<long>();
             _logger.LogInformation("Start to import failed advertisements, total {count}", failedAds.Count.ToString());
-            var advertisements = await GetAdvertisementsByIds(failedAds);
-            foreach (var advertisement in advertisements)
+
+            var partitioner = Partitioner.Create(failedAds);
+            var tasks = partitioner.GetOrderablePartitions(_maxDegreeOfParallelism)
+                                   .Select(async partition =>
+                                               {
+                                                   while (partition.MoveNext())
+                                                   {
+                                                       bool hasFailed;
+                                                       var tries = 0;
+                                                       var advertisement = partition.Current.Value;
+                                                       do
+                                                       {
+                                                           try
+                                                           {
+                                                               ++tries;
+                                                               await ImportAdvertisementAsync(advertisement);
+                                                               Interlocked.Increment(ref imported);
+                                                               hasFailed = false;
+                                                           }
+                                                           catch (Exception ex)
+                                                           {
+                                                               hasFailed = true;
+                                                               _logger.LogError(new EventId(), ex, "Advertisement {id} repeated import error", advertisement.Id.ToString());
+                                                               await Task.Delay(200);
+                                                           }
+                                                       }
+                                                       while (hasFailed && tries < _maxImportTries);
+
+                                                       if (hasFailed)
+                                                       {
+                                                           totallyFailedAds.Add(advertisement.Id);
+                                                       }
+                                                   }
+                                               });
+            await Task.WhenAll(tasks);
+
+            _logger.LogInformation("Failed advertisements repeated import done, imported: {imported} of {total}", imported.ToString(), failedAds.Count.ToString());
+            if (totallyFailedAds.Count < 1)
             {
-                bool hasFailed;
-                var tries = 0;
-                do
-                {
-                    try
-                    {
-                        ++tries;
-                        await ImportAdvertisementAsync(advertisement);
-                        ++imported;
-                        hasFailed = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        hasFailed = true;
-                        _logger.LogError(new EventId(), ex, "Advertisement {id} repeated import error", advertisement.Id.ToString());
-                    }
-                }
-                while (hasFailed && tries < _maxImportTries);
+                return true;
             }
 
-            _logger.LogInformation("Failed advertisements repeated import done, total imported: {imported} of {total}", imported.ToString(), advertisements.Length.ToString());
-            return imported == failedAds.Count;
+            _logger.LogError("Failed advertisements after repeated import: {ids}", totallyFailedAds);
+            return false;
         }
 
         private async Task ParallelImport<T>(T[] arr, Func<T, Task> callback)

@@ -423,23 +423,29 @@ namespace MigrationTool
                 }
                 else
                 {
-                    fileName = Path.ChangeExtension(fileName, format.ToString());
+                    fileName = Path.ChangeExtension(fileName, format.ToString().ToLowerInvariant());
                 }
 
                 using (var content = new MultipartFormDataContent())
                 {
-                    content.Add(new StreamContent(new MemoryStream(file.Data)), fileName, fileName);
-                    if (!url.IsAbsoluteUri)
+                    using (var memoryStream = new MemoryStream(file.Data, false))
                     {
-                        url = new Uri(_storageUri, uploadUrl);
-                    }
+                        using (var streamContent = new StreamContent(memoryStream))
+                        {
+                            content.Add(streamContent, fileName, fileName);
+                            if (!url.IsAbsoluteUri)
+                            {
+                                url = new Uri(_storageUri, uploadUrl);
+                            }
 
-                    using (var response = await _httpClient.PostAsync(url, content))
-                    {
-                        stringResponse = (await HandleResponse(response)).ResponseContent;
-                        response.EnsureSuccessStatusCode();
-                        _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
-                        return JObject.Parse(stringResponse);
+                            using (var response = await _httpClient.PostAsync(url, content))
+                            {
+                                stringResponse = (await HandleResponse(response)).ResponseContent;
+                                response.EnsureSuccessStatusCode();
+                                _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
+                                return JObject.Parse(stringResponse);
+                            }
+                        }
                     }
                 }
             }
