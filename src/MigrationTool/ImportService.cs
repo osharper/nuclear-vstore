@@ -875,8 +875,8 @@ namespace MigrationTool
                     || !firstElementProps.SequenceEqual(secondElementProps, _jsonEqualityComparer))
                 {
                     var first = new { firstElement.TemplateCode, Type = firstElement.Type.ToString(), Constraints = firstConstraints.Count, Props = new JObject(firstElementProps) };
-                    var second = new { generatedElementTemplateId, secondElement.TemplateCode, Type = secondElement.Type.ToString(), Constraints = secondConstraints.Count, Props = new JObject(secondElementProps) };
-                    _logger.LogInformation("Different elements headers, existed: {existed} and generated: {generated}", first, second);
+                    var second = new { secondElement.TemplateCode, Type = secondElement.Type.ToString(), Constraints = secondConstraints.Count, Props = new JObject(secondElementProps) };
+                    _logger.LogInformation("Different elements headers for template {id}, existed: {existed} and generated: {generated}", existedTemplate.Id, first, second);
                     return false;
                 }
 
@@ -887,12 +887,13 @@ namespace MigrationTool
                 {
                     var first = JsonConvert.SerializeObject(firstConstraint, SerializerSettings.Default);
                     var second = JsonConvert.SerializeObject(secondConstraint, SerializerSettings.Default);
-                    _logger.LogInformation("Different element constraints, existed: {existed} and generated: {generated}", first, second);
+                    _logger.LogInformation("Different element constraints for template {id}, existed: {existed} and generated: {generated}", existedTemplate.Id, first, second);
                     if (!TryToMergeElementConstraints(firstElement.Type, firstConstraint, secondConstraint, generatedElementTemplateId))
                     {
-                        _logger.LogWarning("Automatic merge of element template costraints failed, element id {elementId}, template code {templateCode}",
+                        _logger.LogWarning("Automatic merge of template element costraints failed, element id {elementId}, template code {templateCode}, template {id}",
                                            generatedElementTemplateId.ToString(),
-                                           firstElement.TemplateCode.ToString());
+                                           firstElement.TemplateCode.ToString(),
+                                           existedTemplate.Id);
                         return false;
                     }
                 }
