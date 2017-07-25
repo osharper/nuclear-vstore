@@ -31,7 +31,7 @@ namespace NuClear.VStore.Worker.Jobs
             KafkaOptions kafkaOptions,
             SessionCleanupService sessionCleanupService)
         {
-            _sessionsTopicName = kafkaOptions.SessionsTopic;
+            _sessionsTopicName = kafkaOptions.SessionEventsTopic;
             _binariesReferencesTopicName = kafkaOptions.BinariesReferencesTopic;
             _consumingBatchSize = kafkaOptions.ConsumingBatchSize;
 
@@ -52,6 +52,11 @@ namespace NuClear.VStore.Worker.Jobs
                 throw new ArgumentException("Range argument format is incorrect. Make sure that it's specified like 'd:hh:mm:ss'.");
             }
 
+            await RemoveUnreferencedBinaries(range);
+        }
+
+        private async Task RemoveUnreferencedBinaries(TimeSpan range)
+        {
             var utcNow = DateTime.UtcNow;
             while (true)
             {
@@ -76,7 +81,7 @@ namespace NuClear.VStore.Worker.Jobs
                         var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
                         if (success)
                         {
-                            _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unused and already expired.", sessionId);
+                            _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unreferenced and already expired.", sessionId);
                         }
 
                         await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });

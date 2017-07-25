@@ -28,6 +28,11 @@ common:
   files_bucket_name: "vstore-files-standalone"
   locks_bucket_name: "vstore-locks-standalone"
 
+  object_events_topic: "ams_vstore_standalone.object.events"
+  object_versions_topic: "ams_vstore_standalone.object.versions"
+  session_events_topic: "ams_vstore_standalone.session.events"
+  binaries_references_topic: "ams_vstore_standalone.object.binaries"
+
 vstore:
   app_name: "vstore-standalone"
 
@@ -35,7 +40,6 @@ vstore:
 
   session_expiration: "00:01:00"
 
-  locks_job_schedule: "*/1 * * * *"
   binaries_job_schedule: "0 */2 * * *"
   binaries_job_timerange: "02:00:00"
 
@@ -54,5 +58,4 @@ vstore:
   kubectl:
   - template: deployment.yaml.j2
   - template: service.yaml.j2
-  - template: cronjob-collect-locks.yaml.j2
   - template: cronjob-collect-binaries.yaml.j2

@@ -67,7 +67,7 @@ spec:
           value: {{ jwt_sign_key }}
         - name: VSTORE_Kafka__BrokerEndpoints
           value: {{ kafka_endpoints }}
-      - name: vstore-worker
+      - name: vstore-event-producer
         image: {{ vstore_worker_image_path }}:{{ image_version }}
         command: ["/app/VStore.Worker", "produce", "events"]
         args: ["mode=binaries,versions"]
@@ -95,3 +95,46 @@ spec:
           value: {{ ceph_rgw_url }}/{{ files_bucket_name }}/
         - name: VSTORE_Kafka__BrokerEndpoints
           value: {{ kafka_endpoints }}
+        - name: VSTORE_Kafka__ObjectEventsTopic
+          value: {{ object_events_topic }}
+        - name: VSTORE_Kafka__ObjectVersionsTopic
+          value: {{ object_versions_topic }}
+        - name: VSTORE_Kafka__SessionEventsTopic
+          value: {{ session_events_topic }}
+        - name: VSTORE_Kafka__BinariesReferencesTopic
+          value: {{ binaries_references_topic
+      - name: vstore-locks-collector
+        image: {{ vstore_worker_image_path }}:{{ image_version }}
+        command: ["/app/VStore.Worker", "collect", "locks"]
+        resources:
+          limits:
+            cpu: {{ worker_app_limits_cpu }}
+            memory: {{ worker_app_limits_memory }}
+          requests:
+            cpu: {{ worker_app_requests_cpu }}
+            memory: {{ worker_app_requests_memory }}
+        env:
+        - name: VSTORE_ENVIRONMENT
+          value: {{ vstore_env }}
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ ceph_key_id }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ ceph_access_key }}
+        - name: VSTORE_AWS__ServiceURL
+          value: {{ ceph_rgw_url }}
+        - name: VSTORE_Ceph__ObjectsBucketName
+          value: {{ objects_bucket_name }}
+        - name: VSTORE_Ceph__FilesBucketName
+          value: {{ files_bucket_name }}
+        - name: VSTORE_VStore__FileStorageEndpoint
+          value: {{ ceph_rgw_url }}/{{ files_bucket_name }}/
+        - name: VSTORE_Kafka__BrokerEndpoints
+          value: {{ kafka_endpoints }}
+        - name: VSTORE_Kafka__ObjectEventsTopic
+          value: {{ object_events_topic }}
+        - name: VSTORE_Kafka__ObjectVersionsTopic
+          value: {{ object_versions_topic }}
+        - name: VSTORE_Kafka__SessionEventsTopic
+          value: {{ session_events_topic }}
+        - name: VSTORE_Kafka__BinariesReferencesTopic
+          value: {{ binaries_references_topic

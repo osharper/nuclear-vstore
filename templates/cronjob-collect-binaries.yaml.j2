@@ -39,3 +39,11 @@ spec:
               value: {{ binaries_job_timerange }}
             - name: VSTORE_Kafka__BrokerEndpoints
               value: {{ kafka_endpoints }}
+            - name: VSTORE_Kafka__ObjectEventsTopic
+              value: {{ object_events_topic }}
+            - name: VSTORE_Kafka__ObjectVersionsTopic
+              value: {{ object_versions_topic }}
+            - name: VSTORE_Kafka__SessionEventsTopic
+              value: {{ session_events_topic }}
+            - name: VSTORE_Kafka__BinariesReferencesTopic
+              value: {{ binaries_references_topic }}

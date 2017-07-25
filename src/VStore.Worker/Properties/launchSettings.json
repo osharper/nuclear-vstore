@@ -2,7 +2,7 @@
   "profiles": {
     "VStore.Worker": {
       "commandName": "Project",
-      "commandLineArgs": "collect binaries range=\"01:00:00\"",
+      "commandLineArgs": "collect locks",
       "environmentVariables": {
         "VSTORE_ENVIRONMENT": "Development"
       }

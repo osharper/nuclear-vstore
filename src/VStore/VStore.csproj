@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Confluent.Kafka" Version="0.9.5-ci-71" />
+    <PackageReference Include="Confluent.Kafka" Version="0.11.0-ci-126" />
     <PackageReference Include="AWSSDK.S3" Version="3.3.8.2" />
     <PackageReference Include="2GIS.ChmLibCore" Version="1.0.3" />
     <PackageReference Include="HtmlAgilityPack" Version="1.5.1" />

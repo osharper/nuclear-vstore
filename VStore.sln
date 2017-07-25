@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.14
+VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{C8C4BA38-6854-4E26-B8EC-4319DED458AC}"
 	ProjectSection(SolutionItems) = preProject
@@ -25,7 +25,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{A8C3AC02-38B4-46F4-896A-1C98CDF77B70}"
 	ProjectSection(SolutionItems) = preProject
 		templates\cronjob-collect-binaries.yaml.j2 = templates\cronjob-collect-binaries.yaml.j2
-		templates\cronjob-collect-locks.yaml.j2 = templates\cronjob-collect-locks.yaml.j2
 		templates\deployment.yaml.j2 = templates\deployment.yaml.j2
 		templates\service.yaml.j2 = templates\service.yaml.j2
 	EndProjectSection
