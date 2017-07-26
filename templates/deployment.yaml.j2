@@ -126,19 +126,5 @@ spec:
           value: {{ ceph_access_key }}
         - name: VSTORE_AWS__ServiceURL
           value: {{ ceph_rgw_url }}
-        - name: VSTORE_Ceph__ObjectsBucketName
-          value: {{ objects_bucket_name }}
-        - name: VSTORE_Ceph__FilesBucketName
-          value: {{ files_bucket_name }}
-        - name: VSTORE_VStore__FileStorageEndpoint
-          value: {{ ceph_rgw_url }}/{{ files_bucket_name }}/
-        - name: VSTORE_Kafka__BrokerEndpoints
-          value: {{ kafka_endpoints }}
-        - name: VSTORE_Kafka__ObjectEventsTopic
-          value: {{ object_events_topic }}
-        - name: VSTORE_Kafka__ObjectVersionsTopic
-          value: {{ object_versions_topic }}
-        - name: VSTORE_Kafka__SessionEventsTopic
-          value: {{ session_events_topic }}
-        - name: VSTORE_Kafka__BinariesReferencesTopic
-          value: {{ binaries_references_topic }}
+        - name: VSTORE_Ceph__Locks__BucketName
+          value: {{ locks_bucket_name }}
