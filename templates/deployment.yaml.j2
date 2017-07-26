@@ -67,6 +67,10 @@ spec:
           value: {{ jwt_sign_key }}
         - name: VSTORE_Kafka__BrokerEndpoints
           value: {{ kafka_endpoints }}
+        - name: VSTORE_Kafka__ObjectEventsTopic
+          value: {{ object_events_topic }}
+        - name: VSTORE_Kafka__SessionEventsTopic
+          value: {{ session_events_topic }}
       - name: vstore-event-producer
         image: {{ vstore_worker_image_path }}:{{ image_version }}
         command: ["/app/VStore.Worker", "produce", "events"]
@@ -102,7 +106,7 @@ spec:
         - name: VSTORE_Kafka__SessionEventsTopic
           value: {{ session_events_topic }}
         - name: VSTORE_Kafka__BinariesReferencesTopic
-          value: {{ binaries_references_topic
+          value: {{ binaries_references_topic }}
       - name: vstore-locks-collector
         image: {{ vstore_worker_image_path }}:{{ image_version }}
         command: ["/app/VStore.Worker", "collect", "locks"]
