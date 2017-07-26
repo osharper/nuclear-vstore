@@ -67,7 +67,7 @@ namespace NuClear.VStore.Sessions
             _sessionExpiration = vstoreOptions.SessionExpiration;
             _fileStorageEndpointUri = vstoreOptions.FileStorageEndpoint;
             _filesBucketName = cephOptions.FilesBucketName;
-            _sessionsTopicName = kafkaOptions.SessionsTopic;
+            _sessionsTopicName = kafkaOptions.SessionEventsTopic;
             _amazonS3 = amazonS3;
             _sessionStorageReader = sessionStorageReader;
             _templatesStorageReader = templatesStorageReader;

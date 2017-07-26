@@ -130,9 +130,18 @@ namespace NuClear.VStore.Kafka
 
         private IEnumerable<TopicPartitionOffset> GetOffsets(string topic, DateTime date)
         {
-            var unixTimestamp = Timestamp.DateTimeToUnixTimestampMs(date);
-            var timestampToSearch = new TopicPartitionTimestamp(topic, DefaultPartition, new Timestamp(unixTimestamp, TimestampType.CreateTime));
-            return _consumer.OffsetsForTimes(new[] { timestampToSearch }, TimeSpan.FromSeconds(10));
+            try
+            {
+                var timestampToSearch = new TopicPartitionTimestamp(topic, DefaultPartition, new Timestamp(date, TimestampType.CreateTime));
+                return _consumer.OffsetsForTimes(new[] { timestampToSearch }, TimeSpan.FromSeconds(10)).Select(x => (TopicPartitionOffset)x);
+            }
+            catch (KafkaException ex)
+            {
+                throw new EventReceivingException(
+                    $"Unexpected error occured while getting offset for date '{date}' " +
+                    $"in topic/partition '{topic}/{DefaultPartition}'",
+                    ex);
+            }
         }
 
         private void OnLog(object sender, LogMessage logMessage)

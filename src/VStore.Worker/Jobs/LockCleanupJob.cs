@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ namespace NuClear.VStore.Worker.Jobs
 {
     public sealed class LockCleanupJob : AsyncJob
     {
+        private static readonly TimeSpan DelayTimeout = TimeSpan.FromSeconds(30);
+
         private readonly ILogger<LockCleanupJob> _logger;
         private readonly LockSessionManager _lockSessionManager;
 
@@ -22,17 +25,22 @@ namespace NuClear.VStore.Worker.Jobs
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
-            var objectIds = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
-            var tasks = objectIds.Select(
-                async x =>
-                    {
-                        if (await _lockSessionManager.IsLockSessionExpired(x))
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var objectIds = await _lockSessionManager.GetAllCurrentLockSessionsAsync();
+                var tasks = objectIds.Select(
+                    async x =>
                         {
-                            await _lockSessionManager.DeleteLockSessionAsync(x);
-                            _logger.LogInformation("Expired lock for the object with id = '{id}' has been deleted.", x);
-                        }
-                    });
-            await Task.WhenAll(tasks);
+                            if (await _lockSessionManager.IsLockSessionExpired(x))
+                            {
+                                await _lockSessionManager.DeleteLockSessionAsync(x);
+                                _logger.LogInformation("Expired lock for the object with id = '{id}' has been deleted.", x);
+                            }
+                        });
+                await Task.WhenAll(tasks);
+
+                await Task.Delay(DelayTimeout, cancellationToken);
+            }
         }
     }
 }
