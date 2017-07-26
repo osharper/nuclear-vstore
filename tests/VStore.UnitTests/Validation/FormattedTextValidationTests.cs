@@ -9,7 +9,7 @@ using NuClear.VStore.Objects.ContentValidation.Errors;
 using Xunit;
 
 // ReSharper disable UnusedMember.Global
-namespace VStore.UnitTests
+namespace VStore.UnitTests.Validation
 {
     public class FormattedTextValidationTests
     {

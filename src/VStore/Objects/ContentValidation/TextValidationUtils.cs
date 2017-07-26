@@ -19,10 +19,10 @@ namespace NuClear.VStore.Objects.ContentValidation
             return
                 text.Split(separators, StringSplitOptions.RemoveEmptyEntries)
                     .Where(x => x.Length > maxSymbolsPerWord)
-                    .ToArray();
+                    .ToList();
         }
 
-        public static IEnumerable<ObjectElementValidationError> CheckRestrictedSymbols(string textToCheck, TextElementConstraints constraints)
+        public static IEnumerable<ObjectElementValidationError> CheckRestrictedSymbols(string textToCheck, ITextElementConstraints constraints)
         {
             const char NonBreakingSpaceSymbol = (char)160;
 

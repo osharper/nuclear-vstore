@@ -20,6 +20,8 @@ namespace NuClear.VStore.Objects.ContentPreprocessing
                               .Replace((char)160, ' ')
                               .TrimEnd();
 
+        public static string ProcessLink(string rawLink) => rawLink?.Trim();
+
         public static string ProcessFormatted(string rawFormattedText)
         {
             if (string.IsNullOrEmpty(rawFormattedText))

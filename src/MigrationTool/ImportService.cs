@@ -1078,23 +1078,33 @@ namespace MigrationTool
                     };
                 }
                 case ElementDescriptorType.BitmapImage:
+                {
+                    if (element.FileId == null)
                     {
-                        EnsureFileElementIsValid(elementType, element, newElem);
+                        return new BitmapImageElementValue();
+                    }
 
-                        var templateId = _instanceTemplatesMap[element.AdsTemplatesAdsElementTemplates.AdsTemplateId];
+                    EnsureFileElementIsValid(elementType, element, newElem);
 
-                        var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
-                        var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
-                        var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    var templateId = _instanceTemplatesMap[element.AdsTemplatesAdsElementTemplates.AdsTemplateId];
 
-                        return new BitmapImageElementValue
+                    var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
+                    var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+
+                    return new BitmapImageElementValue
                         {
                             Raw = json.Value<string>("raw")
                         };
-                    }
+                }
 
                 case ElementDescriptorType.VectorImage:
                 {
+                    if (element.FileId == null)
+                    {
+                        return new VectorImageElementValue();
+                    }
+
                     EnsureFileElementIsValid(elementType, element, newElem);
                     var format = Converter.DetectFileFormat(element.File, templateCode);
                     var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
@@ -1105,14 +1115,19 @@ namespace MigrationTool
                 }
 
                 case ElementDescriptorType.Article:
+                {
+                    if (element.FileId == null)
                     {
-                        EnsureFileElementIsValid(elementType, element, newElem);
-                        var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
-                        return new ArticleElementValue
+                        return new ArticleElementValue();
+                    }
+
+                    EnsureFileElementIsValid(elementType, element, newElem);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
+                    return new ArticleElementValue
                         {
                             Raw = json.Value<string>("raw")
                         };
-                    }
+                }
 
                 case ElementDescriptorType.Date:
                     if (element.BeginDate == null || element.EndDate == null)
@@ -1145,7 +1160,7 @@ namespace MigrationTool
 
         private static void EnsureFileElementIsValid(ElementDescriptorType elementType, AdvertisementElement element, ApiObjectElementDescriptor newElem)
         {
-            if (element.FileId == null || element.File == null)
+            if (element.File == null)
             {
                 throw new ArgumentException($"Element descriptor without {elementType.ToString()} file");
             }

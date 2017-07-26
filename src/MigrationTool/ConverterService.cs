@@ -164,22 +164,10 @@ namespace MigrationTool
                                                     : elementTemplate.MaxSymbolsInWord
                     };
                 case ElementDescriptorType.Link:
-                    if (elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction)
-                    {
-                        _logger.LogWarning(
-                            "Element template with {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
-                            elementTemplateId,
-                            elementTemplate.MaxSymbolsInWord,
-                            elementTemplate.TextLengthRestriction);
-                    }
-
+                case ElementDescriptorType.VideoLink:
                     return new LinkElementConstraints
                     {
-                        MaxSymbols = elementTemplate.TextLengthRestriction,
-                        MaxLines = elementTemplate.TextLineBreaksCountRestriction,
-                        MaxSymbolsPerWord = elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction
-                                                    ? elementTemplate.TextLengthRestriction
-                                                    : elementTemplate.MaxSymbolsInWord
+                        MaxSymbols = elementTemplate.TextLengthRestriction
                     };
                 case ElementDescriptorType.BitmapImage:
                     return new BitmapImageElementConstraints
@@ -208,8 +196,6 @@ namespace MigrationTool
                     return new DateElementConstraints();
                 case ElementDescriptorType.Phone:
                     return new PhoneElementConstraints();
-                case ElementDescriptorType.VideoLink:
-                    return new VideoLinkElementConstraints();
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementType), elementType, "Unknown ElementDescriptorType");
             }

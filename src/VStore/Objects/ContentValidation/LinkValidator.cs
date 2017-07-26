@@ -24,7 +24,7 @@ namespace NuClear.VStore.Objects.ContentValidation
             }
 
             // We can use Uri.IsWellFormedUriString() instead:
-            if (!Uri.TryCreate(rawValue.Raw, UriKind.Absolute, out Uri uri)
+            if (!Uri.TryCreate(rawValue.Raw, UriKind.Absolute, out var uri)
                 || (uri.Scheme != "http" && uri.Scheme != "https")
                 || uri.HostNameType != UriHostNameType.Dns)
             {

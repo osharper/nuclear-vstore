@@ -21,7 +21,7 @@ namespace NuClear.VStore.Objects.ContentValidation
                 return Array.Empty<ObjectElementValidationError>();
             }
 
-            var constraints = (PlainTextElementConstraints)elementConstraints;
+            var constraints = (ITextElementConstraints)elementConstraints;
             if (!constraints.MaxSymbols.HasValue)
             {
                 return Array.Empty<ObjectElementValidationError>();
@@ -79,7 +79,7 @@ namespace NuClear.VStore.Objects.ContentValidation
         public static IEnumerable<ObjectElementValidationError> CheckRestrictedSymbols(IObjectElementValue value, IElementConstraints elementConstraints)
         {
             var textValue = TextValueExtractor(value);
-            var constraints = (PlainTextElementConstraints)elementConstraints;
+            var constraints = (ITextElementConstraints)elementConstraints;
             return string.IsNullOrEmpty(textValue)
                 ? Array.Empty<ObjectElementValidationError>()
                 : TextValidationUtils.CheckRestrictedSymbols(textValue, constraints);

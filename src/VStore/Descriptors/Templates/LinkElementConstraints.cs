@@ -2,18 +2,43 @@
 
 namespace NuClear.VStore.Descriptors.Templates
 {
-    public class LinkElementConstraints : PlainTextElementConstraints, ILinkElementConstraints, IEquatable<LinkElementConstraints>
+    public class LinkElementConstraints : ILinkElementConstraints, ITextElementConstraints, IEquatable<LinkElementConstraints>
     {
         public bool ValidLink => true;
+        public int? MaxSymbols { get; set; }
+        public bool WithoutControlChars => true;
+        public bool WithoutNonBreakingSpace => true;
 
-        public override bool Equals(object obj)
+        public bool Equals(LinkElementConstraints other)
         {
-            var other = obj as LinkElementConstraints;
-            return Equals(other);
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return ValidLink == other.ValidLink &&
+                   MaxSymbols == other.MaxSymbols &&
+                   WithoutControlChars == other.WithoutControlChars &&
+                   WithoutNonBreakingSpace == other.WithoutNonBreakingSpace;
         }
 
-        public bool Equals(LinkElementConstraints other) => base.Equals(other) && ValidLink == other.ValidLink;
+        public override bool Equals(object obj) => Equals(obj as LinkElementConstraints);
 
-        public override int GetHashCode() => unchecked((base.GetHashCode() * 397) ^ ValidLink.GetHashCode());
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = MaxSymbols.GetHashCode();
+                hashCode = (hashCode * 397) ^ ValidLink.GetHashCode();
+                hashCode = (hashCode * 397) ^ WithoutControlChars.GetHashCode();
+                hashCode = (hashCode * 397) ^ WithoutNonBreakingSpace.GetHashCode();
+                return hashCode;
+            }
+        }
     }
 }

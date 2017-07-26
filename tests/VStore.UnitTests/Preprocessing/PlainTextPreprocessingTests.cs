@@ -2,10 +2,22 @@
 
 using Xunit;
 
-namespace VStore.UnitTests
+namespace VStore.UnitTests.Preprocessing
 {
     public class PlainTextPreprocessingTests
     {
+        [Fact]
+        public void TestOnNullString()
+        {
+            Assert.Equal(null, ElementTextHarmonizer.ProcessPlain(null));
+        }
+
+        [Fact]
+        public void TestOnEmptyString()
+        {
+            Assert.Equal(string.Empty, ElementTextHarmonizer.ProcessPlain(string.Empty));
+        }
+
         [Fact]
         public void TestOnLineBreaks()
         {

@@ -7,7 +7,7 @@ using NuClear.VStore.Objects.ContentValidation.Errors;
 
 using Xunit;
 
-namespace VStore.UnitTests
+namespace VStore.UnitTests.Validation
 {
     public class DateValidationTests
     {

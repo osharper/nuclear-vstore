@@ -65,7 +65,7 @@ namespace NuClear.VStore.Templates
                            new ElementDescriptor(ElementDescriptorType.Date, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.Link, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
                            new ElementDescriptor(ElementDescriptorType.Phone, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
-                           new ElementDescriptor(ElementDescriptorType.VideoLink, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new VideoLinkElementConstraints()) }))
+                           new ElementDescriptor(ElementDescriptorType.VideoLink, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))
                        };
         }
 
@@ -170,9 +170,11 @@ namespace NuClear.VStore.Templates
                                                case ArticleElementConstraints articleElementConstraints:
                                                    VerifyArticleConstraints(x.TemplateCode, articleElementConstraints);
                                                    break;
+                                               case LinkElementConstraints linkElementConstraints:
+                                                   VerifyLinkConstraints(x.TemplateCode, linkElementConstraints);
+                                                   break;
                                                case DateElementConstraints _:
                                                case PhoneElementConstraints _:
-                                               case VideoLinkElementConstraints _:
                                                    break;
                                                default:
                                                    throw new ArgumentOutOfRangeException(nameof(constraints.ElementConstraints), constraints.ElementConstraints, "Unsupported element contraints");
@@ -182,7 +184,7 @@ namespace NuClear.VStore.Templates
             await Task.WhenAll(tasks);
         }
 
-        // ReSharper disable once UnusedParameter.Local
+        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
         private void VerifyBinaryConstraints(int templateCode, IBinaryElementConstraints binaryElementConstraints)
         {
             if (binaryElementConstraints.SupportedFileFormats == null)
@@ -263,6 +265,7 @@ namespace NuClear.VStore.Templates
             }
         }
 
+        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
         private static void VerifyTextConstraints(int templateCode, TextElementConstraints textElementConstraints)
         {
             if (textElementConstraints.MaxSymbols < textElementConstraints.MaxSymbolsPerWord)
@@ -283,6 +286,15 @@ namespace NuClear.VStore.Templates
             if (textElementConstraints.MaxLines <= 0)
             {
                 throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxLines);
+            }
+        }
+
+        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
+        private static void VerifyLinkConstraints(int templateCode, LinkElementConstraints linkElementConstraints)
+        {
+            if (linkElementConstraints.MaxSymbols <= 0)
+            {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSymbols);
             }
         }
 

@@ -250,6 +250,7 @@ namespace NuClear.VStore.Objects
             switch (descriptor.Type)
             {
                 case ElementDescriptorType.PlainText:
+                case ElementDescriptorType.FasComment:
                     return new ValidationRule[]
                         {
                             PlainTextValidator.CheckLength,
@@ -271,23 +272,14 @@ namespace NuClear.VStore.Objects
                             FormattedTextValidator.CheckNestedList,
                             FormattedTextValidator.CheckUnsupportedListElements
                         };
-                case ElementDescriptorType.FasComment:
-                    return new ValidationRule[]
-                               {
-                                   PlainTextValidator.CheckLength,
-                                   PlainTextValidator.CheckWordsLength,
-                                   PlainTextValidator.CheckLinesCount,
-                                   PlainTextValidator.CheckRestrictedSymbols
-                               };
                 case ElementDescriptorType.Date:
                     return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
+                case ElementDescriptorType.VideoLink:
                     return new ValidationRule[]
                                {
                                    LinkValidator.CheckLink,
                                    PlainTextValidator.CheckLength,
-                                   PlainTextValidator.CheckWordsLength,
-                                   PlainTextValidator.CheckLinesCount,
                                    PlainTextValidator.CheckRestrictedSymbols
                                };
                 case ElementDescriptorType.BitmapImage:
@@ -295,8 +287,6 @@ namespace NuClear.VStore.Objects
                 case ElementDescriptorType.Article:
                 case ElementDescriptorType.Phone:
                     return new ValidationRule[] { };
-                case ElementDescriptorType.VideoLink:
-                    return new ValidationRule[] { LinkValidator.CheckLink };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -404,13 +394,16 @@ namespace NuClear.VStore.Objects
                                         ((FasElementValue)descriptor.Value).Text =
                                             ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
                                         break;
+                                    case ElementDescriptorType.VideoLink:
+                                    case ElementDescriptorType.Link:
+                                        ((TextElementValue)descriptor.Value).Raw =
+                                            ElementTextHarmonizer.ProcessLink(((TextElementValue)descriptor.Value).Raw);
+                                        break;
                                     case ElementDescriptorType.BitmapImage:
                                     case ElementDescriptorType.VectorImage:
                                     case ElementDescriptorType.Article:
                                     case ElementDescriptorType.Date:
-                                    case ElementDescriptorType.Link:
                                     case ElementDescriptorType.Phone:
-                                    case ElementDescriptorType.VideoLink:
                                         break;
                                     default:
                                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),

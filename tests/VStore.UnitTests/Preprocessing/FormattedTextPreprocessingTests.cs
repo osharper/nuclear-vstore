@@ -2,7 +2,7 @@
 
 using Xunit;
 
-namespace VStore.UnitTests
+namespace VStore.UnitTests.Preprocessing
 {
     public class FormattedTextPreprocessingTests
     {
