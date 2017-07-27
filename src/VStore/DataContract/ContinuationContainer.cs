@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace NuClear.VStore.Descriptors
+namespace NuClear.VStore.DataContract
 {
     public sealed class ContinuationContainer<T>
     {

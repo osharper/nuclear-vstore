@@ -8,7 +8,7 @@ using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
-using NuClear.VStore.Descriptors;
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
@@ -39,10 +39,10 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectRecord<long>>), 200)]
         public async Task<IActionResult> List([FromHeader(Name = Http.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
-            var container = await _objectsStorageReader.GetObjectMetadatas(continuationToken?.Trim('"'));
+            var container = await _objectsStorageReader.List(continuationToken?.Trim('"'));
 
             if (!string.IsNullOrEmpty(container.ContinuationToken))
             {
@@ -50,6 +50,14 @@ namespace NuClear.VStore.Host.Controllers
             }
 
             return Json(container.Collection);
+        }
+
+        [HttpGet("specified")]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ObjectMetadataRecord>), 200)]
+        public async Task<IActionResult> List(IReadOnlyCollection<long> ids)
+        {
+            var records = await _objectsStorageReader.GetObjectMetadatas(ids);
+            return Json(records);
         }
 
         [HttpGet("{id:long}/{versionId}/template")]
@@ -73,7 +81,7 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("{id:long}/versions")]
-        [ProducesResponseType(typeof(IReadOnlyCollection<ModifiedObjectDescriptor>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ObjectVersionRecord>), 200)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetVersions(long id)
         {

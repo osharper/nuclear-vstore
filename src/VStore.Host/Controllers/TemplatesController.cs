@@ -7,7 +7,7 @@ using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
-using NuClear.VStore.Descriptors;
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Json;
@@ -34,16 +34,13 @@ namespace NuClear.VStore.Host.Controllers
 
         [HttpGet("element-descriptors/available")]
         [ProducesResponseType(typeof(IReadOnlyCollection<IElementDescriptor>), 200)]
-        public IActionResult GetAvailableElementDescriptors()
-        {
-            return Json(_templatesManagementService.GetAvailableElementDescriptors());
-        }
+        public IActionResult GetAvailableElementDescriptors() => Json(_templatesManagementService.GetAvailableElementDescriptors());
 
         [HttpGet]
-        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectDescriptor<long>>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<IdentifyableObjectRecord<long>>), 200)]
         public async Task<IActionResult> List([FromHeader(Name = Http.HeaderNames.AmsContinuationToken)]string continuationToken)
         {
-            var container = await _templatesStorageReader.GetTemplateMetadatas(continuationToken?.Trim('"'));
+            var container = await _templatesStorageReader.List(continuationToken?.Trim('"'));
 
             if (!string.IsNullOrEmpty(container.ContinuationToken))
             {
@@ -54,11 +51,11 @@ namespace NuClear.VStore.Host.Controllers
         }
 
         [HttpGet("specified")]
-        [ProducesResponseType(typeof(IReadOnlyCollection<ModifiedTemplateDescriptor>), 200)]
+        [ProducesResponseType(typeof(IReadOnlyCollection<ObjectMetadataRecord>), 200)]
         public async Task<IActionResult> List(IReadOnlyCollection<long> ids)
         {
-            var descriptors = await _templatesStorageReader.GetTemplateMetadatas(ids);
-            return Json(descriptors);
+            var records = await _templatesStorageReader.GetTemplateMetadatas(ids);
+            return Json(records);
         }
 
         [HttpGet("{id:long}")]

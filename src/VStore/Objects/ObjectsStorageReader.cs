@@ -12,6 +12,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Objects.Persistence;
@@ -44,22 +45,72 @@ namespace NuClear.VStore.Objects
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
         }
 
-        public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetObjectMetadatas(string continuationToken)
+        public async Task<ContinuationContainer<IdentifyableObjectRecord<long>>> List(string continuationToken)
         {
             var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(x.Key.AsRootObjectId(), x.LastModified)).Distinct().ToArray();
-            return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
+            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(x.Key.AsRootObjectId(), x.LastModified)).Distinct().ToArray();
+            return new ContinuationContainer<IdentifyableObjectRecord<long>>(records, listResponse.NextMarker);
+        }
+
+        public async Task<IReadOnlyCollection<ObjectMetadataRecord>> GetObjectMetadatas(IReadOnlyCollection<long> ids)
+        {
+            var uniqueIds = new HashSet<long>(ids);
+            var partitioner = Partitioner.Create(uniqueIds);
+            var result = new ObjectMetadataRecord[uniqueIds.Count];
+            var tasks = partitioner
+                .GetOrderablePartitions(_degreeOfParallelism)
+                .Select(async x =>
+                            {
+                                while (x.MoveNext())
+                                {
+                                    var id = x.Current.Value;
+                                    ObjectMetadataRecord record;
+                                    try
+                                    {
+                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, id.AsS3ObjectKey(Tokens.ObjectPostfix));
+                                        var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                                        var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                        var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                        var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
+                                        var objectVersions = await GetObjectLatestVersions(id);
+                                        var versionId = objectVersions.Where(v => v.Id.EndsWith(Tokens.ObjectPostfix))
+                                                                      .Select(v => v.VersionId)
+                                                                      .SingleOrDefault();
+                                        if (versionId == null)
+                                        {
+                                            record = null;
+                                        }
+                                        else
+                                        {
+                                            record = new ObjectMetadataRecord(
+                                                id,
+                                                versionId,
+                                                response.LastModified,
+                                                new AuthorInfo(author, authorLogin, authorName));
+                                        }
+                                    }
+                                    catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    {
+                                        record = null;
+                                    }
+
+                                    result[x.Current.Key] = record;
+                                }
+                            });
+            await Task.WhenAll(tasks);
+            return result.Where(x => x != null).ToList();
         }
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            (var persistenceDescriptor, var _, var _) =
+            (var persistenceDescriptor, _, _) =
                 await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
 
-        public async Task<IReadOnlyCollection<ModifiedObjectDescriptor>> GetObjectVersions(long id, string initialVersionId)
+        public async Task<IReadOnlyCollection<ObjectVersionRecord>> GetObjectVersions(long id, string initialVersionId)
         {
             var objectVersions = new List<ObjectVersion>();
 
@@ -146,11 +197,11 @@ namespace NuClear.VStore.Objects
             }
 
             var maxVersionIndex = result.NextVersionIndex;
-            var descriptors = new ModifiedObjectDescriptor[objectVersions.Count];
+            var records = new ObjectVersionRecord[objectVersions.Count];
             for (var index = 0; index < objectVersions.Count; ++index)
             {
                 var objectVersion = objectVersions[index];
-                descriptors[index] = new ModifiedObjectDescriptor(
+                records[index] = new ObjectVersionRecord(
                     objectVersion.Key.AsRootObjectId(),
                     objectVersion.VersionId,
                     --maxVersionIndex,
@@ -159,7 +210,7 @@ namespace NuClear.VStore.Objects
                     objectVersion.ModifiedElements);
             }
 
-            return descriptors;
+            return records;
         }
 
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
@@ -198,7 +249,7 @@ namespace NuClear.VStore.Objects
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        (var elementPersistenceDescriptor, var _, var elementLastModified) =
+                        (var elementPersistenceDescriptor, _, var elementLastModified) =
                             await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
                         if (elementPersistenceDescriptor.Value is IBinaryElementValue binaryElementValue &&

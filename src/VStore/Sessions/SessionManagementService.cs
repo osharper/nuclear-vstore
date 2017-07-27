@@ -18,6 +18,7 @@ using ImageSharp.Formats;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
