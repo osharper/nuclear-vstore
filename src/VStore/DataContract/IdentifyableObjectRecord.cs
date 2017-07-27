@@ -1,11 +1,13 @@
 ﻿using System;
 
-namespace NuClear.VStore.Descriptors
+using NuClear.VStore.Descriptors;
+
+namespace NuClear.VStore.DataContract
 {
-    public sealed class IdentifyableObjectDescriptor<TId> : IIdentifyable<TId>, IEquatable<IdentifyableObjectDescriptor<TId>>
+    public sealed class IdentifyableObjectRecord<TId> : IIdentifyable<TId>, IEquatable<IdentifyableObjectRecord<TId>>
         where TId : IEquatable<TId>
     {
-        public IdentifyableObjectDescriptor(TId id, DateTime lastModified)
+        public IdentifyableObjectRecord(TId id, DateTime lastModified)
         {
             Id = id;
             LastModified = lastModified;
@@ -17,13 +19,13 @@ namespace NuClear.VStore.Descriptors
 
         public override bool Equals(object obj)
         {
-            var other = obj as IdentifyableObjectDescriptor<TId>;
+            var other = obj as IdentifyableObjectRecord<TId>;
             if (other == null)
             {
                 return false;
             }
 
-            if (ReferenceEquals(this, other))
+            if (Object.ReferenceEquals(this, other))
             {
                 return true;
             }
@@ -31,7 +33,7 @@ namespace NuClear.VStore.Descriptors
             return Equals(other);
         }
 
-        public bool Equals(IdentifyableObjectDescriptor<TId> other) => Id.Equals(other.Id);
+        public bool Equals(IdentifyableObjectRecord<TId> other) => Id.Equals(other.Id);
 
         public override int GetHashCode() => Id.GetHashCode();
     }

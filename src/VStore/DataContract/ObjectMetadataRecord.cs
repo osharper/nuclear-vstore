@@ -1,13 +1,15 @@
 ﻿using System;
 
-namespace NuClear.VStore.Descriptors
+using NuClear.VStore.Descriptors;
+
+namespace NuClear.VStore.DataContract
 {
-    public sealed class ModifiedTemplateDescriptor
+    public sealed class ObjectMetadataRecord
     {
         private readonly AuthorInfo _authorInfo;
         private readonly VersionedObjectDescriptor<long> _versionedObjectDescriptor;
 
-        public ModifiedTemplateDescriptor(long id, string versionId, DateTime lastModified, AuthorInfo authorInfo)
+        public ObjectMetadataRecord(long id, string versionId, DateTime lastModified, AuthorInfo authorInfo)
         {
             _authorInfo = authorInfo;
             _versionedObjectDescriptor = new VersionedObjectDescriptor<long>(id, versionId, lastModified);

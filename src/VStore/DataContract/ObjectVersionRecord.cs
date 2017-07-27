@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace NuClear.VStore.Descriptors
+using NuClear.VStore.Descriptors;
+
+namespace NuClear.VStore.DataContract
 {
-    public sealed class ModifiedObjectDescriptor : IIdentifyable<long>, IVersioned
+    public sealed class ObjectVersionRecord : IIdentifyable<long>, IVersioned
     {
         private readonly AuthorInfo _authorInfo;
         private readonly VersionedObjectDescriptor<long> _versionedObjectDescriptor;
 
-        public ModifiedObjectDescriptor(
+        public ObjectVersionRecord(
             long id,
             string versionId,
             int versionIndex,

@@ -1,5 +1,6 @@
 ﻿using System;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
 
 namespace NuClear.VStore.Descriptors.Sessions

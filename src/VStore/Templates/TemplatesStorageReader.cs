@@ -11,7 +11,7 @@ using Amazon.S3.Model;
 
 using Newtonsoft.Json;
 
-using NuClear.VStore.Descriptors;
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Options;
@@ -32,19 +32,19 @@ namespace NuClear.VStore.Templates
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
 
-        public async Task<ContinuationContainer<IdentifyableObjectDescriptor<long>>> GetTemplateMetadatas(string continuationToken)
+        public async Task<ContinuationContainer<IdentifyableObjectRecord<long>>> List(string continuationToken)
         {
             var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var descriptors = listResponse.S3Objects.Select(x => new IdentifyableObjectDescriptor<long>(long.Parse(x.Key), x.LastModified)).ToArray();
-            return new ContinuationContainer<IdentifyableObjectDescriptor<long>>(descriptors, listResponse.NextMarker);
+            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(long.Parse(x.Key), x.LastModified)).ToArray();
+            return new ContinuationContainer<IdentifyableObjectRecord<long>>(records, listResponse.NextMarker);
         }
 
-        public async Task<IReadOnlyCollection<ModifiedTemplateDescriptor>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
+        public async Task<IReadOnlyCollection<ObjectMetadataRecord>> GetTemplateMetadatas(IReadOnlyCollection<long> ids)
         {
             var uniqueIds = new HashSet<long>(ids);
             var partitioner = Partitioner.Create(uniqueIds);
-            var result = new ModifiedTemplateDescriptor[uniqueIds.Count];
+            var result = new ObjectMetadataRecord[uniqueIds.Count];
             var tasks = partitioner
                 .GetOrderablePartitions(_degreeOfParallelism)
                 .Select(async x =>
@@ -52,7 +52,7 @@ namespace NuClear.VStore.Templates
                                 while (x.MoveNext())
                                 {
                                     var templateId = x.Current.Value;
-                                    ModifiedTemplateDescriptor descriptor;
+                                    ObjectMetadataRecord record;
                                     try
                                     {
                                         var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString());
@@ -62,18 +62,18 @@ namespace NuClear.VStore.Templates
                                         var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
                                         var versionId = await GetTemplateLatestVersion(templateId);
-                                        descriptor = new ModifiedTemplateDescriptor(
-                                            x.Current.Value,
+                                        record = new ObjectMetadataRecord(
+                                            templateId,
                                             versionId,
                                             response.LastModified,
                                             new AuthorInfo(author, authorLogin, authorName));
                                     }
                                     catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                                     {
-                                        descriptor = null;
+                                        record = null;
                                     }
 
-                                    result[x.Current.Key] = descriptor;
+                                    result[x.Current.Key] = record;
                                 }
                             });
             await Task.WhenAll(tasks);

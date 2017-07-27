@@ -1,4 +1,4 @@
-﻿namespace NuClear.VStore.Descriptors
+﻿namespace NuClear.VStore.DataContract
 {
     public sealed class AuthorInfo
     {

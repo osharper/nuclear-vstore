@@ -1,5 +1,6 @@
 ﻿using System;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 
 using Xunit;
@@ -11,21 +12,21 @@ namespace VStore.UnitTests
         [Fact]
         public void ShouldCheckEqualityOfIdentifyableObject()
         {
-            var descriptorOne = new IdentifyableObjectDescriptor<long>(1L, DateTime.MinValue);
-            var descriptorTwo = new IdentifyableObjectDescriptor<long>(descriptorOne.Id, DateTime.MaxValue);
+            var recordOne = new IdentifyableObjectRecord<long>(1L, DateTime.MinValue);
+            var recordTwo = new IdentifyableObjectRecord<long>(recordOne.Id, DateTime.MaxValue);
 
-            Assert.True(Equals(descriptorOne, descriptorTwo));
-            Assert.True(Equals(descriptorTwo, descriptorOne));
-            Assert.Equal(descriptorOne, descriptorOne);
-            Assert.Equal(descriptorTwo, descriptorTwo);
-            Assert.Equal(descriptorOne, descriptorTwo);
-            Assert.Equal(descriptorTwo, descriptorOne);
+            Assert.True(Equals(recordOne, recordTwo));
+            Assert.True(Equals(recordTwo, recordOne));
+            Assert.Equal(recordOne, recordOne);
+            Assert.Equal(recordTwo, recordTwo);
+            Assert.Equal(recordOne, recordTwo);
+            Assert.Equal(recordTwo, recordOne);
 
-            descriptorOne = new IdentifyableObjectDescriptor<long>(2L, DateTime.MinValue);
-            Assert.NotEqual(descriptorOne, descriptorTwo);
-            Assert.NotEqual(descriptorTwo, descriptorOne);
-            Assert.False(Equals(descriptorOne, descriptorTwo));
-            Assert.False(Equals(descriptorTwo, descriptorOne));
+            recordOne = new IdentifyableObjectRecord<long>(2L, DateTime.MinValue);
+            Assert.NotEqual(recordOne, recordTwo);
+            Assert.NotEqual(recordTwo, recordOne);
+            Assert.False(Equals(recordOne, recordTwo));
+            Assert.False(Equals(recordTwo, recordOne));
         }
 
         [Fact]

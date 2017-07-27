@@ -18,6 +18,7 @@ using ImageSharp.Formats;
 
 using Newtonsoft.Json;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Sessions;
 using NuClear.VStore.Descriptors.Templates;
@@ -136,7 +137,7 @@ namespace NuClear.VStore.Sessions
                 throw new MissingFilenameException($"Filename has not been provided for the item '{templateCode}'");
             }
 
-            (var sessionDescriptor, var _, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
+            (var sessionDescriptor, _, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(

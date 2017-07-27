@@ -13,6 +13,7 @@ using Microsoft.Net.Http.Headers;
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
