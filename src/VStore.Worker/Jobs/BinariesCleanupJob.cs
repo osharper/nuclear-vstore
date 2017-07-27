@@ -52,44 +52,46 @@ namespace NuClear.VStore.Worker.Jobs
                 throw new ArgumentException("Range argument format is incorrect. Make sure that it's specified like 'd:hh:mm:ss'.");
             }
 
-            await RemoveUnreferencedBinaries(range);
+            Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+
+            var utcNow = DateTime.UtcNow;
+            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range));
+            var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
+
+            await RemoveUnreferencedBinaries(utcNow, sessionsWithReferences);
         }
 
-        private async Task RemoveUnreferencedBinaries(TimeSpan range)
+        private async Task RemoveUnreferencedBinaries(DateTime currentTime, ICollection<Guid> sessionsWithReferences)
         {
-            var utcNow = DateTime.UtcNow;
             while (true)
             {
                 var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, _consumingBatchSize);
-                var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= utcNow).ToList();
+                var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= currentTime).ToList();
 
                 if (expiredSessionEvents.Count == 0)
                 {
                     return;
                 }
 
-                var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range));
-
-                Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
-                var referencedBinariesSessions = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
-
                 foreach (var expiredSessionEvent in expiredSessionEvents)
                 {
                     var sessionId = expiredSessionEvent.Source.SessionId;
-                    if (!referencedBinariesSessions.Contains(sessionId))
+                    if (sessionsWithReferences.Contains(sessionId))
                     {
-                        var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
-                        if (success)
-                        {
-                            _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unreferenced and already expired.", sessionId);
-                        }
-
-                        await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
-                        _logger.LogInformation(
-                            "Event of type '{eventType}' for expired session '{sessionId}' processed.",
-                            expiredSessionEvent.Source.GetType(),
-                            sessionId);
+                        continue;
                     }
+
+                    var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
+                    if (success)
+                    {
+                        _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unreferenced and already expired.", sessionId);
+                    }
+
+                    await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
+                    _logger.LogInformation(
+                        "Event of type '{eventType}' for expired session '{sessionId}' processed.",
+                        expiredSessionEvent.Source.GetType(),
+                        sessionId);
                 }
             }
         }
