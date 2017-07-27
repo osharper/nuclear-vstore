@@ -49,7 +49,7 @@ namespace NuClear.VStore.Objects
         {
             var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(x.Key.AsRootObjectId(), x.LastModified)).Distinct().ToArray();
+            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(x.Key.AsRootObjectId(), x.LastModified)).Distinct().ToList();
             return new ContinuationContainer<IdentifyableObjectRecord<long>>(records, listResponse.NextMarker);
         }
 
