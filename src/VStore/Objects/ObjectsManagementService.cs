@@ -219,30 +219,33 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static async Task VerifyObjectElementsConsistency(
+        private static void VerifyObjectElementsConsistency(
             long objectId,
             Language language,
             IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
-            var tasks = elementDescriptors.Select(
-                async x => await Task.Run(
-                               () =>
-                                   {
-                                       var errors = new List<ObjectElementValidationError>();
-                                       var constraints = x.Constraints.For(language);
-                                       var rules = GetValidationRules(x);
+            var allErrors = new Dictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
+            foreach (var element in elementDescriptors)
+            {
+                var errors = new List<ObjectElementValidationError>();
+                var constraints = element.Constraints.For(language);
+                var rules = GetValidationRules(element);
 
-                                       foreach (var validationRule in rules)
-                                       {
-                                           errors.AddRange(validationRule(x.Value, constraints));
-                                       }
+                foreach (var validationRule in rules)
+                {
+                    errors.AddRange(validationRule(element.Value, constraints));
+                }
 
-                                       if (errors.Count > 0)
-                                       {
-                                           throw new InvalidObjectElementException(objectId, x.Id, errors);
-                                       }
-                                   }));
-            await Task.WhenAll(tasks);
+                if (errors.Count > 0)
+                {
+                    allErrors.Add(element.TemplateCode, errors);
+                }
+            }
+
+            if (allErrors.Count > 0)
+            {
+                throw new InvalidObjectException(objectId, allErrors);
+            }
         }
 
         private static IEnumerable<ValidationRule> GetValidationRules(IObjectElementDescriptor descriptor)
@@ -295,7 +298,7 @@ namespace NuClear.VStore.Objects
         private async Task<string> PutObject(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             await PreprocessObjectElements(objectDescriptor.Elements);
-            await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             await _eventSender.SendAsync(_objectEventsTopic, new ObjectVersionCreatingEvent(id, versionId));
@@ -419,6 +422,7 @@ namespace NuClear.VStore.Objects
             long id,
             IEnumerable<IObjectElementDescriptor> objectElements)
         {
+            var allErrors = new Dictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
             var tasks = objectElements
                 .Select(async x =>
                             {
@@ -435,19 +439,27 @@ namespace NuClear.VStore.Objects
                                     var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
                                     return (Id: (long?)x.Id, Metadata: binaryMetadata);
                                 }
-                                catch (ObjectNotFoundException ex)
+                                catch (ObjectNotFoundException)
                                 {
-                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                    allErrors.Add(x.TemplateCode, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                                    return (Id: null, Metadata: null);
                                 }
-                                catch (SessionExpiredException ex)
+                                catch (SessionExpiredException)
                                 {
-                                    throw new InvalidObjectElementException(id, x.Id, new[] { new BinaryNotFoundError(binaryElementValue.Raw) }, ex);
+                                    allErrors.Add(x.TemplateCode, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
+                                    return (Id: null, Metadata: null);
                                 }
                             })
                 .ToList();
             await Task.WhenAll(tasks);
+            if (allErrors.Count > 0)
+            {
+                throw new InvalidObjectException(id, allErrors);
+            }
 
-            return tasks.Select(x => x.Result).Where(x => x.Id.HasValue).ToDictionary(x => x.Id.Value, x => x.Metadata);
+            return tasks.Select(x => x.Result)
+                        .Where(x => x.Id.HasValue)
+                        .ToDictionary(x => x.Id.Value, x => x.Metadata);
         }
     }
 }

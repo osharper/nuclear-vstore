@@ -108,10 +108,11 @@ namespace MigrationTool
             switch (elementType)
             {
                 case ElementDescriptorType.PlainText:
+                case ElementDescriptorType.FasComment:
                     if (elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction)
                     {
                         _logger.LogWarning(
-                            "Element template with {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
+                            "Element template with id {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
                             elementTemplateId,
                             elementTemplate.MaxSymbolsInWord,
                             elementTemplate.TextLengthRestriction);
@@ -130,7 +131,7 @@ namespace MigrationTool
                     if (elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction)
                     {
                         _logger.LogWarning(
-                            "Element template with {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
+                            "Element template with id {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
                             elementTemplateId,
                             elementTemplate.MaxSymbolsInWord,
                             elementTemplate.TextLengthRestriction);
@@ -144,25 +145,6 @@ namespace MigrationTool
                                                     ? elementTemplate.TextLengthRestriction
                                                     : elementTemplate.MaxSymbolsInWord
                         };
-
-                case ElementDescriptorType.FasComment:
-                    if (elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction)
-                    {
-                        _logger.LogWarning(
-                            "Element template with {id} has MaxSymbolsInWord larger than TextLengthRestriction ({maxSymbols} and {lengthRestriction}), taking the least one",
-                            elementTemplateId,
-                            elementTemplate.MaxSymbolsInWord,
-                            elementTemplate.TextLengthRestriction);
-                    }
-
-                    return new PlainTextElementConstraints
-                    {
-                        MaxSymbols = elementTemplate.TextLengthRestriction,
-                        MaxLines = elementTemplate.TextLineBreaksCountRestriction,
-                        MaxSymbolsPerWord = elementTemplate.MaxSymbolsInWord > elementTemplate.TextLengthRestriction
-                                                    ? elementTemplate.TextLengthRestriction
-                                                    : elementTemplate.MaxSymbolsInWord
-                    };
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.VideoLink:
                     return new LinkElementConstraints

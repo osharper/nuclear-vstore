@@ -6,13 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
-using Newtonsoft.Json.Linq;
-
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host.Extensions;
-using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Objects.ContentValidation;
@@ -201,9 +198,9 @@ namespace NuClear.VStore.Host.Controllers
                 Response.Headers[HeaderNames.ETag] = $"\"{versionId}\"";
                 return Created(url, null);
             }
-            catch (InvalidObjectElementException ex)
+            catch (InvalidObjectException ex)
             {
-                return Unprocessable(GenerateErrorJsonResult(ex));
+                return Unprocessable(ex.SerializeToJson());
             }
             catch (ObjectNotFoundException ex)
             {
@@ -277,9 +274,9 @@ namespace NuClear.VStore.Host.Controllers
                 Response.Headers[HeaderNames.ETag] = $"\"{latestVersionId}\"";
                 return NoContent(url);
             }
-            catch (InvalidObjectElementException ex)
+            catch (InvalidObjectException ex)
             {
-                return Unprocessable(GenerateErrorJsonResult(ex));
+                return Unprocessable(ex.SerializeToJson());
             }
             catch (ObjectNotFoundException ex)
             {
@@ -306,24 +303,6 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return BadRequest(ex.Message);
             }
-        }
-
-        private static JToken GenerateErrorJsonResult(InvalidObjectElementException ex)
-        {
-            var errors = new JArray();
-            foreach (var validationError in ex.Errors)
-            {
-                errors.Add(validationError.SerializeToJson());
-            }
-
-            return new JArray
-                       {
-                           new JObject
-                               {
-                                   [Tokens.IdToken] = ex.ElementId,
-                                   [Tokens.ErrorsToken] = errors
-                               }
-                       };
         }
     }
 }

@@ -215,7 +215,7 @@ namespace MigrationTool
 
             if (ermPosition.AdvertisementTemplateId.HasValue &&
                 _instanceTemplatesMap.ContainsKey(ermPosition.AdvertisementTemplateId.Value) &&
-                (apiPosition.Template.Id != _instanceTemplatesMap[ermPosition.AdvertisementTemplateId.Value]))
+                apiPosition.Template.Id != _instanceTemplatesMap[ermPosition.AdvertisementTemplateId.Value])
             {
                 var apiObject = JsonConvert.SerializeObject(apiPosition);
                 var ermObject = JsonConvert.SerializeObject(new PositionDescriptor
