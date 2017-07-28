@@ -54,19 +54,30 @@ namespace NuClear.VStore.Worker.Jobs
 
             Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
 
-            var utcNow = DateTime.UtcNow;
-            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, utcNow.Subtract(range));
+            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, DateTime.UtcNow.Subtract(range));
+            if (referenceEvents.Count == 0)
+            {
+                _logger.LogWarning(
+                    "There is no events of type '{eventType}' were found in time range '{range}' in past from now. " +
+                    "The '{workerJobType}' will now exit.",
+                    typeof(BinaryReferencedEvent).Name,
+                    range,
+                    typeof(BinariesCleanupJob).Name);
+                return;
+            }
+
+            var periodEnd = referenceEvents.Last().Timestamp;
             var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
 
-            await RemoveUnreferencedBinaries(utcNow, sessionsWithReferences);
+            await RemoveUnreferencedBinaries(periodEnd.UtcDateTime, sessionsWithReferences);
         }
 
-        private async Task RemoveUnreferencedBinaries(DateTime currentTime, ICollection<Guid> sessionsWithReferences)
+        private async Task RemoveUnreferencedBinaries(DateTime periodEnd, ICollection<Guid> sessionsWithReferences)
         {
             while (true)
             {
                 var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, _consumingBatchSize);
-                var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= currentTime).ToList();
+                var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= periodEnd).ToList();
 
                 if (expiredSessionEvents.Count == 0)
                 {
