@@ -35,7 +35,7 @@ namespace NuClear.VStore.Objects
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
-        private readonly LockSessionFactory _lockSessionFactory;
+        private readonly LockSessionManager _lockSessionManager;
         private readonly EventSender _eventSender;
         private readonly string _bucketName;
         private readonly string _objectEventsTopic;
@@ -47,14 +47,14 @@ namespace NuClear.VStore.Objects
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
-            LockSessionFactory lockSessionFactory,
+            LockSessionManager lockSessionManager,
             EventSender eventSender)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
             _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
-            _lockSessionFactory = lockSessionFactory;
+            _lockSessionManager = lockSessionManager;
             _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
             _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
@@ -69,7 +69,7 @@ namespace NuClear.VStore.Objects
             LockSession lockSession = null;
             try
             {
-                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
 
                 if (await _objectsStorageReader.IsObjectExists(id))
                 {
@@ -124,7 +124,7 @@ namespace NuClear.VStore.Objects
             LockSession lockSession = null;
             try
             {
-                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
 
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
                 if (objectDescriptor == null)

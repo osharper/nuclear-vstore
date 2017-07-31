@@ -35,7 +35,7 @@ namespace NuClear.VStore.Templates
 
         private readonly IAmazonS3Proxy _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
-        private readonly LockSessionFactory _lockSessionFactory;
+        private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
         private readonly long _maxBinarySize;
 
@@ -44,11 +44,11 @@ namespace NuClear.VStore.Templates
             CephOptions cephOptions,
             IAmazonS3Proxy amazonS3,
             TemplatesStorageReader templatesStorageReader,
-            LockSessionFactory lockSessionFactory)
+            LockSessionManager lockSessionManager)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
-            _lockSessionFactory = lockSessionFactory;
+            _lockSessionManager = lockSessionManager;
             _bucketName = cephOptions.TemplatesBucketName;
             _maxBinarySize = vstoreOptions.MaxBinarySize;
         }
@@ -78,7 +78,7 @@ namespace NuClear.VStore.Templates
             LockSession lockSession = null;
             try
             {
-                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
 
                 if (await _templatesStorageReader.IsTemplateExists(id))
                 {
@@ -114,7 +114,7 @@ namespace NuClear.VStore.Templates
             LockSession lockSession = null;
             try
             {
-                lockSession = await _lockSessionFactory.CreateLockSessionAsync(id);
+                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
 
                 if (!await _templatesStorageReader.IsTemplateExists(id))
                 {

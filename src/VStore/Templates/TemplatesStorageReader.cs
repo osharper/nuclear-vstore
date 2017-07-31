@@ -14,6 +14,7 @@ using Newtonsoft.Json;
 using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
+using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
@@ -22,12 +23,14 @@ namespace NuClear.VStore.Templates
     public sealed class TemplatesStorageReader
     {
         private readonly IAmazonS3Proxy _amazonS3;
+        private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3)
+        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3, LockSessionManager lockSessionManager)
         {
             _amazonS3 = amazonS3;
+            _lockSessionManager = lockSessionManager;
             _bucketName = cephOptions.TemplatesBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
@@ -121,6 +124,8 @@ namespace NuClear.VStore.Templates
 
         public async Task<string> GetTemplateLatestVersion(long id)
         {
+            await _lockSessionManager.EnsureLockSessionNotExists(id);
+
             var idAsString = id.ToString();
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, idAsString);
             var version = versionsResponse.Versions.Find(x => x.Key == idAsString && !x.IsDeleteMarker && x.IsLatest);
@@ -136,12 +141,12 @@ namespace NuClear.VStore.Templates
         {
             var idAsString = id.ToString();
             var listResponse = await _amazonS3.ListObjectsV2Async(
-                                    new ListObjectsV2Request
-                                        {
-                                            BucketName = _bucketName,
-                                            Prefix = idAsString
-                                    });
-            return listResponse.S3Objects.Any(o => o.Key == idAsString);
+                                   new ListObjectsV2Request
+                                       {
+                                           BucketName = _bucketName,
+                                           Prefix = idAsString
+                                       });
+            return listResponse.S3Objects.FindIndex(o => o.Key == idAsString) != -1;
         }
     }
 }
