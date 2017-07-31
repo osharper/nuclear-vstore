@@ -89,7 +89,7 @@ namespace NuClear.VStore.Kafka
             void OnMessage(object sender, Message<string, string> message)
             {
                 var @event = Event.Deserialize<TSourceEvent>(message.Value);
-                events.Add(new KafkaEvent<TSourceEvent>(@event, message.TopicPartitionOffset));
+                events.Add(new KafkaEvent<TSourceEvent>(@event, message.TopicPartitionOffset, message.Timestamp));
                 ++count;
             }
 
