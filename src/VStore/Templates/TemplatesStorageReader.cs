@@ -14,7 +14,6 @@ using Newtonsoft.Json;
 using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
-using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
@@ -23,14 +22,12 @@ namespace NuClear.VStore.Templates
     public sealed class TemplatesStorageReader
     {
         private readonly IAmazonS3Proxy _amazonS3;
-        private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3, LockSessionManager lockSessionManager)
+        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3)
         {
             _amazonS3 = amazonS3;
-            _lockSessionManager = lockSessionManager;
             _bucketName = cephOptions.TemplatesBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
@@ -59,11 +56,13 @@ namespace NuClear.VStore.Templates
                                     try
                                     {
                                         var versionId = await GetTemplateLatestVersion(templateId);
+
                                         var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString(), versionId);
                                         var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                                         var author = metadataWrapper.Read<string>(MetadataElement.Author);
                                         var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
                                         var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
                                         record = new ObjectMetadataRecord(
                                             templateId,
                                             versionId,
