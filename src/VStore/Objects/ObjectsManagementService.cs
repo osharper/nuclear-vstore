@@ -298,7 +298,7 @@ namespace NuClear.VStore.Objects
 
         private async Task<string> PutObject(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
-            await PreprocessObjectElements(objectDescriptor.Elements);
+            PreprocessObjectElements(objectDescriptor.Elements);
             VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
@@ -343,7 +343,7 @@ namespace NuClear.VStore.Objects
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
             var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
-            var elementVersions = objectVersions.Where(x => !x.Id.EndsWith(Tokens.ObjectPostfix)).ToArray();
+            var elementVersions = objectVersions.Where(x => !x.Id.EndsWith(Tokens.ObjectPostfix)).ToList();
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
                                                   {
                                                       TemplateId = objectDescriptor.TemplateId,
@@ -377,46 +377,41 @@ namespace NuClear.VStore.Objects
                                  .Single();
         }
 
-        private async Task PreprocessObjectElements(IEnumerable<IObjectElementDescriptor> elementDescriptors)
+        private void PreprocessObjectElements(IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
-            var tasks = elementDescriptors.Select(
-                async descriptor =>
-                    await Task.Run(
-                        () =>
-                            {
-                                switch (descriptor.Type)
-                                {
-                                    case ElementDescriptorType.PlainText:
-                                        ((TextElementValue)descriptor.Value).Raw =
-                                            ElementTextHarmonizer.ProcessPlain(((TextElementValue)descriptor.Value).Raw);
-                                        break;
-                                    case ElementDescriptorType.FormattedText:
-                                        ((TextElementValue)descriptor.Value).Raw =
-                                            ElementTextHarmonizer.ProcessFormatted(((TextElementValue)descriptor.Value).Raw);
-                                        break;
-                                    case ElementDescriptorType.FasComment:
-                                        ((FasElementValue)descriptor.Value).Text =
-                                            ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
-                                        break;
-                                    case ElementDescriptorType.VideoLink:
-                                    case ElementDescriptorType.Link:
-                                        ((TextElementValue)descriptor.Value).Raw =
-                                            ElementTextHarmonizer.ProcessLink(((TextElementValue)descriptor.Value).Raw);
-                                        break;
-                                    case ElementDescriptorType.BitmapImage:
-                                    case ElementDescriptorType.VectorImage:
-                                    case ElementDescriptorType.Article:
-                                    case ElementDescriptorType.Date:
-                                    case ElementDescriptorType.Phone:
-                                        break;
-                                    default:
-                                        throw new ArgumentOutOfRangeException(nameof(descriptor.Type),
-                                                                              descriptor.Type,
-                                                                              $"Unsupported element descriptor type for descriptor {descriptor.Id}");
-                                }
-                            }));
-
-            await Task.WhenAll(tasks);
+            foreach (var descriptor in elementDescriptors)
+            {
+                switch (descriptor.Type)
+                {
+                    case ElementDescriptorType.PlainText:
+                        ((TextElementValue)descriptor.Value).Raw =
+                            ElementTextHarmonizer.ProcessPlain(((TextElementValue)descriptor.Value).Raw);
+                        break;
+                    case ElementDescriptorType.FormattedText:
+                        ((TextElementValue)descriptor.Value).Raw =
+                            ElementTextHarmonizer.ProcessFormatted(((TextElementValue)descriptor.Value).Raw);
+                        break;
+                    case ElementDescriptorType.FasComment:
+                        ((FasElementValue)descriptor.Value).Text =
+                            ElementTextHarmonizer.ProcessPlain(((FasElementValue)descriptor.Value).Text);
+                        break;
+                    case ElementDescriptorType.VideoLink:
+                    case ElementDescriptorType.Link:
+                        ((TextElementValue)descriptor.Value).Raw =
+                            ElementTextHarmonizer.ProcessLink(((TextElementValue)descriptor.Value).Raw);
+                        break;
+                    case ElementDescriptorType.BitmapImage:
+                    case ElementDescriptorType.VectorImage:
+                    case ElementDescriptorType.Article:
+                    case ElementDescriptorType.Date:
+                    case ElementDescriptorType.Phone:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(descriptor.Type),
+                                                              descriptor.Type,
+                                                              $"Unsupported element descriptor type for descriptor {descriptor.Id}");
+                }
+            }
         }
 
         private async Task<IReadOnlyDictionary<long, BinaryMetadata>> RetrieveMetadataForBinaries(

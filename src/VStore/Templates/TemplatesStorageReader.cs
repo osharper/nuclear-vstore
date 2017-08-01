@@ -58,13 +58,12 @@ namespace NuClear.VStore.Templates
                                     ObjectMetadataRecord record;
                                     try
                                     {
-                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString());
+                                        var versionId = await GetTemplateLatestVersion(templateId);
+                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString(), versionId);
                                         var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                                         var author = metadataWrapper.Read<string>(MetadataElement.Author);
                                         var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
                                         var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
-                                        var versionId = await GetTemplateLatestVersion(templateId);
                                         record = new ObjectMetadataRecord(
                                             templateId,
                                             versionId,
@@ -72,6 +71,10 @@ namespace NuClear.VStore.Templates
                                             new AuthorInfo(author, authorLogin, authorName));
                                     }
                                     catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    {
+                                        record = null;
+                                    }
+                                    catch (ObjectNotFoundException)
                                     {
                                         record = null;
                                     }
@@ -124,8 +127,6 @@ namespace NuClear.VStore.Templates
 
         public async Task<string> GetTemplateLatestVersion(long id)
         {
-            await _lockSessionManager.EnsureLockSessionNotExists(id);
-
             var idAsString = id.ToString();
             var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, idAsString);
             var version = versionsResponse.Versions.Find(x => x.Key == idAsString && !x.IsDeleteMarker && x.IsLatest);
