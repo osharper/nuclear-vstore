@@ -181,7 +181,6 @@ namespace NuClear.VStore.Host
             services.AddSingleton<MetricsProvider>();
             services.AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()));
             services.AddSingleton<LockSessionManager>();
-            services.AddSingleton<LockSessionFactory>();
             services.AddSingleton<TemplatesStorageReader>();
             services.AddSingleton<TemplatesManagementService>();
             services.AddSingleton<SessionStorageReader>();

@@ -55,13 +55,14 @@ namespace NuClear.VStore.Templates
                                     ObjectMetadataRecord record;
                                     try
                                     {
-                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString());
+                                        var versionId = await GetTemplateLatestVersion(templateId);
+
+                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString(), versionId);
                                         var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                                         var author = metadataWrapper.Read<string>(MetadataElement.Author);
                                         var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
                                         var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
-                                        var versionId = await GetTemplateLatestVersion(templateId);
                                         record = new ObjectMetadataRecord(
                                             templateId,
                                             versionId,
@@ -69,6 +70,10 @@ namespace NuClear.VStore.Templates
                                             new AuthorInfo(author, authorLogin, authorName));
                                     }
                                     catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    {
+                                        record = null;
+                                    }
+                                    catch (ObjectNotFoundException)
                                     {
                                         record = null;
                                     }
@@ -136,12 +141,12 @@ namespace NuClear.VStore.Templates
         {
             var idAsString = id.ToString();
             var listResponse = await _amazonS3.ListObjectsV2Async(
-                                    new ListObjectsV2Request
-                                        {
-                                            BucketName = _bucketName,
-                                            Prefix = idAsString
-                                    });
-            return listResponse.S3Objects.Any(o => o.Key == idAsString);
+                                   new ListObjectsV2Request
+                                       {
+                                           BucketName = _bucketName,
+                                           Prefix = idAsString
+                                       });
+            return listResponse.S3Objects.FindIndex(o => o.Key == idAsString) != -1;
         }
     }
 }

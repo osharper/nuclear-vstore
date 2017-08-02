@@ -263,7 +263,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Conflict("Template with the same id already exists");
             }
-            catch (SessionLockAlreadyExistsException)
+            catch (LockAlreadyExistsException)
             {
                 return Conflict("Simultaneous creation of template with the same id");
             }
@@ -319,7 +319,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Unprocessable(errorGenerator(ex));
             }
-            catch (SessionLockAlreadyExistsException)
+            catch (LockAlreadyExistsException)
             {
                 return Conflict("Simultaneous modification of template");
             }

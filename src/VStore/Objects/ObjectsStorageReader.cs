@@ -18,6 +18,7 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Objects.Persistence;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
+using NuClear.VStore.Locks;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 using NuClear.VStore.Templates;
@@ -28,6 +29,7 @@ namespace NuClear.VStore.Objects
     {
         private readonly IAmazonS3Proxy _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
+        private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
         private readonly Uri _fileStorageEndpoint;
@@ -36,10 +38,12 @@ namespace NuClear.VStore.Objects
             CephOptions cephOptions,
             VStoreOptions vStoreOptions,
             IAmazonS3Proxy amazonS3,
-            TemplatesStorageReader templatesStorageReader)
+            TemplatesStorageReader templatesStorageReader,
+            LockSessionManager lockSessionManager)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
+            _lockSessionManager = lockSessionManager;
             _bucketName = cephOptions.ObjectsBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
@@ -68,12 +72,6 @@ namespace NuClear.VStore.Objects
                                     ObjectMetadataRecord record;
                                     try
                                     {
-                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, id.AsS3ObjectKey(Tokens.ObjectPostfix));
-                                        var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
-                                        var author = metadataWrapper.Read<string>(MetadataElement.Author);
-                                        var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                                        var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
                                         var objectVersions = await GetObjectLatestVersions(id);
                                         var versionId = objectVersions.Where(v => v.Id.EndsWith(Tokens.ObjectPostfix))
                                                                       .Select(v => v.VersionId)
@@ -84,6 +82,12 @@ namespace NuClear.VStore.Objects
                                         }
                                         else
                                         {
+                                            var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
+                                            var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                                            var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                            var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                            var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+
                                             record = new ObjectMetadataRecord(
                                                 id,
                                                 versionId,
@@ -131,6 +135,8 @@ namespace NuClear.VStore.Objects
 
             async Task<(bool IsTruncated, int NextVersionIndex, string NextVersionIdMarker)> ListVersions(int nextVersionIndex, string nextVersionIdMarker)
             {
+                await _lockSessionManager.EnsureLockSessionNotExists(id);
+
                 var versionsResponse = await _amazonS3.ListVersionsAsync(
                                            new ListVersionsRequest
                                                {
@@ -215,11 +221,11 @@ namespace NuClear.VStore.Objects
 
         public async Task<IReadOnlyCollection<VersionedObjectDescriptor<string>>> GetObjectLatestVersions(long id)
         {
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id + "/");
+            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, id.ToString() + "/");
             return versionsResponse.Versions
                                    .Where(x => !x.IsDeleteMarker && x.IsLatest && !x.Key.EndsWith("/"))
                                    .Select(x => new VersionedObjectDescriptor<string>(x.Key, x.VersionId, x.LastModified))
-                                   .ToArray();
+                                   .ToList();
         }
 
         public async Task<ObjectDescriptor> GetObjectDescriptor(long id, string versionId)

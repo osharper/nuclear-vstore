@@ -219,7 +219,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return Conflict("Object with the same id already exists");
             }
-            catch (SessionLockAlreadyExistsException)
+            catch (LockAlreadyExistsException)
             {
                 return Conflict("Simultaneous creation of object with the same id");
             }
@@ -290,7 +290,7 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound(ex.Message);
             }
-            catch (SessionLockAlreadyExistsException)
+            catch (LockAlreadyExistsException)
             {
                 return Conflict("Simultaneous modification of object");
             }
