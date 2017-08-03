@@ -18,6 +18,8 @@ namespace NuClear.VStore.Worker.Jobs
         private const string GroupId = "vstore-sessions-cleaner";
         private const char SlashChar = '/';
 
+        private static readonly TimeSpan SafetyPeriod = TimeSpan.FromMinutes(5);
+
         private readonly int _consumingBatchSize;
         private readonly string _sessionsTopicName;
         private readonly string _binariesReferencesTopicName;
@@ -54,7 +56,18 @@ namespace NuClear.VStore.Worker.Jobs
 
             Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
 
-            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, DateTime.UtcNow.Subtract(range));
+            var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, 1);
+            if (sessionCreatingEvents.Count == 0)
+            {
+                return;
+            }
+
+            var oldestSessionDate = sessionCreatingEvents.First().Timestamp.UtcDateTime;
+
+            var dateToStart = DateTime.UtcNow.Subtract(range);
+            dateToStart = new DateTime(Math.Min(dateToStart.Ticks, oldestSessionDate.Subtract(SafetyPeriod).Ticks));
+
+            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
             if (referenceEvents.Count == 0)
             {
                 _logger.LogWarning(
