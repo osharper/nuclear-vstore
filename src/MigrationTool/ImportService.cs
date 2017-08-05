@@ -45,6 +45,8 @@ namespace MigrationTool
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
 
+        private long _uploadedBinariesCount;
+
         public ImportService(
             DbContextOptions<ErmContext> contextOptions,
             Language language,
@@ -411,6 +413,7 @@ namespace MigrationTool
 
         private async Task<bool> DemoImportAdvertisementsAsync(IReadOnlyCollection<long> templateIds)
         {
+            _uploadedBinariesCount = 0L;
             var advertisementIds = new List<long>(templateIds.Count * _truncatedImportSize);
             using (var context = GetNewContext())
             {
@@ -440,6 +443,7 @@ namespace MigrationTool
             }
 
             var failedAds = await ImportAdvertisementsByIdsAsync(advertisementIds);
+            _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
             return failedAds.Count == 0;
         }
 
@@ -497,6 +501,7 @@ namespace MigrationTool
             }
 
             var importedCount = 0L;
+            _uploadedBinariesCount = 0L;
             var failedAds = new List<Advertisement>();
             for (var segmentNum = 0; ; ++segmentNum)
             {
@@ -520,6 +525,7 @@ namespace MigrationTool
             }
 
             _logger.LogInformation("Total imported advertisements: {imported} of {total}", importedCount.ToString(), advertisementsToImport.Length.ToString());
+            _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
 
             // All advertisements were imported, check the failed ones:
             if (failedAds.Count > 0)
@@ -581,6 +587,7 @@ namespace MigrationTool
 
         private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<Advertisement> failedAds)
         {
+            _uploadedBinariesCount = 0;
             var imported = 0;
             var totallyFailedAds = new ConcurrentBag<long>();
             _logger.LogInformation("Start to import failed advertisements, total {count}", failedAds.Count.ToString());
@@ -621,6 +628,7 @@ namespace MigrationTool
             await Task.WhenAll(tasks);
 
             _logger.LogInformation("Failed advertisements repeated import done, imported: {imported} of {total}", imported.ToString(), failedAds.Count.ToString());
+            _logger.LogInformation("Total uploaded binaries during repeated import: {totalBinaries}", _uploadedBinariesCount);
             if (totallyFailedAds.Count < 1)
             {
                 return true;
@@ -1091,6 +1099,7 @@ namespace MigrationTool
                     var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
                     var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
                     var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    Interlocked.Increment(ref _uploadedBinariesCount);
 
                     return new BitmapImageElementValue
                         {
@@ -1108,6 +1117,7 @@ namespace MigrationTool
                     EnsureFileElementIsValid(elementType, element, newElem);
                     var format = Converter.DetectFileFormat(element.File, templateCode);
                     var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    Interlocked.Increment(ref _uploadedBinariesCount);
                     return new VectorImageElementValue
                         {
                             Raw = json.Value<string>("raw")
@@ -1123,6 +1133,7 @@ namespace MigrationTool
 
                     EnsureFileElementIsValid(elementType, element, newElem);
                     var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
+                    Interlocked.Increment(ref _uploadedBinariesCount);
                     return new ArticleElementValue
                         {
                             Raw = json.Value<string>("raw")

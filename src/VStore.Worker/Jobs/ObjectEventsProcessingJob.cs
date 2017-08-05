@@ -51,7 +51,7 @@ namespace NuClear.VStore.Worker.Jobs
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
-            if (args.TryGetValue(CommandLine.Arguments.Mode, out string[] modes))
+            if (args.TryGetValue(CommandLine.Arguments.Mode, out var modes))
             {
                 var tasks = new List<Task>();
                 if (modes.Contains(CommandLine.ArgumentValues.Versions))

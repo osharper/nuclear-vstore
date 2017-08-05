@@ -27,9 +27,12 @@ using NuClear.VStore.Http;
 using NuClear.VStore.Json;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Options;
+using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
+
+using Prometheus.Client;
 
 namespace NuClear.VStore.Sessions
 {
@@ -55,6 +58,8 @@ namespace NuClear.VStore.Sessions
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly EventSender _eventSender;
+        private readonly Counter _uploadedBinariesMetric;
+        private readonly Counter _createdSessionsMetric;
 
         public SessionManagementService(
             CephOptions cephOptions,
@@ -63,7 +68,8 @@ namespace NuClear.VStore.Sessions
             IAmazonS3 amazonS3,
             SessionStorageReader sessionStorageReader,
             TemplatesStorageReader templatesStorageReader,
-            EventSender eventSender)
+            EventSender eventSender,
+            MetricsProvider metricsProvider)
         {
             _sessionExpiration = vstoreOptions.SessionExpiration;
             _fileStorageEndpointUri = vstoreOptions.FileStorageEndpoint;
@@ -73,6 +79,8 @@ namespace NuClear.VStore.Sessions
             _sessionStorageReader = sessionStorageReader;
             _templatesStorageReader = templatesStorageReader;
             _eventSender = eventSender;
+            _uploadedBinariesMetric = metricsProvider.GetUploadedBinariesMetric();
+            _createdSessionsMetric = metricsProvider.GetCreatedSessionsMetric();
         }
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
@@ -123,6 +131,7 @@ namespace NuClear.VStore.Sessions
             await _eventSender.SendAsync(_sessionsTopicName, new SessionCreatingEvent(sessionId, expiresAt));
 
             await _amazonS3.PutObjectAsync(request);
+            _createdSessionsMetric.Inc();
         }
 
         public async Task<MultipartUploadSession> InitiateMultipartUpload(
@@ -257,6 +266,7 @@ namespace NuClear.VStore.Sessions
                     }
 
                     await _amazonS3.CopyObjectAsync(copyRequest);
+                    _uploadedBinariesMetric.Inc();
 
                     return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
                 }

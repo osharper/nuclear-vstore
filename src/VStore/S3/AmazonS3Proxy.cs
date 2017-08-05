@@ -56,6 +56,9 @@ namespace NuClear.VStore.S3
         public async Task<DeleteObjectResponse> DeleteObjectAsync(string bucketName, string key, string versionId) =>
             await ExecuteS3Request(() => _amazonS3.DeleteObjectAsync(bucketName, key, versionId), bucketName);
 
+        public async Task<DeleteObjectResponse> DeleteObjectAsync(string bucketName, string key) =>
+            await ExecuteS3Request(() => _amazonS3.DeleteObjectAsync(bucketName, key), bucketName);
+
         private async Task<TResponse> ExecuteS3Request<TResponse>(Func<Task<TResponse>> amazonRequest, string bucketName, [CallerMemberName] string method = null)
         {
             try

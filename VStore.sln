@@ -24,7 +24,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{296CC59B-21C
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{A8C3AC02-38B4-46F4-896A-1C98CDF77B70}"
 	ProjectSection(SolutionItems) = preProject
-		templates\cronjob-collect-binaries.yaml.j2 = templates\cronjob-collect-binaries.yaml.j2
 		templates\deployment.yaml.j2 = templates\deployment.yaml.j2
 		templates\service.yaml.j2 = templates\service.yaml.j2
 	EndProjectSection

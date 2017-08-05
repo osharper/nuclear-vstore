@@ -40,8 +40,8 @@ vstore:
 
   session_expiration: "00:01:00"
 
-  binaries_job_schedule: "0 */2 * * *"
-  binaries_job_timerange: "02:00:00"
+  binaries_collector_timedelay: "00:30:00"
+  binaries_collector_timerange: "02:00:00"
 
   kafka_endpoints: "kafka1.c.n3.hw,kafka2.c.n3.hw,kafka3.c.n3.hw"
 
@@ -58,4 +58,3 @@ vstore:
   kubectl:
   - template: deployment.yaml.j2
   - template: service.yaml.j2
-  - template: cronjob-collect-binaries.yaml.j2

@@ -23,15 +23,18 @@ using NuClear.VStore.Objects.ContentPreprocessing;
 using NuClear.VStore.Objects.ContentValidation;
 using NuClear.VStore.Objects.ContentValidation.Errors;
 using NuClear.VStore.Options;
+using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 using NuClear.VStore.Templates;
+
+using Prometheus.Client;
 
 namespace NuClear.VStore.Objects
 {
     public sealed class ObjectsManagementService
     {
-        private readonly IAmazonS3 _amazonS3;
+        private readonly IAmazonS3Proxy _amazonS3;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
@@ -39,16 +42,18 @@ namespace NuClear.VStore.Objects
         private readonly EventSender _eventSender;
         private readonly string _bucketName;
         private readonly string _objectEventsTopic;
+        private readonly Counter _referencedBinariesMetric;
 
         public ObjectsManagementService(
             CephOptions cephOptions,
             KafkaOptions kafkaOptions,
-            IAmazonS3 amazonS3,
+            IAmazonS3Proxy amazonS3,
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
             LockSessionManager lockSessionManager,
-            EventSender eventSender)
+            EventSender eventSender,
+            MetricsProvider metricsProvider)
         {
             _amazonS3 = amazonS3;
             _templatesStorageReader = templatesStorageReader;
@@ -58,6 +63,7 @@ namespace NuClear.VStore.Objects
             _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
             _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
+            _referencedBinariesMetric = metricsProvider.GetReferencedBinariesMetric();
         }
 
         private delegate IEnumerable<ObjectElementValidationError> ValidationRule(IObjectElementValue value, IElementConstraints constraints);
@@ -304,6 +310,7 @@ namespace NuClear.VStore.Objects
 
             await _eventSender.SendAsync(_objectEventsTopic, new ObjectVersionCreatingEvent(id, versionId));
 
+            var binariesCount = 0;
             PutObjectRequest putRequest;
             MetadataCollectionWrapper metadataWrapper;
 
@@ -318,6 +325,7 @@ namespace NuClear.VStore.Objects
                     }
                     else
                     {
+                        ++binariesCount;
                         var metadata = metadataForBinaries[elementDescriptor.Id];
                         value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
                     }
@@ -370,6 +378,7 @@ namespace NuClear.VStore.Objects
                 string.Join(Tokens.ModifiedElementsDelimiter.ToString(), objectDescriptor.Elements.Select(x => x.TemplateCode)));
 
             await _amazonS3.PutObjectAsync(putRequest);
+            _referencedBinariesMetric.Inc(binariesCount);
 
             objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             return objectVersions.Where(x => x.Id.EndsWith(Tokens.ObjectPostfix))

@@ -26,11 +26,16 @@ using Serilog;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Templates;
 using NuClear.VStore.Kafka;
+using NuClear.VStore.Prometheus;
+
+using Prometheus.Client.MetricServer;
 
 namespace NuClear.VStore.Worker
 {
     public sealed class Program
     {
+        private static readonly IMetricServer MetricServer = new MetricServer(5000);
+
         public static void Main(string[] args)
         {
             var env = Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production";
@@ -86,6 +91,7 @@ namespace NuClear.VStore.Worker
                                     commandConfig.Description = "Collect orphan binary files.";
                                     commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
                                     commandConfig.Argument(CommandLine.Arguments.Range, "Time range in hours.");
+                                    commandConfig.Argument(CommandLine.Arguments.Delay, "Delay between collections.");
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
                         config.OnExecute(() =>
@@ -117,6 +123,7 @@ namespace NuClear.VStore.Worker
             try
             {
                 logger.LogInformation("VStore Worker started with options: {workerOptions}.", args.Length != 0 ? string.Join(" ", args) : "N/A");
+                MetricServer.Start();
                 exitCode = app.Execute(args);
             }
             catch (CommandParsingException ex)
@@ -135,6 +142,7 @@ namespace NuClear.VStore.Worker
             }
             finally
             {
+                MetricServer.Stop();
                 logger.LogInformation("VStore Worker is shutting down with code {workerExitCode}.", exitCode);
             }
 
@@ -186,7 +194,8 @@ namespace NuClear.VStore.Worker
 
                             return new AmazonS3Client(credentials, config);
                         })
-                .AddSingleton<IAmazonS3Proxy>(x => new AmazonS3SimpleProxy(x.GetRequiredService<IAmazonS3>()))
+                .AddSingleton<MetricsProvider>()
+                .AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()))
                 .AddSingleton<LockSessionManager>()
                 .AddSingleton<SessionCleanupService>()
                 .AddScoped<TemplatesStorageReader>()

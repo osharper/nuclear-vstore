@@ -26,14 +26,44 @@ namespace NuClear.VStore.Prometheus
         private readonly Counter _requestErrors =
             Metrics.CreateCounter(Names.RequestErrorsMetric, "Request errors count", Names.BackendLabel, Names.TypeLabel, Names.MethodLabel);
 
+        private readonly Counter _uploadedBinaries =
+            Metrics.CreateCounter(Names.UploadedBinariesMetric, "Uploaded binaries count");
+
+        private readonly Counter _referencedBinaries =
+            Metrics.CreateCounter(Names.ReferencedBinariesMetric, "Referenced binaries count");
+
+        private readonly Counter _removedBinaries =
+            Metrics.CreateCounter(Names.RemovedBinariesMetric, "Removed binaries count");
+
+        private readonly Counter _createdSessions =
+            Metrics.CreateCounter(Names.CreatedSessionsMetric, "Created sessions count");
+
+        private readonly Counter _removedSessions =
+            Metrics.CreateCounter(Names.RemovedSessionsMetric, "Removed sessions count");
+
         public Histogram GetRequestDurationMsMetric() => _requestDurationMs;
 
         public Counter GetRequestErrorsMetric() => _requestErrors;
 
+        public Counter GetUploadedBinariesMetric() => _uploadedBinaries;
+
+        public Counter GetReferencedBinariesMetric() => _referencedBinaries;
+
+        public Counter GetRemovedBinariesMetric() => _removedBinaries;
+
+        public Counter GetCreatedSessionsMetric() => _createdSessions;
+
+        public Counter GetRemovedSessionsMetric() => _removedSessions;
+
         private static class Names
         {
-            public const string RequestDurationMetric = "request_duration";
-            public const string RequestErrorsMetric = "request_errors";
+            public const string RequestDurationMetric = "vstore_request_duration";
+            public const string RequestErrorsMetric = "vstore_request_errors";
+            public const string UploadedBinariesMetric = "vstore_binaries_uploaded";
+            public const string ReferencedBinariesMetric = "vstore_binaries_referenced";
+            public const string RemovedBinariesMetric = "vstore_binaries_removed";
+            public const string CreatedSessionsMetric = "vstore_sessions_created";
+            public const string RemovedSessionsMetric = "vstore_sessions_removed";
             public const string BackendLabel = "backend";
             public const string TypeLabel = "type";
             public const string MethodLabel = "method";
