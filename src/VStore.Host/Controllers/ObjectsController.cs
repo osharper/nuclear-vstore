@@ -91,6 +91,10 @@ namespace NuClear.VStore.Host.Controllers
             {
                 return NotFound();
             }
+            catch (LockAlreadyExistsException)
+            {
+                return Conflict("Simultaneous object versions listing and its creation/modification");
+            }
         }
 
         [HttpGet("{id:long}")]

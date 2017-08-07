@@ -99,7 +99,7 @@ namespace NuClear.VStore.Worker.Jobs
                     "Total {totalSessionsCount} sessions has been processed ({expiredSessionsCount} were expired by {periodEnd}). The '{workerJobType}' will now wait.",
                     result.totalSessionsCount,
                     result.expiredSessionsCount,
-                    periodEnd,
+                    periodEnd.UtcDateTime,
                     typeof(BinariesCleanupJob).Name);
             }
             else
