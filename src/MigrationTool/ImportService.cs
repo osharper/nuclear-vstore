@@ -1004,7 +1004,6 @@ namespace MigrationTool
 
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
-                case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
                 case ElementDescriptorType.VideoLink:
@@ -1139,18 +1138,6 @@ namespace MigrationTool
                             Raw = json.Value<string>("raw")
                         };
                 }
-
-                case ElementDescriptorType.Date:
-                    if (element.BeginDate == null || element.EndDate == null)
-                    {
-                        throw new ArgumentException("Element descriptor without both dates");
-                    }
-
-                    return new DateElementValue
-                    {
-                        BeginDate = element.BeginDate.Value,
-                        EndDate = element.EndDate.Value
-                    };
 
                 case ElementDescriptorType.Phone:
                     return new PhoneElementValue

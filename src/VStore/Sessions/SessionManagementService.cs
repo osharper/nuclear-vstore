@@ -317,7 +317,6 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:
-                case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
                 case ElementDescriptorType.VideoLink:
@@ -348,7 +347,6 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:
-                case ElementDescriptorType.Date:
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
                 case ElementDescriptorType.VideoLink:

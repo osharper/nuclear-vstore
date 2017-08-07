@@ -174,8 +174,6 @@ namespace MigrationTool
                         MaxSize = elementTemplate.FileSizeRestriction * BytesInKilobyte,
                         SupportedFileFormats = ConvertFileExtenstionRestrictionToFileFormats(elementTemplate)
                     };
-                case ElementDescriptorType.Date:
-                    return new DateElementConstraints();
                 case ElementDescriptorType.Phone:
                     return new PhoneElementConstraints();
                 default:
@@ -264,7 +262,7 @@ namespace MigrationTool
                 case ElementRestrictionType.FasComment:
                     return ElementDescriptorType.FasComment;
                 case ElementRestrictionType.Date:
-                    return ElementDescriptorType.Date;
+                    throw new NotSupportedException("Date restriction type is not supported");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementTemplate), elementTemplate.RestrictionType, "Unknown ElementRestrictionType");
             }
