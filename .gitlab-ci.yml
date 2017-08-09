@@ -83,7 +83,7 @@ deploy:standalone:
     name: vstore-standalone
     url: http://${CI_ENVIRONMENT_SLUG}.web-staging.2gis.ru/swagger
 
-deploy:ams-deploy:
+deploy:relizard:
   stage: deploy
   environment:
     name: staging
@@ -95,13 +95,13 @@ deploy:ams-deploy:
   dependencies: []
   tags: [ io, docker-engine ]
 
-deploy:ams-deploy:review:
+deploy:relizard:review:
   stage: deploy
   when: manual
   environment:
     name: review/${CI_COMMIT_REF_SLUG}
     url: http://vstore-${CI_COMMIT_REF_SLUG}.web-staging.2gis.ru/swagger
-    on_stop: destroy:ams-deploy:stop-review
+    on_stop: destroy:relizard:stop-review
   only:
     - branches
   except:
@@ -113,7 +113,7 @@ deploy:ams-deploy:review:
 
 # ================= End =================
 
-destroy:ams-deploy:stop-review:
+destroy:relizard:stop-review:
   stage: end
   when: manual
   variables:
