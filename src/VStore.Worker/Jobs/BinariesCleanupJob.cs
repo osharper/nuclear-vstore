@@ -90,7 +90,7 @@ namespace NuClear.VStore.Worker.Jobs
             var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
             if (referenceEvents.Count > 0)
             {
-                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
+                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source)));
 
                 var periodEnd = referenceEvents.Last().Timestamp.UtcDateTime;
                 var (totalSessionsCount, expiredSessionsCount) = await RemoveUnreferencedBinaries(periodEnd, sessionsWithReferences, cancellationToken);
@@ -136,7 +136,19 @@ namespace NuClear.VStore.Worker.Jobs
 
             return (range, delay);
         }
-        private static Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+
+        private static Guid EvaluateSessionId(BinaryReferencedEvent @event)
+        {
+            var fileKey = @event?.FileKey;
+            if (string.IsNullOrEmpty(fileKey))
+            {
+                throw new ArgumentException(
+                    $"File key is not set for the object with id = '{@event?.ObjectId}' and versionId = '{@event?.ObjectVersionId}' " +
+                    $"in the event of type '{@event?.GetType().Name}'.");
+            }
+
+            return new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+        }
 
         private async Task<(int, int)> RemoveUnreferencedBinaries(
             DateTime periodEnd,

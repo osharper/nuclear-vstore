@@ -186,7 +186,7 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
                 var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
+                    "{taskName} - There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
                     "for the object id = '{objectId}'.",
                     nameof(ProduceBinaryReferencesEvents),
                     versions.Count,
@@ -205,7 +205,7 @@ namespace NuClear.VStore.Worker.Jobs
                             _binariesUsingsTopic,
                             new BinaryReferencedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
                         _logger.LogInformation(
-                            "[{taskName}] Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
+                            "{taskName} - Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
                             "for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
                             nameof(ProduceBinaryReferencesEvents),
                             fileInfo.FileKey,
