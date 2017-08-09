@@ -70,7 +70,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogWarning(
                                             new EventId(),
                                             ex,
-                                            "[{taskName}] Got an event for the non-existing object. The event will be processed again.",
+                                            "{taskName} - Got an event for the non-existing object. The event will be processed again.",
                                             nameof(ProduceObjectVersionCreatedEvents));
                                         await Task.Delay(1000, cancellationToken);
                                     }
@@ -79,7 +79,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogError(
                                             new EventId(),
                                             ex,
-                                            "[{taskName}] Unexpected error occured: {errorMessage}.",
+                                            "{taskName} - Unexpected error occured: {errorMessage}.",
                                             nameof(ProduceObjectVersionCreatedEvents),
                                             ex.Message);
                                         await Task.Delay(1000, cancellationToken);
@@ -89,7 +89,7 @@ namespace NuClear.VStore.Worker.Jobs
                         cancellationToken);
                     tasks.Add(task);
 
-                    _logger.LogInformation("[{taskName}] task started.", nameof(ProduceObjectVersionCreatedEvents));
+                    _logger.LogInformation("{taskName} task started.", nameof(ProduceObjectVersionCreatedEvents));
                 }
 
                 if (modes.Contains(CommandLine.ArgumentValues.Binaries))
@@ -108,7 +108,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogWarning(
                                             new EventId(),
                                             ex,
-                                            "[{taskName}] Got an event for the non-existing object. The event will be processed again.",
+                                            "{taskName} - Got an event for the non-existing object. The event will be processed again.",
                                             nameof(ProduceBinaryReferencesEvents));
                                         await Task.Delay(1000, cancellationToken);
                                     }
@@ -117,7 +117,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogError(
                                             new EventId(),
                                             ex,
-                                            "[{taskName}] Unexpected error occured: {errorMessage}.",
+                                            "{taskName} - Unexpected error occured: {errorMessage}.",
                                             nameof(ProduceBinaryReferencesEvents),
                                             ex.Message);
                                         await Task.Delay(1000, cancellationToken);
@@ -127,7 +127,7 @@ namespace NuClear.VStore.Worker.Jobs
                         cancellationToken);
                     tasks.Add(task);
 
-                    _logger.LogInformation("[{taskName}] task started.", nameof(ProduceBinaryReferencesEvents));
+                    _logger.LogInformation("{taskName} task started.", nameof(ProduceBinaryReferencesEvents));
                 }
 
                 await Task.WhenAll(tasks);
@@ -155,7 +155,7 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
                 var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' for the object id = '{objectId}'.",
+                    "{taskName} - There are '{versionsCount}' new versions were created after the versionId = {versionId} for the object id = '{objectId}'.",
                     nameof(ProduceObjectVersionCreatedEvents),
                     versions.Count,
                     versionId,
@@ -166,7 +166,7 @@ namespace NuClear.VStore.Worker.Jobs
                         _objectVersionsTopic,
                         new ObjectVersionCreatedEvent(descriptor.Id, descriptor.VersionId, descriptor.VersionIndex, descriptor.Author, descriptor.LastModified));
                     _logger.LogInformation(
-                        "[{taskName}] Event for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",
+                        "{taskName} - Event for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
                         nameof(ProduceObjectVersionCreatedEvents),
                         descriptor.Id,
                         descriptor.VersionId,
@@ -186,7 +186,7 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
                 var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "[{taskName}] There are '{versionsCount}' new versions were created after the versionId = '{versionId}' " +
+                    "{taskName} - There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
                     "for the object id = '{objectId}'.",
                     nameof(ProduceBinaryReferencesEvents),
                     versions.Count,
@@ -205,8 +205,8 @@ namespace NuClear.VStore.Worker.Jobs
                             _binariesUsingsTopic,
                             new BinaryReferencedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
                         _logger.LogInformation(
-                            "[{taskName}] Event for binary reference '{fileKey}' for element with templateCode = '{templateCode}' " +
-                            "for object id = '{objectId}' and versionId = {versionId}' sent to '{topic}'.",
+                            "{taskName} - Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
+                            "for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
                             nameof(ProduceBinaryReferencesEvents),
                             fileInfo.FileKey,
                             fileInfo.TemplateCode,

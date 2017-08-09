@@ -57,9 +57,9 @@ namespace NuClear.VStore.Worker.Jobs
                     _logger.LogError(
                         new EventId(),
                         ex,
-                        "Unexpected error occured: {errorMessage}. The '{workerJobType}' will retry in {delay}.",
+                        "Unexpected error occured: {errorMessage}. The {workerJobType} will retry in {delay}.",
                         ex.Message,
-                        nameof(BinariesCleanupJob),
+                        typeof(BinariesCleanupJob).Name,
                         FailDelay);
 
                     await Task.Delay(FailDelay, cancellationToken);
@@ -76,13 +76,12 @@ namespace NuClear.VStore.Worker.Jobs
             if (sessionCreatingEvents.Count == 0)
             {
                 _logger.LogInformation(
-                    "There are no events of type '{eventType}'. The '{workerJobType}' will now wait.",
+                    "There are no events of type {eventType}. The {workerJobType} will now wait.",
                     typeof(SessionCreatingEvent).Name,
                     typeof(BinariesCleanupJob).Name);
                 return;
             }
 
-            Guid EvaluateSessionId(string fileKey) => new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
             var oldestSessionDate = sessionCreatingEvents.First().Timestamp.UtcDateTime;
 
             var dateToStart = DateTime.UtcNow.Subtract(range);
@@ -91,54 +90,67 @@ namespace NuClear.VStore.Worker.Jobs
             var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
             if (referenceEvents.Count > 0)
             {
-                var periodEnd = referenceEvents.Last().Timestamp;
-                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source.FileKey)));
+                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source)));
 
-                var result = await RemoveUnreferencedBinaries(periodEnd.UtcDateTime, sessionsWithReferences, cancellationToken);
+                var periodEnd = referenceEvents.Last().Timestamp.UtcDateTime;
+                var (totalSessionsCount, expiredSessionsCount) = await RemoveUnreferencedBinaries(periodEnd, sessionsWithReferences, cancellationToken);
                 _logger.LogInformation(
-                    "Total {totalSessionsCount} sessions has been processed ({expiredSessionsCount} were expired by {periodEnd}). The '{workerJobType}' will now wait.",
-                    result.totalSessionsCount,
-                    result.expiredSessionsCount,
-                    periodEnd.UtcDateTime,
+                    "Total '{totalSessionsCount}' sessions has been processed, '{expiredSessionsCount}' were expired by {periodEnd}. The {workerJobType} will now wait.",
+                    totalSessionsCount,
+                    expiredSessionsCount,
+                    periodEnd,
                     typeof(BinariesCleanupJob).Name);
             }
             else
             {
                 _logger.LogWarning(
-                    "There are no events of type '{eventType}' in time range '{range}' in past from now. " +
-                    "The '{workerJobType}' will now wait.",
+                    "There are no events of type {eventType} in time range {range} in past from now. " +
+                    "The {workerJobType} will now wait.",
                     typeof(BinaryReferencedEvent).Name,
                     dateToStart,
                     typeof(BinariesCleanupJob).Name);
             }
         }
 
-        private static (TimeSpan range, TimeSpan delay) ParseArgs(IReadOnlyDictionary<string, string[]> args)
+        private static (TimeSpan, TimeSpan) ParseArgs(IReadOnlyDictionary<string, string[]> args)
         {
             if (!args.TryGetValue(CommandLine.Arguments.Range, out var value) || value.Length == 0)
             {
-                throw new ArgumentException($"{nameof(CommandLine.Arguments.Range)} argument not specified.");
+                throw new ArgumentException($"'{nameof(CommandLine.Arguments.Range)}' argument not specified.");
             }
 
             if (!TimeSpan.TryParse(value[0], out var range))
             {
-                throw new ArgumentException($"{nameof(CommandLine.Arguments.Range)} argument format is incorrect. Make sure that it's specified like 'd:hh:mm:ss'.");
+                throw new ArgumentException($"'{nameof(CommandLine.Arguments.Range)}' argument format is incorrect. Make sure that it has been specified like 'd:hh:mm:ss'.");
             }
 
             if (!args.TryGetValue(CommandLine.Arguments.Delay, out value) || value.Length == 0)
             {
-                throw new ArgumentException($"{nameof(CommandLine.Arguments.Delay)} argument not specified.");
+                throw new ArgumentException($"'{nameof(CommandLine.Arguments.Delay)}' argument not specified.");
             }
 
             if (!TimeSpan.TryParse(value[0], out var delay))
             {
-                throw new ArgumentException($"{nameof(CommandLine.Arguments.Delay)} argument format is incorrect. Make sure that it's specified like 'hh:mm:ss'.");
+                throw new ArgumentException($"'{nameof(CommandLine.Arguments.Delay)}' argument format is incorrect. Make sure that it has been specified like 'hh:mm:ss'.");
             }
 
             return (range, delay);
         }
 
-        private async Task<(int totalSessionsCount, int expiredSessionsCount)> RemoveUnreferencedBinaries(
+        private static Guid EvaluateSessionId(BinaryReferencedEvent @event)
+        {
+            var fileKey = @event?.FileKey;
+            if (string.IsNullOrEmpty(fileKey))
+            {
+                throw new ArgumentException(
+                    $"File key is not set for the object with id = '{@event?.ObjectId}' and versionId = '{@event?.ObjectVersionId}' " +
+                    $"in the event of type '{@event?.GetType().Name}'.");
+            }
+
+            return new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+        }
+
+        private async Task<(int, int)> RemoveUnreferencedBinaries(
             DateTime periodEnd,
             ICollection<Guid> sessionsWithReferences,
             CancellationToken cancellationToken)
@@ -173,12 +185,12 @@ namespace NuClear.VStore.Worker.Jobs
                     var success = await _sessionCleanupService.DeleteSessionAsync(sessionId);
                     if (success)
                     {
-                        _logger.LogInformation("Session '{sessionId}' with all uploaded files deleted as unreferenced and already expired.", sessionId);
+                        _logger.LogInformation("Session {sessionId} with all uploaded files deleted as unreferenced and already expired.", sessionId);
                     }
 
                     await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
                     _logger.LogInformation(
-                        "Event of type '{eventType}' for expired session '{sessionId}' processed.",
+                        "Event of type {eventType} for expired session {sessionId} processed.",
                         expiredSessionEvent.Source.GetType(),
                         sessionId);
                 }
