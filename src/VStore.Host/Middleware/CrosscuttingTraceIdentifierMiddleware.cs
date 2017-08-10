@@ -1,7 +1,6 @@
 ﻿using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Primitives;
 
 using NuClear.VStore.Http;
 
@@ -18,10 +17,12 @@ namespace NuClear.VStore.Host.Middleware
 
         public async Task Invoke(HttpContext httpContext)
         {
-            if (httpContext.Request.Headers.TryGetValue(HeaderNames.RequestId, out StringValues requestIdHeader))
+            if (httpContext.Request.Headers.TryGetValue(HeaderNames.RequestId, out var requestIdHeader))
             {
                 httpContext.TraceIdentifier = requestIdHeader.ToString();
             }
+
+            httpContext.Response.Headers.Add(HeaderNames.Server, "vstore");
 
             await _next(httpContext);
         }

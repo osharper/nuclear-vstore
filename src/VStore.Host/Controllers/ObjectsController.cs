@@ -80,6 +80,7 @@ namespace NuClear.VStore.Host.Controllers
         [HttpGet("{id:long}/versions")]
         [ProducesResponseType(typeof(IReadOnlyCollection<ObjectVersionRecord>), 200)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(503)]
         public async Task<IActionResult> GetVersions(long id)
         {
             try
@@ -93,7 +94,7 @@ namespace NuClear.VStore.Host.Controllers
             }
             catch (LockAlreadyExistsException)
             {
-                return Conflict("Simultaneous object versions listing and its creation/modification");
+                return ServiceUnavailable("Simultaneous object versions listing and its creation/modification");
             }
         }
 
