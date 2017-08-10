@@ -294,7 +294,7 @@ namespace MigrationTool
 
                 return new ModerationResult
                     {
-                        Status = ModerationStatus.Approved,
+                        Status = ModerationStatus.Rejected,
                         Comment = string.Join("; ", denialReasons)
                     };
             }
