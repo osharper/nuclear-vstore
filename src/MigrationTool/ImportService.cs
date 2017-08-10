@@ -515,12 +515,12 @@ namespace MigrationTool
                 var segment = new ArraySegment<long>(advertisementsToImport, offset, count)
                     .ToArray(); // EF doesn't build query with ArraySegment
 
-                var failedIds = await ImportAdvertisementsByIdsAsync(segment);
-                importedCount += count - failedIds.Count;
-                if (failedIds.Count > 0)
+                var failedAdsInBatch = await ImportAdvertisementsByIdsAsync(segment);
+                importedCount += count - failedAdsInBatch.Count;
+                if (failedAdsInBatch.Count > 0)
                 {
-                    failedAds.AddRange(failedIds);
-                    _logger.LogWarning("Id's of failed advertisements in batch: {list}", failedIds);
+                    failedAds.AddRange(failedAdsInBatch);
+                    _logger.LogWarning("Id's of failed advertisements in batch: {list}", failedAdsInBatch.Select(a => a.Id));
                 }
             }
 
