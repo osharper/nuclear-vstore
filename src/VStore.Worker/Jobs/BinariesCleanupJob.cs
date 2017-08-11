@@ -75,6 +75,21 @@ namespace NuClear.VStore.Worker.Jobs
 
         private async Task CleanupBinaries(TimeSpan range, CancellationToken cancellationToken)
         {
+            Guid EvaluateSessionId(KafkaEvent<BinaryReferencedEvent> @event)
+            {
+                var binaryReferencedEvent = @event.Source;
+
+                var fileKey = binaryReferencedEvent.FileKey;
+                if (string.IsNullOrEmpty(fileKey))
+                {
+                    throw new ArgumentException(
+                        $"File key is not set for the object with id = '{binaryReferencedEvent.ObjectId}' and versionId = '{binaryReferencedEvent.ObjectVersionId}' " +
+                        $"in the event of type '{binaryReferencedEvent.GetType().Name}' with offset '{@event.TopicPartitionOffset}'");
+                }
+
+                return new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
+            }
+
             var sessionCreatingEvents = _sessionsEventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, 1);
             if (sessionCreatingEvents.Count == 0)
             {
@@ -93,7 +108,7 @@ namespace NuClear.VStore.Worker.Jobs
             var referenceEvents = _referencesEventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
             if (referenceEvents.Count > 0)
             {
-                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source)));
+                var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(EvaluateSessionId));
 
                 var periodEnd = referenceEvents.Last().Timestamp.UtcDateTime;
                 var (totalSessionsCount, expiredSessionsCount) = await RemoveUnreferencedBinaries(periodEnd, sessionsWithReferences, cancellationToken);
@@ -138,19 +153,6 @@ namespace NuClear.VStore.Worker.Jobs
             }
 
             return (range, delay);
-        }
-
-        private static Guid EvaluateSessionId(BinaryReferencedEvent @event)
-        {
-            var fileKey = @event?.FileKey;
-            if (string.IsNullOrEmpty(fileKey))
-            {
-                throw new ArgumentException(
-                    $"File key is not set for the object with id = '{@event?.ObjectId}' and versionId = '{@event?.ObjectVersionId}' " +
-                    $"in the event of type '{@event?.GetType().Name}'.");
-            }
-
-            return new Guid(fileKey.Substring(0, fileKey.IndexOf(SlashChar)));
         }
 
         private async Task<(int, int)> RemoveUnreferencedBinaries(
