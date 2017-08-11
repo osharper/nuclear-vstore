@@ -32,6 +32,7 @@ namespace NuClear.VStore.Worker.Jobs
         private readonly EventReceiver _binariesEventReceiver;
 
         public ObjectEventsProcessingJob(
+            string environment,
             ILogger<ObjectEventsProcessingJob> logger,
             ObjectsStorageReader objectsStorageReader,
             KafkaOptions kafkaOptions,
@@ -45,8 +46,8 @@ namespace NuClear.VStore.Worker.Jobs
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;
             _eventSender = eventSender;
-            _versionEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, VersionsGroupId);
-            _binariesEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, BinariesGroupId);
+            _versionEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"{VersionsGroupId}-{environment}");
+            _binariesEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"{BinariesGroupId}-{environment}");
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)

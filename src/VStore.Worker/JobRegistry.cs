@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using Microsoft.Extensions.DependencyInjection;
+using Autofac;
+
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Worker.Jobs;
@@ -18,20 +19,20 @@ namespace NuClear.VStore.Worker
                     { "produce-events", typeof(ObjectEventsProcessingJob) }
                 };
 
-        private readonly IServiceProvider _serviceProvider;
+        private readonly ILifetimeScope _lifetimeScope;
         private readonly ILogger<JobRegistry> _logger;
 
-        public JobRegistry(IServiceProvider serviceProvider, ILogger<JobRegistry> logger)
+        public JobRegistry(ILifetimeScope lifetimeScope, ILogger<JobRegistry> logger)
         {
-            _serviceProvider = serviceProvider;
+            _lifetimeScope = lifetimeScope;
             _logger = logger;
         }
 
-        public AsyncJob GetJob(string workerId, string jobId)
+        public AsyncJob GetJob(string environment, string workerId, string jobId)
         {
-            if (Registry.TryGetValue($"{workerId}-{jobId}", out Type jobType))
+            if (Registry.TryGetValue($"{workerId}-{jobId}", out var jobType))
             {
-                return (AsyncJob)_serviceProvider.GetRequiredService(jobType);
+                return (AsyncJob)_lifetimeScope.Resolve(jobType, new TypedParameter(typeof(string), environment));
             }
 
             _logger.LogCritical("Job with id = '{workerJobId}' for worker '{workerId}' has not beed registered.", jobId, workerId);

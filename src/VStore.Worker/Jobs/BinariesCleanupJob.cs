@@ -30,6 +30,7 @@ namespace NuClear.VStore.Worker.Jobs
         private readonly EventReceiver _eventReceiver;
 
         public BinariesCleanupJob(
+            string environment,
             ILogger<BinariesCleanupJob> logger,
             KafkaOptions kafkaOptions,
             SessionCleanupService sessionCleanupService)
@@ -40,7 +41,7 @@ namespace NuClear.VStore.Worker.Jobs
 
             _logger = logger;
             _sessionCleanupService = sessionCleanupService;
-            _eventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, GroupId);
+            _eventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"${GroupId}-{environment}");
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)

@@ -10,6 +10,9 @@ using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
+
 using Microsoft.Extensions.CommandLineUtils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,18 +41,19 @@ namespace NuClear.VStore.Worker
 
         public static void Main(string[] args)
         {
-            var env = Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production";
+            var env = (Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production").ToLower();
+
             var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json")
-                .AddJsonFile($"appsettings.{env.ToLower()}.json")
+                .AddJsonFile($"appsettings.{env}.json")
                 .AddEnvironmentVariables("VSTORE_")
                 .Build();
 
-            var serviceProvider = Bootstrap(configuration);
+            var container = Bootstrap(configuration);
 
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var loggerFactory = container.Resolve<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger<Program>();
 
             var cts = new CancellationTokenSource();
@@ -69,7 +73,7 @@ namespace NuClear.VStore.Worker
                         return 0;
                     });
 
-            var jobRunner = serviceProvider.GetRequiredService<JobRunner>();
+            var jobRunner = container.Resolve<JobRunner>(new TypedParameter(typeof(string), env));
             app.Command(
                 CommandLine.Commands.Collect,
                 config =>
@@ -149,7 +153,7 @@ namespace NuClear.VStore.Worker
             Environment.Exit(exitCode);
         }
 
-        private static IServiceProvider Bootstrap(IConfiguration configuration)
+        private static IContainer Bootstrap(IConfiguration configuration)
         {
             var services = new ServiceCollection()
                 .AddOptions()
@@ -157,58 +161,64 @@ namespace NuClear.VStore.Worker
                 .Configure<LockOptions>(configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(configuration.GetSection("VStore"))
                 .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
-                .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value)
+                .AddLogging();
 
-                .AddLogging()
+            var builder = new ContainerBuilder();
+            builder.Populate(services);
 
-                .AddSingleton<JobRegistry>()
-                .AddScoped<JobRunner>()
-                .AddScoped<LockCleanupJob>()
-                .AddScoped<BinariesCleanupJob>()
-                .AddScoped<ObjectEventsProcessingJob>()
+            builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
-                .AddSingleton<IAmazonS3>(
-                    x =>
-                        {
-                            var options = configuration.GetAWSOptions();
+            builder.RegisterType<JobRegistry>().SingleInstance();
+            builder.RegisterType<JobRunner>().SingleInstance();
+            builder.RegisterType<LockCleanupJob>().SingleInstance();
+            builder.RegisterType<BinariesCleanupJob>().SingleInstance();
+            builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 
-                            AWSCredentials credentials;
-                            if (options.Credentials != null)
+            builder.Register(
+                        _ =>
                             {
-                                credentials = options.Credentials;
-                            }
-                            else
-                            {
-                                var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
-                                if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+                                var options = configuration.GetAWSOptions();
+
+                                AWSCredentials credentials;
+                                if (options.Credentials != null)
                                 {
-                                    credentials = FallbackCredentialsFactory.GetCredentials();
+                                    credentials = options.Credentials;
                                 }
-                            }
+                                else
+                                {
+                                    var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
+                                    if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+                                    {
+                                        credentials = FallbackCredentialsFactory.GetCredentials();
+                                    }
+                                }
 
-                            var config = options.DefaultClientConfig.ToS3Config();
-                            config.ForcePathStyle = true;
+                                var config = options.DefaultClientConfig.ToS3Config();
+                                config.ForcePathStyle = true;
 
-                            return new AmazonS3Client(credentials, config);
-                        })
-                .AddSingleton<MetricsProvider>()
-                .AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()))
-                .AddSingleton<LockSessionManager>()
-                .AddSingleton<SessionCleanupService>()
-                .AddScoped<TemplatesStorageReader>()
-                .AddScoped<ObjectsStorageReader>()
-                .AddScoped<EventReceiver>()
-                .AddScoped<EventSender>();
+                                return new AmazonS3Client(credentials, config);
+                            })
+                    .As<IAmazonS3>()
+                    .SingleInstance();
 
-            var serviceProvider = services.BuildServiceProvider();
+            builder.RegisterType<AmazonS3Proxy>().As<IAmazonS3Proxy>().SingleInstance();
+            builder.RegisterType<MetricsProvider>().SingleInstance();
+            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<SessionCleanupService>().SingleInstance();
+            builder.RegisterType<TemplatesStorageReader>().InstancePerDependency();
+            builder.RegisterType<ObjectsStorageReader>().InstancePerDependency();
+            builder.RegisterType<EventReceiver>().InstancePerDependency();
+            builder.RegisterType<EventSender>().InstancePerDependency();
 
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var container = builder.Build();
+
+            var loggerFactory = container.Resolve<ILoggerFactory>();
             ConfigureLogger(configuration, loggerFactory);
 
-            return serviceProvider;
+            return container;
         }
 
         private static void ConfigureLogger(IConfiguration configuration, ILoggerFactory loggerFactory)
@@ -225,12 +235,7 @@ namespace NuClear.VStore.Worker
         {
             var workerId = app.Parent.Name;
             var jobId = app.Name;
-            var args = app.Arguments
-                          .Select(x => x.Value?.Split(CommandLine.ArgumentKeySeparator))
-                          .Where(x => x != null)
-                          .ToDictionary(
-                              x => x[0],
-                              x => x.Length < 2 ? null : x[1]?.Split(new[] { CommandLine.ArgumentValueSeparator }, StringSplitOptions.RemoveEmptyEntries).ToArray());
+            var args = app.Arguments.Select(x => x.Value).Where(x => !string.IsNullOrEmpty(x)).ToList();
             async Task ExecuteAsync() => await jobRunner.RunAsync(workerId, jobId, args, cts.Token);
 
             ExecuteAsync().GetAwaiter().GetResult();
