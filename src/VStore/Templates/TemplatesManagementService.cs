@@ -62,10 +62,9 @@ namespace NuClear.VStore.Templates
                 new ElementDescriptor(ElementDescriptorType.VectorImage, 4, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new VectorImageElementConstraints { SupportedFileFormats = VectorImageFileFormats }) })),
                 new ElementDescriptor(ElementDescriptorType.Article, 5, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ArticleElementConstraints { SupportedFileFormats = ArticleFileFormats }) })),
                 new ElementDescriptor(ElementDescriptorType.FasComment, 6, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PlainTextElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.Date, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new DateElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.Link, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.Phone, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.VideoLink, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))
+                new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
+                new ElementDescriptor(ElementDescriptorType.Phone, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
+                new ElementDescriptor(ElementDescriptorType.VideoLink, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) }))
             };
 
         public async Task<string> CreateTemplate(long id, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)
@@ -172,7 +171,6 @@ namespace NuClear.VStore.Templates
                                                case LinkElementConstraints linkElementConstraints:
                                                    VerifyLinkConstraints(x.TemplateCode, linkElementConstraints);
                                                    break;
-                                               case DateElementConstraints _:
                                                case PhoneElementConstraints _:
                                                    break;
                                                default:

@@ -24,8 +24,6 @@ namespace NuClear.VStore.Json
                     return valueToken.ToObject<ArticleElementValue>();
                 case ElementDescriptorType.FasComment:
                     return valueToken.ToObject<FasElementValue>();
-                case ElementDescriptorType.Date:
-                    return valueToken.ToObject<DateElementValue>();
                 case ElementDescriptorType.Phone:
                     return valueToken.ToObject<PhoneElementValue>();
                 default:

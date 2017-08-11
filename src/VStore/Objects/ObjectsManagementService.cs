@@ -282,8 +282,6 @@ namespace NuClear.VStore.Objects
                             FormattedTextValidator.CheckNestedList,
                             FormattedTextValidator.CheckUnsupportedListElements
                         };
-                case ElementDescriptorType.Date:
-                    return new ValidationRule[] { DateValidator.CheckDate };
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.VideoLink:
                     return new ValidationRule[]
@@ -412,7 +410,6 @@ namespace NuClear.VStore.Objects
                     case ElementDescriptorType.BitmapImage:
                     case ElementDescriptorType.VectorImage:
                     case ElementDescriptorType.Article:
-                    case ElementDescriptorType.Date:
                     case ElementDescriptorType.Phone:
                         break;
                     default:

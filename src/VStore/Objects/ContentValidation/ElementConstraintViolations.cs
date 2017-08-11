@@ -14,7 +14,6 @@
         NoEmptyLists,
         NoNestedLists,
         ValidLink,
-        ValidDateRange,
         BinaryExists
     }
 }

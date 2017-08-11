@@ -8,7 +8,6 @@
         VectorImage,
         Article,
         FasComment,
-        Date,
         Link,
         Phone,
         VideoLink
