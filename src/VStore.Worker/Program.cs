@@ -210,7 +210,6 @@ namespace NuClear.VStore.Worker
             builder.RegisterType<SessionCleanupService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>().InstancePerDependency();
             builder.RegisterType<ObjectsStorageReader>().InstancePerDependency();
-            builder.RegisterType<EventReceiver>().InstancePerDependency();
             builder.RegisterType<EventSender>().InstancePerDependency();
 
             var container = builder.Build();

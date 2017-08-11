@@ -20,14 +20,13 @@ namespace NuClear.VStore.Kafka
         private readonly ILogger _logger;
         private readonly Consumer<string, string> _consumer;
 
-        public EventReceiver(ILogger logger, string brokerEndpoints, string groupId)
+        public EventReceiver(ILogger logger, string brokerEndpoints, string groupId = null)
         {
             _logger = logger;
 
             var consumerConfig = new Dictionary<string, object>
                 {
                     { "bootstrap.servers", brokerEndpoints },
-                    { "group.id", groupId },
                     { "api.version.request", true },
                     { "socket.blocking.max.ms", 5 },
                     { "enable.auto.commit", false },
@@ -41,6 +40,12 @@ namespace NuClear.VStore.Kafka
                             }
                     }
                 };
+
+            if (!string.IsNullOrEmpty(groupId))
+            {
+                consumerConfig.Add("group.id", groupId);
+            }
+
             _consumer = new Consumer<string, string>(consumerConfig, new StringDeserializer(Encoding.UTF8), new StringDeserializer(Encoding.UTF8));
             _consumer.OnLog += OnLog;
             _consumer.OnError += OnLogError;

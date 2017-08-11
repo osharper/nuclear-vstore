@@ -27,7 +27,8 @@ namespace NuClear.VStore.Worker.Jobs
 
         private readonly ILogger<BinariesCleanupJob> _logger;
         private readonly SessionCleanupService _sessionCleanupService;
-        private readonly EventReceiver _eventReceiver;
+        private readonly EventReceiver _referencesEventReceiver;
+        private readonly EventReceiver _sessionsEventReceiver;
 
         public BinariesCleanupJob(
             string environment,
@@ -41,7 +42,8 @@ namespace NuClear.VStore.Worker.Jobs
 
             _logger = logger;
             _sessionCleanupService = sessionCleanupService;
-            _eventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"${GroupId}-{environment}");
+            _referencesEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints);
+            _sessionsEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"{GroupId}-{environment}");
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
@@ -73,7 +75,7 @@ namespace NuClear.VStore.Worker.Jobs
 
         private async Task CleanupBinaries(TimeSpan range, CancellationToken cancellationToken)
         {
-            var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, 1);
+            var sessionCreatingEvents = _sessionsEventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, 1);
             if (sessionCreatingEvents.Count == 0)
             {
                 _logger.LogInformation(
@@ -88,7 +90,7 @@ namespace NuClear.VStore.Worker.Jobs
             var dateToStart = DateTime.UtcNow.Subtract(range);
             dateToStart = new DateTime(Math.Min(dateToStart.Ticks, oldestSessionDate.Subtract(SafetyPeriod).Ticks));
 
-            var referenceEvents = _eventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
+            var referenceEvents = _referencesEventReceiver.Receive<BinaryReferencedEvent>(_binariesReferencesTopicName, dateToStart);
             if (referenceEvents.Count > 0)
             {
                 var sessionsWithReferences = new HashSet<Guid>(referenceEvents.Select(x => EvaluateSessionId(x.Source)));
@@ -160,7 +162,7 @@ namespace NuClear.VStore.Worker.Jobs
             var expiredSessionsCount = 0;
             while (!cancellationToken.IsCancellationRequested)
             {
-                var sessionCreatingEvents = _eventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, _consumingBatchSize);
+                var sessionCreatingEvents = _sessionsEventReceiver.Receive<SessionCreatingEvent>(_sessionsTopicName, _consumingBatchSize);
                 var expiredSessionEvents = sessionCreatingEvents.Where(x => x.Source.ExpiresAt <= periodEnd).ToList();
 
                 totalSessionsCount += sessionCreatingEvents.Count;
@@ -189,7 +191,7 @@ namespace NuClear.VStore.Worker.Jobs
                         _logger.LogInformation("Session {sessionId} with all uploaded files deleted as unreferenced and already expired.", sessionId);
                     }
 
-                    await _eventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
+                    await _sessionsEventReceiver.CommitAsync(new[] { expiredSessionEvent.TopicPartitionOffset });
                     _logger.LogInformation(
                         "Event of type {eventType} for expired session {sessionId} processed.",
                         expiredSessionEvent.Source.GetType(),
