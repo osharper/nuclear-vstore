@@ -28,6 +28,7 @@ namespace NuClear.VStore.Kafka
                 {
                     { "bootstrap.servers", brokerEndpoints },
                     { "api.version.request", true },
+                    { "group.id", !string.IsNullOrEmpty(groupId) ? groupId : Guid.NewGuid().ToString() },
                     { "socket.blocking.max.ms", 5 },
                     { "enable.auto.commit", false },
                     { "fetch.wait.max.ms", 5 },
@@ -40,11 +41,6 @@ namespace NuClear.VStore.Kafka
                             }
                     }
                 };
-
-            if (!string.IsNullOrEmpty(groupId))
-            {
-                consumerConfig.Add("group.id", groupId);
-            }
 
             _consumer = new Consumer<string, string>(consumerConfig, new StringDeserializer(Encoding.UTF8), new StringDeserializer(Encoding.UTF8));
             _consumer.OnLog += OnLog;
