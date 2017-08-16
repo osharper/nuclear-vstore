@@ -55,7 +55,12 @@ namespace MigrationTool
                 .AddLogging()
                 .AddOptions()
                 .Configure<Options>(Configuration.GetSection("MigrationTool"))
-                .AddSingleton(x => new ApiRepository(x.GetService<ILogger<ApiRepository>>(), apiUri, storageUri, x.GetService<IOptions<Options>>().Value.ApiToken))
+                .AddSingleton(x => new ApiRepository(
+                                  x.GetService<ILogger<ApiRepository>>(),
+                                  apiUri,
+                                  storageUri,
+                                  x.GetService<IOptions<Options>>().Value.ApiVersion,
+                                  x.GetService<IOptions<Options>>().Value.ApiToken))
                 .AddSingleton(x => new ConverterService(x.GetService<ILogger<ConverterService>>()))
                 .BuildServiceProvider();
 

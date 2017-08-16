@@ -20,6 +20,8 @@ namespace MigrationTool
 
         public string ApiToken { get; set; }
 
+        public string ApiVersion { get; set; }
+
         public int InitialPingTries { get; set; }
 
         public int InitialPingInterval { get; set; }

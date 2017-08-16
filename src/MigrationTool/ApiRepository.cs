@@ -37,15 +37,16 @@ namespace MigrationTool
         private readonly ILogger<ApiRepository> _logger;
         private readonly HttpClient _httpClient;
 
-        public ApiRepository(ILogger<ApiRepository> logger, Uri apiUri, Uri storageUri, string token)
+        public ApiRepository(ILogger<ApiRepository> logger, Uri apiUri, Uri storageUri, string apiVersion, string token)
         {
             _apiUri = apiUri;
             _storageUri = storageUri;
-            _templateUri = new Uri(apiUri, "template/");
-            _positionUri = new Uri(apiUri, "nomenclature/");
-            _searchUri = new Uri(apiUri, "search/");
-            _devUri = new Uri(apiUri, "dev/");
-            _objectUri = new Uri(apiUri, "am/");
+            var apiBase = new Uri(apiUri, $"api/{apiVersion}/");
+            _templateUri = new Uri(apiBase, "template/");
+            _positionUri = new Uri(apiBase, "nomenclature/");
+            _searchUri = new Uri(apiBase, "search/");
+            _devUri = new Uri(apiBase, "dev/");
+            _objectUri = new Uri(apiBase, "am/");
             _logger = logger;
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
