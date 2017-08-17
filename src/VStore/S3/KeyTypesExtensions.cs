@@ -9,14 +9,10 @@ namespace NuClear.VStore.S3
         private const string LockFinaliter = "#";
 
         public static string AsS3ObjectKey(this Guid id, params object[] components)
-        {
-            return string.Join(Separator, new[] { id.ToString() }.Concat(components));
-        }
+            => string.Join(Separator, new[] { id.ToString() }.Concat(components));
 
         public static string AsS3ObjectKey(this long id, params object[] components)
-        {
-            return string.Join(Separator, new[] { id.ToString() }.Concat(components));
-        }
+            => string.Join(Separator, new[] { id.ToString() }.Concat(components));
 
         public static long AsRootObjectId(this string key)
         {
@@ -30,10 +26,7 @@ namespace NuClear.VStore.S3
             return long.Parse(key.Substring(separatorIndex + 1));
         }
 
-        public static string AsS3LockKey(this long id)
-        {
-            return string.Concat(id.ToString(), LockFinaliter);
-        }
+        public static string AsS3LockKey(this long id) => string.Concat(id.ToString(), LockFinaliter);
 
         public static long AsLockObjectId(this string key)
         {
@@ -46,5 +39,7 @@ namespace NuClear.VStore.S3
             var separatorIndex = key.IndexOf(Separator, StringComparison.Ordinal);
             return new Guid(key.Substring(0, separatorIndex));
         }
+
+        public static string AsCacheEntryKey(this long id, string versionId) => $"{id.ToString()}:{versionId}";
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -129,6 +130,7 @@ namespace NuClear.VStore.Host
                             });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
+            services.AddMemoryCache();
 
             services.AddSwaggerGen(
                 options =>

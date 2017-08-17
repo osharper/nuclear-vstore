@@ -85,8 +85,7 @@ namespace NuClear.VStore.Sessions
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            (var sessionDescriptor, var authorInfo, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
-
+            var (sessionDescriptor, authorInfo, expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
             return new SessionContext(
@@ -146,7 +145,7 @@ namespace NuClear.VStore.Sessions
                 throw new MissingFilenameException($"Filename has not been provided for the item '{templateCode}'");
             }
 
-            (var sessionDescriptor, _, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
+            var (sessionDescriptor, _, expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
