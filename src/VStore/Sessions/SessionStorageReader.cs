@@ -89,22 +89,27 @@ namespace NuClear.VStore.Sessions
         public async Task VerifySessionExpirationForBinary(string key)
         {
             var sessionId = key.AsSessionId();
-            GetObjectMetadataResponse response;
-            try
-            {
-                response = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
-            }
-            catch (Exception ex)
-            {
-                throw new S3Exception(ex);
-            }
+            var (_, _, expiresAt) = _memoryCache.Get<(SessionDescriptor, AuthorInfo, DateTime)>(sessionId);
 
-            var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (expiresAt == default(DateTime))
+            {
+                GetObjectMetadataResponse response;
+                try
+                {
+                    response = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+                }
+                catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+                }
+                catch (Exception ex)
+                {
+                    throw new S3Exception(ex);
+                }
+
+                var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            }
 
             if (SessionDescriptor.IsSessionExpired(expiresAt))
             {
@@ -114,6 +119,12 @@ namespace NuClear.VStore.Sessions
 
         public async Task<BinaryMetadata> GetBinaryMetadata(string key)
         {
+            var binaryMetadata = _memoryCache.Get<BinaryMetadata>(key);
+            if (binaryMetadata != null)
+            {
+                return binaryMetadata;
+            }
+
             try
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
