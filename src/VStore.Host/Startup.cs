@@ -176,10 +176,18 @@ namespace NuClear.VStore.Host
                         var config = options.DefaultClientConfig.ToS3Config();
                         config.ForcePathStyle = true;
 
-                        return new AmazonS3Client(credentials, config);
+                        return new Amazon.S3.AmazonS3Client(credentials, config);
                     });
-            services.AddSingleton<MetricsProvider>();
-            services.AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()));
+            services.AddSingleton<IS3Client>(
+                x =>
+                    {
+                        var amazonS3 = x.GetRequiredService<IAmazonS3>();
+                        var metricsProvider = x.GetRequiredService<MetricsProvider>();
+                        return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider);
+                    });
+            services.AddSingleton<IS3MultipartUploadClient, S3MultipartUploadClient>();
+            services.AddSingleton<ICephS3Client, CephS3Client>();
+            services.AddSingleton<IAmazonS3Client, S3.AmazonS3Client>();
             services.AddSingleton<LockSessionManager>();
             services.AddSingleton<TemplatesStorageReader>();
             services.AddSingleton<TemplatesManagementService>();
@@ -187,6 +195,7 @@ namespace NuClear.VStore.Host
             services.AddSingleton<SessionManagementService>();
             services.AddSingleton<ObjectsStorageReader>();
             services.AddSingleton<ObjectsManagementService>();
+            services.AddSingleton<MetricsProvider>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

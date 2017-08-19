@@ -199,18 +199,29 @@ namespace NuClear.VStore.Worker
                                 var config = options.DefaultClientConfig.ToS3Config();
                                 config.ForcePathStyle = true;
 
-                                return new AmazonS3Client(credentials, config);
+                                return new Amazon.S3.AmazonS3Client(credentials, config);
                             })
                     .As<IAmazonS3>()
                     .SingleInstance();
 
-            builder.RegisterType<AmazonS3Proxy>().As<IAmazonS3Proxy>().SingleInstance();
-            builder.RegisterType<MetricsProvider>().SingleInstance();
+            builder.Register(
+                        context =>
+                            {
+                                var amazonS3 = context.Resolve<IAmazonS3>();
+                                var metricsProvider = context.Resolve<MetricsProvider>();
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider);
+                            })
+                    .As<IS3Client>()
+                    .SingleInstance();
+            builder.RegisterType<S3MultipartUploadClient>().As<IS3MultipartUploadClient>();
+            builder.RegisterType<CephS3Client>().As<ICephS3Client>();
+            builder.RegisterType<S3.AmazonS3Client>().As<IAmazonS3Client>();
             builder.RegisterType<LockSessionManager>().SingleInstance();
             builder.RegisterType<SessionCleanupService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>().InstancePerDependency();
             builder.RegisterType<ObjectsStorageReader>().InstancePerDependency();
             builder.RegisterType<EventSender>().InstancePerDependency();
+            builder.RegisterType<MetricsProvider>().SingleInstance();
 
             var container = builder.Build();
 

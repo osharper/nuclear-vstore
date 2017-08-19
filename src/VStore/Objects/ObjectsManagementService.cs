@@ -34,7 +34,7 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectsManagementService
     {
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly ICephS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
@@ -47,7 +47,7 @@ namespace NuClear.VStore.Objects
         public ObjectsManagementService(
             CephOptions cephOptions,
             KafkaOptions kafkaOptions,
-            IAmazonS3Proxy amazonS3,
+            ICephS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
@@ -55,7 +55,7 @@ namespace NuClear.VStore.Objects
             EventSender eventSender,
             MetricsProvider metricsProvider)
         {
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
             _templatesStorageReader = templatesStorageReader;
             _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
@@ -344,7 +344,7 @@ namespace NuClear.VStore.Objects
                 metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
                 metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
-                await _amazonS3.PutObjectAsync(putRequest);
+                await _s3Client.PutObjectAsync(putRequest);
             }
 
             var objectKey = id.AsS3ObjectKey(Tokens.ObjectPostfix);
@@ -375,7 +375,7 @@ namespace NuClear.VStore.Objects
                 MetadataElement.ModifiedElements,
                 string.Join(Tokens.ModifiedElementsDelimiter.ToString(), objectDescriptor.Elements.Select(x => x.TemplateCode)));
 
-            await _amazonS3.PutObjectAsync(putRequest);
+            await _s3Client.PutObjectAsync(putRequest);
             _referencedBinariesMetric.Inc(binariesCount);
 
             objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);

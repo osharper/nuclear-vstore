@@ -20,19 +20,19 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionStorageReader
     {
         private readonly string _filesBucketName;
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly ICephS3Client _s3Client;
 
-        public SessionStorageReader(CephOptions options, IAmazonS3Proxy amazonS3)
+        public SessionStorageReader(CephOptions options, ICephS3Client s3Client)
         {
             _filesBucketName = options.FilesBucketName;
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
         }
 
         public async Task<(SessionDescriptor SessionDescriptor, AuthorInfo AuthorInfo, DateTime ExpiresAt)> GetSessionDescriptor(Guid sessionId)
         {
             try
             {
-                using (var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
+                using (var objectResponse = await _s3Client.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
                 {
                     var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
                     var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
@@ -75,7 +75,7 @@ namespace NuClear.VStore.Sessions
             GetObjectMetadataResponse response;
             try
             {
-                response = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+                response = await _s3Client.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
@@ -99,7 +99,7 @@ namespace NuClear.VStore.Sessions
         {
             try
             {
-                var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
+                var metadataResponse = await _s3Client.GetObjectMetadataAsync(_filesBucketName, key);
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                 var filename = metadataWrapper.Read<string>(MetadataElement.Filename);
 

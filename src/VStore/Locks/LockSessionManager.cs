@@ -23,14 +23,14 @@ namespace NuClear.VStore.Locks
 {
     public sealed class LockSessionManager
     {
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly IS3Client _s3Client;
         private readonly ILogger<LockSessionManager> _logger;
         private readonly string _bucketName;
         private readonly TimeSpan _expiration;
 
-        public LockSessionManager(IAmazonS3Proxy amazonS3, LockOptions lockOptions, ILogger<LockSessionManager> logger)
+        public LockSessionManager(IS3Client s3Client, LockOptions lockOptions, ILogger<LockSessionManager> logger)
         {
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
             _logger = logger;
             _bucketName = lockOptions.BucketName;
             _expiration = lockOptions.Expiration;
@@ -38,14 +38,14 @@ namespace NuClear.VStore.Locks
 
         public async Task<IReadOnlyCollection<long>> GetAllCurrentLockSessionsAsync()
         {
-            var response = await _amazonS3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName });
+            var response = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName });
             return response.S3Objects.Select(x => x.Key.AsLockObjectId()).ToArray();
         }
 
         public async Task EnsureLockSessionNotExists(long rootObjectKey)
         {
             var lockId = rootObjectKey.AsS3LockKey();
-            var response = await _amazonS3.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
+            var response = await _s3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
             if (response.Versions.Count > 0)
             {
                 throw new LockAlreadyExistsException(rootObjectKey);
@@ -61,7 +61,7 @@ namespace NuClear.VStore.Locks
 
             var lockId = rootObjectKey.AsS3LockKey();
             var json = JsonConvert.SerializeObject(lockSessionDescriptor, SerializerSettings.Default);
-            var putObjectResponse = await _amazonS3.PutObjectAsync(
+            var putObjectResponse = await _s3Client.PutObjectAsync(
                                         new PutObjectRequest
                                             {
                                                 BucketName = _bucketName,
@@ -71,7 +71,7 @@ namespace NuClear.VStore.Locks
                                                 CannedACL = S3CannedACL.PublicRead
                                             });
 
-            var listVersionsResponse = await _amazonS3.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
+            var listVersionsResponse = await _s3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
             var versions = listVersionsResponse.Versions;
 
             var versionId = versions.Single(v => v.ETag == putObjectResponse.ETag).VersionId;
@@ -100,10 +100,10 @@ namespace NuClear.VStore.Locks
             var lockId = rootObjectKey.AsS3LockKey();
             try
             {
-                var response = await _amazonS3.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
+                var response = await _s3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
                 foreach (var version in response.Versions)
                 {
-                    await _amazonS3.DeleteObjectAsync(_bucketName, lockId, version.VersionId);
+                    await _s3Client.DeleteObjectAsync(_bucketName, lockId, version.VersionId);
                 }
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode != HttpStatusCode.NotFound)
@@ -117,7 +117,7 @@ namespace NuClear.VStore.Locks
             string content;
             try
             {
-                using (var getObjectResponse = await _amazonS3.GetObjectAsync(_bucketName, key))
+                using (var getObjectResponse = await _s3Client.GetObjectAsync(_bucketName, key))
                 {
                     using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
                     {

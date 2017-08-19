@@ -21,20 +21,20 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesStorageReader
     {
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly ICephS3Client _s3Client;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3)
+        public TemplatesStorageReader(CephOptions cephOptions, ICephS3Client s3Client)
         {
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
             _bucketName = cephOptions.TemplatesBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectRecord<long>>> List(string continuationToken)
         {
-            var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
+            var listResponse = await _s3Client.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
             var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(long.Parse(x.Key), x.LastModified)).ToArray();
             return new ContinuationContainer<IdentifyableObjectRecord<long>>(records, listResponse.NextMarker);
@@ -57,7 +57,7 @@ namespace NuClear.VStore.Templates
                                     {
                                         var versionId = await GetTemplateLatestVersion(templateId);
 
-                                        var response = await _amazonS3.GetObjectMetadataAsync(_bucketName, templateId.ToString(), versionId);
+                                        var response = await _s3Client.GetObjectMetadataAsync(_bucketName, templateId.ToString(), versionId);
                                         var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                                         var author = metadataWrapper.Read<string>(MetadataElement.Author);
                                         var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
@@ -91,7 +91,7 @@ namespace NuClear.VStore.Templates
 
             try
             {
-                using (var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId))
+                using (var response = await _s3Client.GetObjectAsync(_bucketName, id.ToString(), objectVersionId))
                 {
                     var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
                     var author = metadataWrapper.Read<string>(MetadataElement.Author);
@@ -127,7 +127,7 @@ namespace NuClear.VStore.Templates
         public async Task<string> GetTemplateLatestVersion(long id)
         {
             var idAsString = id.ToString();
-            var versionsResponse = await _amazonS3.ListVersionsAsync(_bucketName, idAsString);
+            var versionsResponse = await _s3Client.ListVersionsAsync(_bucketName, idAsString);
             var version = versionsResponse.Versions.Find(x => x.Key == idAsString && !x.IsDeleteMarker && x.IsLatest);
             if (version == null)
             {
@@ -140,7 +140,7 @@ namespace NuClear.VStore.Templates
         public async Task<bool> IsTemplateExists(long id)
         {
             var idAsString = id.ToString();
-            var listResponse = await _amazonS3.ListObjectsV2Async(
+            var listResponse = await _s3Client.ListObjectsV2Async(
                                    new ListObjectsV2Request
                                        {
                                            BucketName = _bucketName,

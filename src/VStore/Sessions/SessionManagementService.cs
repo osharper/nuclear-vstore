@@ -54,7 +54,7 @@ namespace NuClear.VStore.Sessions
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly string _sessionsTopicName;
-        private readonly IAmazonS3 _amazonS3;
+        private readonly ICephS3Client _amazonS3;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly EventSender _eventSender;
@@ -65,7 +65,7 @@ namespace NuClear.VStore.Sessions
             CephOptions cephOptions,
             VStoreOptions vstoreOptions,
             KafkaOptions kafkaOptions,
-            IAmazonS3 amazonS3,
+            ICephS3Client amazonS3,
             SessionStorageReader sessionStorageReader,
             TemplatesStorageReader templatesStorageReader,
             EventSender eventSender,

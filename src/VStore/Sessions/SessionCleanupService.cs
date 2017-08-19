@@ -18,19 +18,19 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionCleanupService
     {
         private readonly ILogger<SessionManagementService> _logger;
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly ICephS3Client _s3Client;
         private readonly string _filesBucketName;
         private readonly Counter _removedBinariesMetric;
         private readonly Counter _removedSessionsMetric;
 
         public SessionCleanupService(
             ILogger<SessionManagementService> logger,
-            IAmazonS3Proxy amazonS3,
+            ICephS3Client s3Client,
             CephOptions cephOptions,
             MetricsProvider metricsProvider)
         {
             _logger = logger;
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
             _filesBucketName = cephOptions.FilesBucketName;
             _removedBinariesMetric = metricsProvider.GetRemovedBinariesMetric();
             _removedSessionsMetric = metricsProvider.GetRemovedSessionsMetric();
@@ -38,7 +38,7 @@ namespace NuClear.VStore.Sessions
 
         public async Task<bool> DeleteSessionAsync(Guid sessionId)
         {
-            var listResponse = await _amazonS3.ListObjectsAsync(new ListObjectsRequest { BucketName = _filesBucketName, Prefix = sessionId.ToString() });
+            var listResponse = await _s3Client.ListObjectsAsync(new ListObjectsRequest { BucketName = _filesBucketName, Prefix = sessionId.ToString() });
             if (listResponse.S3Objects.Count == 0)
             {
                 return false;
@@ -46,7 +46,7 @@ namespace NuClear.VStore.Sessions
 
             foreach (var obj in listResponse.S3Objects.OrderByDescending(x => x.Size))
             {
-                await _amazonS3.DeleteObjectAsync(_filesBucketName, obj.Key);
+                await _s3Client.DeleteObjectAsync(_filesBucketName, obj.Key);
                 if (obj.Key.EndsWith(Tokens.SessionPostfix))
                 {
                     _removedSessionsMetric.Inc();
