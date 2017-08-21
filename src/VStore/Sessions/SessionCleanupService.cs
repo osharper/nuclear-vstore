@@ -17,14 +17,14 @@ namespace NuClear.VStore.Sessions
 {
     public sealed class SessionCleanupService
     {
-        private readonly ILogger<SessionManagementService> _logger;
+        private readonly ILogger<SessionCleanupService> _logger;
         private readonly IAmazonS3Proxy _amazonS3;
         private readonly string _filesBucketName;
         private readonly Counter _removedBinariesMetric;
         private readonly Counter _removedSessionsMetric;
 
         public SessionCleanupService(
-            ILogger<SessionManagementService> logger,
+            ILogger<SessionCleanupService> logger,
             IAmazonS3Proxy amazonS3,
             CephOptions cephOptions,
             MetricsProvider metricsProvider)

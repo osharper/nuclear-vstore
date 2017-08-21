@@ -129,6 +129,7 @@ namespace NuClear.VStore.Host
                             });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
+            services.AddMemoryCache();
 
             services.AddSwaggerGen(
                 options =>

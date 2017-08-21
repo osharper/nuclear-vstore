@@ -5,7 +5,7 @@
     <AssemblyName>VStore.Worker</AssemblyName>
     <RootNamespace>NuClear.VStore.Worker</RootNamespace>
     <OutputType>Exe</OutputType>
-    <PackageId>VStore.GC</PackageId>
+    <PackageId>VStore.Worker</PackageId>
     <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
@@ -43,6 +43,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.CommandlineUtils" Version="1.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
     <PackageReference Include="Prometheus.Client.MetricServer" Version="1.1.2" />
     <PackageReference Include="System.Console" Version="4.3.0" />
     <PackageReference Include="AWSSDK.S3" Version="3.3.9" />

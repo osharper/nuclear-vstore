@@ -13,6 +13,7 @@ using Amazon.S3;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.CommandLineUtils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -170,6 +171,8 @@ namespace NuClear.VStore.Worker
             builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
+
+            builder.RegisterType<MemoryCache>().As<IMemoryCache>().SingleInstance();
 
             builder.RegisterType<JobRegistry>().SingleInstance();
             builder.RegisterType<JobRunner>().SingleInstance();

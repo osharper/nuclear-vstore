@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+using Microsoft.Extensions.Caching.Memory;
+
 using Newtonsoft.Json;
 
 using NuClear.VStore.DataContract;
@@ -22,12 +24,14 @@ namespace NuClear.VStore.Templates
     public sealed class TemplatesStorageReader
     {
         private readonly IAmazonS3Proxy _amazonS3;
+        private readonly IMemoryCache _memoryCache;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3)
+        public TemplatesStorageReader(CephOptions cephOptions, IAmazonS3Proxy amazonS3, IMemoryCache memoryCache)
         {
             _amazonS3 = amazonS3;
+            _memoryCache = memoryCache;
             _bucketName = cephOptions.TemplatesBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
         }
@@ -89,39 +93,49 @@ namespace NuClear.VStore.Templates
         {
             var objectVersionId = string.IsNullOrEmpty(versionId) ? await GetTemplateLatestVersion(id) : versionId;
 
-            try
-            {
-                using (var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId))
-                {
-                    var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
-                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
-                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
-
-                    string json;
-                    using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
+            var templateDescriptor = await _memoryCache.GetOrCreateAsync(
+                id.AsCacheEntryKey(objectVersionId),
+                async entry =>
                     {
-                        json = reader.ReadToEnd();
-                    }
-
-                    var descriptor = new TemplateDescriptor
+                        try
                         {
-                            Id = id,
-                            VersionId = objectVersionId,
-                            LastModified = response.LastModified,
-                            Author = author,
-                            AuthorLogin = authorLogin,
-                            AuthorName = authorName
-                        };
-                    JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
+                            using (var response = await _amazonS3.GetObjectAsync(_bucketName, id.ToString(), objectVersionId))
+                            {
+                                var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                                var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
-                    return descriptor;
-                }
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
-            }
+                                string json;
+                                using (var reader = new StreamReader(response.ResponseStream, Encoding.UTF8))
+                                {
+                                    json = reader.ReadToEnd();
+                                }
+
+                                var descriptor = new TemplateDescriptor
+                                    {
+                                        Id = id,
+                                        VersionId = objectVersionId,
+                                        LastModified = response.LastModified,
+                                        Author = author,
+                                        AuthorLogin = authorLogin,
+                                        AuthorName = authorName
+                                    };
+                                JsonConvert.PopulateObject(json, descriptor, SerializerSettings.Default);
+
+                                entry.SetValue(descriptor)
+                                     .SetPriority(CacheItemPriority.NeverRemove);
+
+                                return descriptor;
+                            }
+                        }
+                        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            throw new ObjectNotFoundException($"Template '{id}' version '{objectVersionId}' not found");
+                        }
+                    });
+
+            return templateDescriptor;
         }
 
         public async Task<string> GetTemplateLatestVersion(long id)

@@ -16,6 +16,8 @@ using CHMsharp;
 using ImageSharp;
 using ImageSharp.Formats;
 
+using Microsoft.Extensions.Caching.Memory;
+
 using Newtonsoft.Json;
 
 using NuClear.VStore.DataContract;
@@ -58,6 +60,7 @@ namespace NuClear.VStore.Sessions
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly EventSender _eventSender;
+        private readonly IMemoryCache _memoryCache;
         private readonly Counter _uploadedBinariesMetric;
         private readonly Counter _createdSessionsMetric;
 
@@ -69,7 +72,8 @@ namespace NuClear.VStore.Sessions
             SessionStorageReader sessionStorageReader,
             TemplatesStorageReader templatesStorageReader,
             EventSender eventSender,
-            MetricsProvider metricsProvider)
+            MetricsProvider metricsProvider,
+            IMemoryCache memoryCache)
         {
             _sessionExpiration = vstoreOptions.SessionExpiration;
             _fileStorageEndpointUri = vstoreOptions.FileStorageEndpoint;
@@ -79,14 +83,14 @@ namespace NuClear.VStore.Sessions
             _sessionStorageReader = sessionStorageReader;
             _templatesStorageReader = templatesStorageReader;
             _eventSender = eventSender;
+            _memoryCache = memoryCache;
             _uploadedBinariesMetric = metricsProvider.GetUploadedBinariesMetric();
             _createdSessionsMetric = metricsProvider.GetCreatedSessionsMetric();
         }
 
         public async Task<SessionContext> GetSessionContext(Guid sessionId)
         {
-            (var sessionDescriptor, var authorInfo, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
-
+            var (sessionDescriptor, authorInfo, expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             var templateDescriptor = await _templatesStorageReader.GetTemplateDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId);
 
             return new SessionContext(
@@ -146,7 +150,7 @@ namespace NuClear.VStore.Sessions
                 throw new MissingFilenameException($"Filename has not been provided for the item '{templateCode}'");
             }
 
-            (var sessionDescriptor, _, var expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
+            var (sessionDescriptor, _, expiresAt) = await _sessionStorageReader.GetSessionDescriptor(sessionId);
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
@@ -267,6 +271,8 @@ namespace NuClear.VStore.Sessions
 
                     await _amazonS3.CopyObjectAsync(copyRequest);
                     _uploadedBinariesMetric.Inc();
+
+                    _memoryCache.Set(fileKey, new BinaryMetadata(fileName, getResponse.ContentLength), uploadSession.SessionExpiresAt);
 
                     return new UploadedFileInfo(fileKey, new Uri(_fileStorageEndpointUri, fileKey));
                 }

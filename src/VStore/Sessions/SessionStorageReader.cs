@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+using Microsoft.Extensions.Caching.Memory;
+
 using Newtonsoft.Json;
 
 using NuClear.VStore.DataContract;
@@ -21,73 +23,93 @@ namespace NuClear.VStore.Sessions
     {
         private readonly string _filesBucketName;
         private readonly IAmazonS3Proxy _amazonS3;
+        private readonly IMemoryCache _memoryCache;
 
-        public SessionStorageReader(CephOptions options, IAmazonS3Proxy amazonS3)
+        public SessionStorageReader(CephOptions options, IAmazonS3Proxy amazonS3, IMemoryCache memoryCache)
         {
             _filesBucketName = options.FilesBucketName;
             _amazonS3 = amazonS3;
+            _memoryCache = memoryCache;
         }
 
         public async Task<(SessionDescriptor SessionDescriptor, AuthorInfo AuthorInfo, DateTime ExpiresAt)> GetSessionDescriptor(Guid sessionId)
         {
-            try
-            {
-                using (var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
-                {
-                    var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
-                    var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
-                    if (SessionDescriptor.IsSessionExpired(expiresAt))
-                    {
-                        throw new SessionExpiredException(sessionId, expiresAt);
-                    }
+            var result =
+                await _memoryCache.GetOrCreateAsync(
+                    sessionId,
+                    async entry =>
+                        {
+                            try
+                            {
+                                using (var objectResponse = await _amazonS3.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
+                                {
+                                    var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
+                                    var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+                                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
+                                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
+                                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
 
-                    var author = metadataWrapper.Read<string>(MetadataElement.Author);
-                    var authorLogin = metadataWrapper.Read<string>(MetadataElement.AuthorLogin);
-                    var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
+                                    string json;
+                                    using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
+                                    {
+                                        json = reader.ReadToEnd();
+                                    }
 
-                    string json;
-                    using (var reader = new StreamReader(objectResponse.ResponseStream, Encoding.UTF8))
-                    {
-                        json = reader.ReadToEnd();
-                    }
+                                    var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
+                                    var tuple = (SessionDescriptor: sessionDescriptor, AuthorInfo: new AuthorInfo(author, authorLogin, authorName), ExpiresAt: expiresAt);
 
-                    var sessionDescriptor = JsonConvert.DeserializeObject<SessionDescriptor>(json, SerializerSettings.Default);
-                    return (sessionDescriptor, new AuthorInfo(author, authorLogin, authorName), expiresAt);
-                }
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                                    entry.SetValue(tuple)
+                                         .SetAbsoluteExpiration(expiresAt);
+
+                                    return tuple;
+                                }
+                            }
+                            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                            {
+                                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+                            }
+                            catch (SessionExpiredException)
+                            {
+                                throw;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new S3Exception(ex);
+                            }
+                        });
+
+            if (SessionDescriptor.IsSessionExpired(result.ExpiresAt))
             {
-                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+                throw new SessionExpiredException(sessionId, result.ExpiresAt);
             }
-            catch (SessionExpiredException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new S3Exception(ex);
-            }
+
+            return result;
         }
 
         public async Task VerifySessionExpirationForBinary(string key)
         {
             var sessionId = key.AsSessionId();
-            GetObjectMetadataResponse response;
-            try
-            {
-                response = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
-            }
-            catch (Exception ex)
-            {
-                throw new S3Exception(ex);
-            }
+            var (_, _, expiresAt) = _memoryCache.Get<(SessionDescriptor, AuthorInfo, DateTime)>(sessionId);
 
-            var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
-            var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            if (expiresAt == default(DateTime))
+            {
+                GetObjectMetadataResponse response;
+                try
+                {
+                    response = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+                }
+                catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new ObjectNotFoundException($"Session '{sessionId}' does not exist");
+                }
+                catch (Exception ex)
+                {
+                    throw new S3Exception(ex);
+                }
+
+                var metadataWrapper = MetadataCollectionWrapper.For(response.Metadata);
+                expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
+            }
 
             if (SessionDescriptor.IsSessionExpired(expiresAt))
             {
@@ -97,6 +119,12 @@ namespace NuClear.VStore.Sessions
 
         public async Task<BinaryMetadata> GetBinaryMetadata(string key)
         {
+            var binaryMetadata = _memoryCache.Get<BinaryMetadata>(key);
+            if (binaryMetadata != null)
+            {
+                return binaryMetadata;
+            }
+
             try
             {
                 var metadataResponse = await _amazonS3.GetObjectMetadataAsync(_filesBucketName, key);
