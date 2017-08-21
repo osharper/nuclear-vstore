@@ -158,7 +158,7 @@ namespace NuClear.VStore.Host
             services.AddSingleton<IAmazonS3>(
                 x =>
                     {
-                        var options = _configuration.GetAWSOptions();
+                        var options = _configuration.GetAWSOptions("Ceph");
 
                         AWSCredentials credentials;
                         if (options.Credentials != null)
