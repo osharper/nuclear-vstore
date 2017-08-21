@@ -109,7 +109,7 @@ namespace NuClear.VStore.Objects
 
         public async Task<IVersionedTemplateDescriptor> GetTemplateDescriptor(long id, string versionId)
         {
-            (var persistenceDescriptor, _, _) =
+            var (persistenceDescriptor, _, _) =
                 await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), versionId);
             return await _templatesStorageReader.GetTemplateDescriptor(persistenceDescriptor.TemplateId, persistenceDescriptor.TemplateVersionId);
         }
@@ -248,14 +248,14 @@ namespace NuClear.VStore.Objects
                 objectVersionId = versionId;
             }
 
-            (var persistenceDescriptor, var objectAuthorInfo, var objectLastModified) =
+            var (persistenceDescriptor, objectAuthorInfo, objectLastModified) =
                 await GetObjectFromS3<ObjectPersistenceDescriptor>(id.AsS3ObjectKey(Tokens.ObjectPostfix), objectVersionId);
 
             var elements = new IObjectElementDescriptor[persistenceDescriptor.Elements.Count];
             var tasks = persistenceDescriptor.Elements.Select(
                 async (x, index) =>
                     {
-                        (var elementPersistenceDescriptor, _, var elementLastModified) =
+                        var (elementPersistenceDescriptor, _, elementLastModified) =
                             await GetObjectFromS3<ObjectElementPersistenceDescriptor>(x.Id, x.VersionId);
 
                         if (elementPersistenceDescriptor.Value is IBinaryElementValue binaryElementValue &&

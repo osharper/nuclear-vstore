@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -229,25 +230,27 @@ namespace NuClear.VStore.Objects
         private static void VerifyObjectElementsConsistency(
             long objectId,
             Language language,
-            IEnumerable<IObjectElementDescriptor> elementDescriptors)
+            IReadOnlyCollection<IObjectElementDescriptor> elementDescriptors)
         {
-            var allErrors = new Dictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
-            foreach (var element in elementDescriptors)
-            {
-                var errors = new List<ObjectElementValidationError>();
-                var constraints = element.Constraints.For(language);
-                var rules = GetValidationRules(element);
+            var allErrors = new ConcurrentDictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
+            var tasks = elementDescriptors.Select(
+                async element =>
+                    await Task.Run(() =>
+                                       {
+                                           var errors = new List<ObjectElementValidationError>();
+                                           var constraints = element.Constraints.For(language);
+                                           var rules = GetValidationRules(element);
 
-                foreach (var validationRule in rules)
-                {
-                    errors.AddRange(validationRule(element.Value, constraints));
-                }
+                                           foreach (var validationRule in rules)
+                                           {
+                                               errors.AddRange(validationRule(element.Value, constraints));
+                                           }
 
-                if (errors.Count > 0)
-                {
-                    allErrors.Add(element.TemplateCode, errors);
-                }
-            }
+                                           if (errors.Count > 0)
+                                           {
+                                               allErrors[element.TemplateCode] = errors;
+                                           }
+                                       }));
 
             if (allErrors.Count > 0)
             {
