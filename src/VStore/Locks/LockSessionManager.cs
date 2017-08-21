@@ -23,12 +23,12 @@ namespace NuClear.VStore.Locks
 {
     public sealed class LockSessionManager
     {
-        private readonly IS3Client _s3Client;
+        private readonly ICephS3Client _s3Client;
         private readonly ILogger<LockSessionManager> _logger;
         private readonly string _bucketName;
         private readonly TimeSpan _expiration;
 
-        public LockSessionManager(IS3Client s3Client, LockOptions lockOptions, ILogger<LockSessionManager> logger)
+        public LockSessionManager(ICephS3Client s3Client, LockOptions lockOptions, ILogger<LockSessionManager> logger)
         {
             _s3Client = s3Client;
             _logger = logger;
