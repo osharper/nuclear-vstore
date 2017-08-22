@@ -33,7 +33,7 @@ namespace NuClear.VStore.Templates
         private static readonly IReadOnlyCollection<FileFormat> ArticleFileFormats =
             new[] { FileFormat.Chm };
 
-        private readonly ICephS3Client _s3Client;
+        private readonly IS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
@@ -42,7 +42,7 @@ namespace NuClear.VStore.Templates
         public TemplatesManagementService(
             VStoreOptions vstoreOptions,
             CephOptions cephOptions,
-            ICephS3Client s3Client,
+            IS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
             LockSessionManager lockSessionManager)
         {

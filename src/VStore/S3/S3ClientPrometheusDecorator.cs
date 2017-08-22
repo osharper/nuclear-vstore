@@ -16,12 +16,14 @@ namespace NuClear.VStore.S3
     public sealed class S3ClientPrometheusDecorator : IS3Client
     {
         private readonly IS3Client _s3Client;
+        private readonly string _backendLabel;
         private readonly Histogram _requestDurationMsMetric;
         private readonly Counter _requestErrorsMetric;
 
-        public S3ClientPrometheusDecorator(IS3Client s3Client, MetricsProvider metricsProvider)
+        public S3ClientPrometheusDecorator(IS3Client s3Client, MetricsProvider metricsProvider, string backendLabel)
         {
             _s3Client = s3Client;
+            _backendLabel = backendLabel;
             _requestDurationMsMetric = metricsProvider.GetRequestDurationMsMetric();
             _requestErrorsMetric = metricsProvider.GetRequestErrorsMetric();
         }
@@ -69,13 +71,13 @@ namespace NuClear.VStore.S3
                 var stopwatch = Stopwatch.StartNew();
                 var response = await amazonRequest();
                 stopwatch.Stop();
-                _requestDurationMsMetric.Labels(Labels.Backends.Ceph, bucketName, method)
+                _requestDurationMsMetric.Labels(_backendLabel, bucketName, method)
                                         .Observe(stopwatch.ElapsedMilliseconds);
                 return response;
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode != HttpStatusCode.NotFound)
             {
-                _requestErrorsMetric.Labels(Labels.Backends.Ceph, bucketName, method).Inc();
+                _requestErrorsMetric.Labels(_backendLabel, bucketName, method).Inc();
                 throw;
             }
         }

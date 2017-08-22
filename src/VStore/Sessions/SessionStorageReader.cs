@@ -22,10 +22,10 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionStorageReader
     {
         private readonly string _filesBucketName;
-        private readonly ICephS3Client _s3Client;
+        private readonly IS3Client _s3Client;
         private readonly IMemoryCache _memoryCache;
 
-        public SessionStorageReader(CephOptions options, ICephS3Client s3Client, IMemoryCache memoryCache)
+        public SessionStorageReader(CephOptions options, IS3Client s3Client, IMemoryCache memoryCache)
         {
             _filesBucketName = options.FilesBucketName;
             _s3Client = s3Client;

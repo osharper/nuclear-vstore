@@ -27,7 +27,7 @@ namespace NuClear.VStore.Objects
 {
     public sealed class ObjectsStorageReader
     {
-        private readonly ICephS3Client _s3Client;
+        private readonly IS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
@@ -37,7 +37,7 @@ namespace NuClear.VStore.Objects
         public ObjectsStorageReader(
             CephOptions cephOptions,
             VStoreOptions vStoreOptions,
-            ICephS3Client s3Client,
+            IS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
             LockSessionManager lockSessionManager)
         {

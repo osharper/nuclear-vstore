@@ -23,12 +23,12 @@ namespace NuClear.VStore.Templates
 {
     public sealed class TemplatesStorageReader
     {
-        private readonly ICephS3Client _s3Client;
+        private readonly IS3Client _s3Client;
         private readonly IMemoryCache _memoryCache;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
 
-        public TemplatesStorageReader(CephOptions cephOptions, ICephS3Client s3Client, IMemoryCache memoryCache)
+        public TemplatesStorageReader(CephOptions cephOptions, IS3Client s3Client, IMemoryCache memoryCache)
         {
             _s3Client = s3Client;
             _memoryCache = memoryCache;

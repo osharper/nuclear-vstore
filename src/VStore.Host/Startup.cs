@@ -170,48 +170,35 @@ namespace NuClear.VStore.Host
             builder.Register(
                         x =>
                             {
-                                var options = _configuration.GetAWSOptions(Aws);
-
-                                AWSCredentials credentials;
-                                if (options.Credentials != null)
-                                {
-                                    credentials = options.Credentials;
-                                }
-                                else
-                                {
-                                    var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
-                                    if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
-                                    {
-                                        credentials = FallbackCredentialsFactory.GetCredentials();
-                                    }
-                                }
-
-                                var config = options.DefaultClientConfig.ToS3Config();
+                                var awsOptions = _configuration.GetAWSOptions(Ceph);
+                                var config = awsOptions.DefaultClientConfig.ToS3Config();
                                 config.ForcePathStyle = true;
 
-                                return new Amazon.S3.AmazonS3Client(credentials, config);
-                            })
-                    .Named<IAmazonS3>(Aws)
-                    .SingleInstance();
-            builder.Register(
-                        x =>
-                            {
-                                var options = _configuration.GetAWSOptions(Ceph);
-                                var credentials = options.Credentials ?? FallbackCredentialsFactory.GetCredentials();
-
-                                var config = options.DefaultClientConfig.ToS3Config();
-                                config.ForcePathStyle = true;
-
-                                return new Amazon.S3.AmazonS3Client(credentials, config);
+                                var cephOptions = x.Resolve<CephOptions>();
+                                return new Amazon.S3.AmazonS3Client(new BasicAWSCredentials(cephOptions.AccessKey, cephOptions.SecretKey), config);
                             })
                     .Named<IAmazonS3>(Ceph)
                     .SingleInstance();
             builder.Register(
                         x =>
                             {
+                                var options = _configuration.GetAWSOptions(Aws);
+                                return options.CreateServiceClient<IAmazonS3>();
+                            })
+                    .Named<IAmazonS3>(Aws)
+                    .SingleInstance();
+            builder.RegisterType<S3MultipartUploadClient>()
+                    .As<IS3MultipartUploadClient>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IAmazonS3),
+                        (parameterInfo, context) => context.ResolveNamed<IAmazonS3>(Ceph))
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
                                 var amazonS3 = x.ResolveNamed<IAmazonS3>(Ceph);
                                 var metricsProvider = x.Resolve<MetricsProvider>();
-                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider);
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Ceph);
                             })
                     .Named<IS3Client>(Ceph)
                     .SingleInstance();
@@ -220,7 +207,7 @@ namespace NuClear.VStore.Host
                             {
                                 var amazonS3 = x.ResolveNamed<IAmazonS3>(Aws);
                                 var metricsProvider = x.Resolve<MetricsProvider>();
-                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider);
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Aws);
                             })
                     .Named<IS3Client>(Aws)
                     .SingleInstance();
@@ -236,19 +223,41 @@ namespace NuClear.VStore.Host
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<S3MultipartUploadClient>()
-                    .As<IS3MultipartUploadClient>()
-                    .WithParameter(
-                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IAmazonS3),
-                        (parameterInfo, context) => context.ResolveNamed<IAmazonS3>(Ceph))
-                    .SingleInstance();
-            builder.RegisterType<LockSessionManager>().SingleInstance();
-            builder.RegisterType<TemplatesStorageReader>().SingleInstance();
-            builder.RegisterType<TemplatesManagementService>().SingleInstance();
-            builder.RegisterType<SessionStorageReader>().SingleInstance();
-            builder.RegisterType<SessionManagementService>().SingleInstance();
-            builder.RegisterType<ObjectsStorageReader>().SingleInstance();
-            builder.RegisterType<ObjectsManagementService>().SingleInstance();
+            builder.RegisterType<LockSessionManager>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<TemplatesStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<IAmazonS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<TemplatesManagementService>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<IAmazonS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<SessionStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<SessionManagementService>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<ObjectsStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<IAmazonS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<ObjectsManagementService>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<IAmazonS3Client>())
+                   .SingleInstance();
             builder.RegisterType<EventSender>().SingleInstance();
             builder.RegisterType<MetricsProvider>().SingleInstance();
 
