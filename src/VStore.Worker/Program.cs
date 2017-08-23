@@ -45,6 +45,11 @@ namespace NuClear.VStore.Worker
 
         public static void Main(string[] args)
         {
+#if DEBUG
+            // Useful while debugging in Rider
+            args = args.Where(x => !x.Contains(Assembly.GetEntryAssembly().GetName().Name)).ToArray();
+#endif
+
             var env = (Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production").ToLower();
 
             var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
@@ -67,7 +72,7 @@ namespace NuClear.VStore.Worker
                                               cts.Cancel();
                                               eventArgs.Cancel = true;
                                           };
-            var app = new CommandLineApplication { Name = "VStore.Worker" };
+            var app = new CommandLineApplication { Name = "VStore.Worker",  };
             app.HelpOption(CommandLine.HelpOptionTemplate);
             app.OnExecute(
                 () =>
