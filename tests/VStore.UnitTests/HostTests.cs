@@ -8,10 +8,11 @@ using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Moq;
 
@@ -34,11 +35,22 @@ namespace VStore.UnitTests
         {
             _mockS3Client = new Mock<IS3Client>();
             SetupMockS3();
+
             _server = new TestServer(
                 new WebHostBuilder()
                     .UseEnvironment(EnvironmentName.Development)
-                    .UseStartup<Startup>()
-                    .ConfigureServices(services => services.Replace(ServiceDescriptor.Singleton(x => _mockS3Client.Object))));
+                    .ConfigureServices(
+                        services =>
+                            {
+                                services.AddAutofac(
+                                    x =>
+                                        {
+                                            x.RegisterInstance(_mockS3Client.Object).Named<IS3Client>("AWS");
+                                            x.RegisterInstance(_mockS3Client.Object).Named<IS3Client>("Ceph");
+                                        });
+                            })
+                    .UseStartup<Startup>());
+
             _client = _server.CreateClient();
             _client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue(

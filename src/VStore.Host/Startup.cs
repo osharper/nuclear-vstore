@@ -6,12 +6,9 @@ using System.Text;
 
 using Amazon;
 using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
 using Autofac;
-using Autofac.Core;
-using Autofac.Extensions.DependencyInjection;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -78,8 +75,6 @@ namespace NuClear.VStore.Host
 
         private readonly IConfigurationRoot _configuration;
 
-        private IContainer _applicationContainer;
-
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
@@ -95,7 +90,7 @@ namespace NuClear.VStore.Host
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // ReSharper disable once UnusedMember.Global
-        public IServiceProvider ConfigureServices(IServiceCollection services)
+        public void ConfigureServices(IServiceCollection services)
         {
             services
                  .AddOptions()
@@ -157,10 +152,10 @@ namespace NuClear.VStore.Host
                         options.OperationFilter<ImplicitApiVersionParameter>();
                         options.OperationFilter<UploadFileOperationFilter>();
                     });
+        }
 
-            var builder = new ContainerBuilder();
-            builder.Populate(services);
-
+        public void ConfigureContainer(ContainerBuilder builder)
+        {
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
@@ -201,6 +196,7 @@ namespace NuClear.VStore.Host
                                 return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Ceph);
                             })
                     .Named<IS3Client>(Ceph)
+                    .PreserveExistingDefaults()
                     .SingleInstance();
             builder.Register(
                         x =>
@@ -210,6 +206,7 @@ namespace NuClear.VStore.Host
                                 return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Aws);
                             })
                     .Named<IS3Client>(Aws)
+                    .PreserveExistingDefaults()
                     .SingleInstance();
             builder.RegisterType<CephS3Client>()
                     .As<ICephS3Client>()
@@ -260,9 +257,6 @@ namespace NuClear.VStore.Host
                    .SingleInstance();
             builder.RegisterType<EventSender>().SingleInstance();
             builder.RegisterType<MetricsProvider>().SingleInstance();
-
-            _applicationContainer = builder.Build();
-            return new AutofacServiceProvider(_applicationContainer);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -276,7 +270,6 @@ namespace NuClear.VStore.Host
 
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
-            appLifetime.ApplicationStopped.Register(_applicationContainer.Dispose);
 
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
