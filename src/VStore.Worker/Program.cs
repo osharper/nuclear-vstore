@@ -203,6 +203,12 @@ namespace NuClear.VStore.Worker
                             })
                     .Named<IAmazonS3>(Aws)
                     .SingleInstance();
+            builder.RegisterType<S3MultipartUploadClient>()
+                    .As<IS3MultipartUploadClient>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IAmazonS3),
+                        (parameterInfo, context) => context.ResolveNamed<IAmazonS3>(Ceph))
+                    .SingleInstance();
             builder.Register(
                         x =>
                             {
