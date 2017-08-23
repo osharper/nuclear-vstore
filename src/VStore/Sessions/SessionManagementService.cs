@@ -56,8 +56,7 @@ namespace NuClear.VStore.Sessions
         private readonly Uri _fileStorageEndpointUri;
         private readonly string _filesBucketName;
         private readonly string _sessionsTopicName;
-        private readonly IS3Client _s3Client;
-        private readonly IS3MultipartUploadClient _s3MultipartUploadClient;
+        private readonly ICephS3Client _cephS3Client;
         private readonly SessionStorageReader _sessionStorageReader;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly EventSender _eventSender;
@@ -69,8 +68,7 @@ namespace NuClear.VStore.Sessions
             CephOptions cephOptions,
             VStoreOptions vstoreOptions,
             KafkaOptions kafkaOptions,
-            IS3Client s3Client,
-            IS3MultipartUploadClient s3MultipartUploadClient,
+            ICephS3Client cephS3Client,
             SessionStorageReader sessionStorageReader,
             TemplatesStorageReader templatesStorageReader,
             EventSender eventSender,
@@ -81,8 +79,7 @@ namespace NuClear.VStore.Sessions
             _fileStorageEndpointUri = vstoreOptions.FileStorageEndpoint;
             _filesBucketName = cephOptions.FilesBucketName;
             _sessionsTopicName = kafkaOptions.SessionEventsTopic;
-            _s3Client = s3Client;
-            _s3MultipartUploadClient = s3MultipartUploadClient;
+            _cephS3Client = cephS3Client;
             _sessionStorageReader = sessionStorageReader;
             _templatesStorageReader = templatesStorageReader;
             _eventSender = eventSender;
@@ -137,7 +134,7 @@ namespace NuClear.VStore.Sessions
 
             await _eventSender.SendAsync(_sessionsTopicName, new SessionCreatingEvent(sessionId, expiresAt));
 
-            await _s3Client.PutObjectAsync(request);
+            await _cephS3Client.PutObjectAsync(request);
             _createdSessionsMetric.Inc();
         }
 
@@ -175,7 +172,7 @@ namespace NuClear.VStore.Sessions
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.Filename, fileName);
 
-            var uploadResponse = await _s3MultipartUploadClient.InitiateMultipartUploadAsync(request);
+            var uploadResponse = await _cephS3Client.InitiateMultipartUploadAsync(request);
 
             return new MultipartUploadSession(sessionId, sessionDescriptor, expiresAt, elementDescriptor, fileKey, fileName, uploadResponse.UploadId);
         }
@@ -197,7 +194,7 @@ namespace NuClear.VStore.Sessions
             }
 
             var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
-            var response = await _s3MultipartUploadClient.UploadPartAsync(
+            var response = await _cephS3Client.UploadPartAsync(
                                 new UploadPartRequest
                                     {
                                         BucketName = _filesBucketName,
@@ -214,7 +211,7 @@ namespace NuClear.VStore.Sessions
             if (!uploadSession.IsCompleted)
             {
                 var key = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
-                await _s3MultipartUploadClient.AbortMultipartUploadAsync(_filesBucketName, key, uploadSession.UploadId);
+                await _cephS3Client.AbortMultipartUploadAsync(_filesBucketName, key, uploadSession.UploadId);
             }
         }
 
@@ -222,7 +219,7 @@ namespace NuClear.VStore.Sessions
         {
             var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
-            var uploadResponse = await _s3MultipartUploadClient.CompleteMultipartUploadAsync(
+            var uploadResponse = await _cephS3Client.CompleteMultipartUploadAsync(
                                      new CompleteMultipartUploadRequest
                                          {
                                              BucketName = _filesBucketName,
@@ -239,7 +236,7 @@ namespace NuClear.VStore.Sessions
 
             try
             {
-                using (var getResponse = await _s3Client.GetObjectAsync(_filesBucketName, uploadKey))
+                using (var getResponse = await _cephS3Client.GetObjectAsync(_filesBucketName, uploadKey))
                 {
                     using (getResponse.ResponseStream)
                     {
@@ -272,7 +269,7 @@ namespace NuClear.VStore.Sessions
                         copyRequest.Metadata.Add(metadataKey, getResponse.Metadata[metadataKey]);
                     }
 
-                    await _s3Client.CopyObjectAsync(copyRequest);
+                    await _cephS3Client.CopyObjectAsync(copyRequest);
                     _uploadedBinariesMetric.Inc();
 
                     _memoryCache.Set(fileKey, new BinaryMetadata(fileName, getResponse.ContentLength), uploadSession.SessionExpiresAt);
@@ -282,7 +279,7 @@ namespace NuClear.VStore.Sessions
             }
             finally
             {
-                await _s3Client.DeleteObjectAsync(_filesBucketName, uploadKey);
+                await _cephS3Client.DeleteObjectAsync(_filesBucketName, uploadKey);
             }
         }
 

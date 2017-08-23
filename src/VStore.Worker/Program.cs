@@ -233,15 +233,8 @@ namespace NuClear.VStore.Worker
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<LockSessionManager>()
-                   .WithParameter(
-                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
-                       (parameterInfo, context) => context.Resolve<ICephS3Client>()).SingleInstance();
-            builder.RegisterType<SessionCleanupService>()
-                   .WithParameter(
-                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
-                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
-                   .SingleInstance();
+            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<SessionCleanupService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>()
                    .WithParameter(
                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),

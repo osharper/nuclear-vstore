@@ -220,11 +220,9 @@ namespace NuClear.VStore.Host
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<LockSessionManager>()
-                   .WithParameter(
-                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
-                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
-                   .SingleInstance();
+            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<SessionStorageReader>().SingleInstance();
+            builder.RegisterType<SessionManagementService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>()
                    .WithParameter(
                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
@@ -234,16 +232,6 @@ namespace NuClear.VStore.Host
                    .WithParameter(
                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                        (parameterInfo, context) => context.Resolve<IAmazonS3Client>())
-                   .SingleInstance();
-            builder.RegisterType<SessionStorageReader>()
-                   .WithParameter(
-                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
-                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
-                   .SingleInstance();
-            builder.RegisterType<SessionManagementService>()
-                   .WithParameter(
-                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
-                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
                    .SingleInstance();
             builder.RegisterType<ObjectsStorageReader>()
                    .WithParameter(

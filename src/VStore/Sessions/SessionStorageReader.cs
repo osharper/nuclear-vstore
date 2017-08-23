@@ -22,13 +22,13 @@ namespace NuClear.VStore.Sessions
     public sealed class SessionStorageReader
     {
         private readonly string _filesBucketName;
-        private readonly IS3Client _s3Client;
+        private readonly ICephS3Client _cephS3Client;
         private readonly IMemoryCache _memoryCache;
 
-        public SessionStorageReader(CephOptions options, IS3Client s3Client, IMemoryCache memoryCache)
+        public SessionStorageReader(CephOptions options, ICephS3Client cephS3Client, IMemoryCache memoryCache)
         {
             _filesBucketName = options.FilesBucketName;
-            _s3Client = s3Client;
+            _cephS3Client = cephS3Client;
             _memoryCache = memoryCache;
         }
 
@@ -41,7 +41,7 @@ namespace NuClear.VStore.Sessions
                         {
                             try
                             {
-                                using (var objectResponse = await _s3Client.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
+                                using (var objectResponse = await _cephS3Client.GetObjectAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix)))
                                 {
                                     var metadataWrapper = MetadataCollectionWrapper.For(objectResponse.Metadata);
                                     var expiresAt = metadataWrapper.Read<DateTime>(MetadataElement.ExpiresAt);
@@ -96,7 +96,7 @@ namespace NuClear.VStore.Sessions
                 GetObjectMetadataResponse response;
                 try
                 {
-                    response = await _s3Client.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
+                    response = await _cephS3Client.GetObjectMetadataAsync(_filesBucketName, sessionId.AsS3ObjectKey(Tokens.SessionPostfix));
                 }
                 catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -127,7 +127,7 @@ namespace NuClear.VStore.Sessions
 
             try
             {
-                var metadataResponse = await _s3Client.GetObjectMetadataAsync(_filesBucketName, key);
+                var metadataResponse = await _cephS3Client.GetObjectMetadataAsync(_filesBucketName, key);
                 var metadataWrapper = MetadataCollectionWrapper.For(metadataResponse.Metadata);
                 var filename = metadataWrapper.Read<string>(MetadataElement.Filename);
 
