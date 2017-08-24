@@ -21,18 +21,16 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        private const string ErmRuInstance = "ErmRu";
-
-        private static readonly IReadOnlyDictionary<string, Language> InstanceMap = new Dictionary<string, Language>
+        private static readonly IReadOnlyDictionary<string, (Language Lang, bool MigrateModerationStatuses)> InstanceMap = new Dictionary<string, (Language, bool)>
             {
-                { ErmRuInstance, Language.Ru },
-                { "ErmUa", Language.Ru },
-                { "ErmAe", Language.En },
-                { "ErmCl", Language.Es },
-                { "ErmCy", Language.En },
-                { "ErmCz", Language.Cs },
-                { "ErmKg", Language.Ru },
-                { "ErmKz", Language.Ru }
+                { "ErmRu", (Language.Ru, true) },
+                { "ErmUa", (Language.Ru, false) },
+                { "ErmAe", (Language.En, false) },
+                { "ErmCl", (Language.Es, false) },
+                { "ErmCy", (Language.En, false) },
+                { "ErmCz", (Language.Cs, false) },
+                { "ErmKg", (Language.Ru, false) },
+                { "ErmKz", (Language.Ru, false) }
             };
 
         private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap = new Dictionary<string, IDictionary<long, long>>();
@@ -129,10 +127,10 @@ namespace MigrationTool
                 {
                     var importService = new ImportService(
                         contextOptions,
-                        instance.Value,
+                        instance.Value.Lang,
                         options,
                         TemplatesMap[instance.Key],
-                        instance.Key == ErmRuInstance,
+                        instance.Value.MigrateModerationStatuses,
                         repository,
                         converter,
                         importLogger);
