@@ -21,9 +21,11 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
+        private const string ErmRuInstance = "ErmRu";
+
         private static readonly IReadOnlyDictionary<string, Language> InstanceMap = new Dictionary<string, Language>
             {
-                { "ErmRu", Language.Ru },
+                { ErmRuInstance, Language.Ru },
                 { "ErmUa", Language.Ru },
                 { "ErmAe", Language.En },
                 { "ErmCl", Language.Es },
@@ -125,7 +127,16 @@ namespace MigrationTool
 
                 try
                 {
-                    var importService = new ImportService(contextOptions, instance.Value, options, TemplatesMap[instance.Key], repository, converter, importLogger);
+                    var importService = new ImportService(
+                        contextOptions,
+                        instance.Value,
+                        options,
+                        TemplatesMap[instance.Key],
+                        instance.Key == ErmRuInstance,
+                        repository,
+                        converter,
+                        importLogger);
+
                     if (await importService.ImportAsync(options.Mode))
                     {
                         logger.LogInformation("Import from {instance} finished successfully", instance.Key);
