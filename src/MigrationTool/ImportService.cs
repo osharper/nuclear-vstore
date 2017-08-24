@@ -1077,7 +1077,7 @@ namespace MigrationTool
                     };
                 case ElementDescriptorType.FasComment:
                 {
-                    var raw = Converter.ConvertFasCommentType(element);
+                    var raw = Converter.ConvertFasCommentType(element, newElem);
                     return new FasElementValue
                     {
                         Raw = raw,
@@ -1097,7 +1097,7 @@ namespace MigrationTool
 
                     var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
                     var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, format);
                     Interlocked.Increment(ref _uploadedBinariesCount);
 
                     return new BitmapImageElementValue
@@ -1115,7 +1115,7 @@ namespace MigrationTool
 
                     EnsureFileElementIsValid(elementType, element, newElem);
                     var format = Converter.DetectFileFormat(element.File, templateCode);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, format);
                     Interlocked.Increment(ref _uploadedBinariesCount);
                     return new VectorImageElementValue
                         {
@@ -1131,7 +1131,7 @@ namespace MigrationTool
                     }
 
                     EnsureFileElementIsValid(elementType, element, newElem);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, FileFormat.Chm);
                     Interlocked.Increment(ref _uploadedBinariesCount);
                     return new ArticleElementValue
                         {

@@ -300,14 +300,25 @@ namespace MigrationTool
             throw new NotImplementedException($"Cannot determine moderation status for advertisement {advertisement.Id.ToString()}");
         }
 
-        public string ConvertFasCommentType(AdvertisementElement element)
+        public string ConvertFasCommentType(AdvertisementElement element, IElementDescriptor newElement)
         {
             if (!element.FasCommentType.HasValue)
             {
                 return null;
             }
 
-            switch (element.FasCommentType.Value)
+            var raw = GetFasCommentType(element.FasCommentType.Value);
+            var allowedText = newElement.Properties
+                .Property("fasComments")
+                .FirstOrDefault(fc => fc.Value<string>("raw") == raw)
+                ?.Value<string>("text");
+
+            return allowedText != element.Text ? "custom" : raw;
+        }
+
+        private static string GetFasCommentType(FasComment fasComment)
+        {
+            switch (fasComment)
             {
                 case FasComment.NewFasComment:
                     return "custom";
@@ -359,7 +370,7 @@ namespace MigrationTool
                 case FasComment.KyrgyzstanCertificateRequired:
                     return "certificateRequired";
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(element.FasCommentType), element.FasCommentType.Value, "Unsupported FAS comment type");
+                    throw new ArgumentOutOfRangeException(nameof(fasComment), fasComment, "Unsupported FAS comment type");
             }
         }
     }
