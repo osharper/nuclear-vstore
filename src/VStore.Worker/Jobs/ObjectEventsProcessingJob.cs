@@ -71,7 +71,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogWarning(
                                             new EventId(),
                                             ex,
-                                            "{taskName} - Got an event for the non-existing object. The event will be processed again.",
+                                            "{taskName}: Got an event for the non-existing object. The event will be processed again.",
                                             nameof(ProduceObjectVersionCreatedEvents));
                                         await Task.Delay(1000, cancellationToken);
                                     }
@@ -80,7 +80,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogError(
                                             new EventId(),
                                             ex,
-                                            "{taskName} - Unexpected error occured: {errorMessage}.",
+                                            "{taskName}: Unexpected error occured: {errorMessage}.",
                                             nameof(ProduceObjectVersionCreatedEvents),
                                             ex.Message);
                                         await Task.Delay(1000, cancellationToken);
@@ -109,7 +109,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogWarning(
                                             new EventId(),
                                             ex,
-                                            "{taskName} - Got an event for the non-existing object. The event will be processed again.",
+                                            "{taskName}: Got an event for the non-existing object. The event will be processed again.",
                                             nameof(ProduceBinaryReferencesEvents));
                                         await Task.Delay(1000, cancellationToken);
                                     }
@@ -118,7 +118,7 @@ namespace NuClear.VStore.Worker.Jobs
                                         _logger.LogError(
                                             new EventId(),
                                             ex,
-                                            "{taskName} - Unexpected error occured: {errorMessage}.",
+                                            "{taskName}: Unexpected error occured: {errorMessage}.",
                                             nameof(ProduceBinaryReferencesEvents),
                                             ex.Message);
                                         await Task.Delay(1000, cancellationToken);
@@ -154,23 +154,29 @@ namespace NuClear.VStore.Worker.Jobs
             {
                 var objectId = @event.Source.ObjectId;
                 var versionId = @event.Source.CurrentVersionId;
-                var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
+                var versionRecords = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "{taskName} - There are '{versionsCount}' new versions were created after the versionId = {versionId} for the object id = '{objectId}'.",
+                    "{taskName}: There are '{versionsCount}' new versions were created after the versionId = {versionId} for the object id = '{objectId}'.",
                     nameof(ProduceObjectVersionCreatedEvents),
-                    versions.Count,
+                    versionRecords.Count,
                     versionId,
                     objectId);
-                foreach (var descriptor in versions)
+                foreach (var record in versionRecords)
                 {
-                    await _eventSender.SendAsync(
-                        _objectVersionsTopic,
-                        new ObjectVersionCreatedEvent(descriptor.Id, descriptor.VersionId, descriptor.VersionIndex, descriptor.Author, descriptor.LastModified));
+                    var versionCreatedEvent = new ObjectVersionCreatedEvent(
+                        record.Id,
+                        record.VersionId,
+                        record.VersionIndex,
+                        record.Author,
+                        record.Properties,
+                        record.LastModified);
+                    await _eventSender.SendAsync(_objectVersionsTopic, versionCreatedEvent);
+
                     _logger.LogInformation(
-                        "{taskName} - Event for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
+                        "{taskName}: Event for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
                         nameof(ProduceObjectVersionCreatedEvents),
-                        descriptor.Id,
-                        descriptor.VersionId,
+                        record.Id,
+                        record.VersionId,
                         _objectVersionsTopic);
                 }
             }
@@ -185,34 +191,33 @@ namespace NuClear.VStore.Worker.Jobs
             {
                 var objectId = @event.Source.ObjectId;
                 var versionId = @event.Source.CurrentVersionId;
-                var versions = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
+                var versionRecords = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
                 _logger.LogInformation(
-                    "{taskName} - There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
+                    "{taskName}: There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
                     "for the object id = '{objectId}'.",
                     nameof(ProduceBinaryReferencesEvents),
-                    versions.Count,
+                    versionRecords.Count,
                     versionId,
                     objectId);
-                foreach (var descriptor in versions)
+                foreach (var record in versionRecords)
                 {
-                    var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(objectId, descriptor.VersionId);
-                    var fileInfos = objectDescriptor.Elements
-                                                    .Where(x => x.Value is IBinaryElementValue binaryValue && !string.IsNullOrEmpty(binaryValue.Raw))
-                                                    .Select(x => (TemplateCode: x.TemplateCode, FileKey: ((IBinaryElementValue)x.Value).Raw))
-                                                    .ToList();
+                    var fileInfos = record.Elements
+                                          .Where(x => x.Value is IBinaryElementValue binaryValue && !string.IsNullOrEmpty(binaryValue.Raw))
+                                          .Select(x => (TemplateCode: x.TemplateCode, FileKey: ((IBinaryElementValue)x.Value).Raw))
+                                          .ToList();
                     foreach (var fileInfo in fileInfos)
                     {
                         await _eventSender.SendAsync(
                             _binariesUsingsTopic,
-                            new BinaryReferencedEvent(objectId, descriptor.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
+                            new BinaryReferencedEvent(objectId, record.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
                         _logger.LogInformation(
-                            "{taskName} - Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
+                            "{taskName}: Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
                             "for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
                             nameof(ProduceBinaryReferencesEvents),
                             fileInfo.FileKey,
                             fileInfo.TemplateCode,
-                            descriptor.Id,
-                            descriptor.VersionId,
+                            record.Id,
+                            record.VersionId,
                             _binariesUsingsTopic);
                     }
                 }
