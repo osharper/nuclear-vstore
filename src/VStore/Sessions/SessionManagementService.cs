@@ -42,14 +42,14 @@ namespace NuClear.VStore.Sessions
     {
         private const string PdfHeader = "%PDF-";
 
-        private static readonly Dictionary<FileFormat, IImageFormat> BitmapImageFormatsMap =
-            new Dictionary<FileFormat, IImageFormat>
+        private static readonly Dictionary<FileFormat, string> BitmapImageFormatsMap =
+            new Dictionary<FileFormat, string>
                 {
-                        { FileFormat.Bmp, new BmpFormat() },
-                        { FileFormat.Gif, new GifFormat() },
-                        { FileFormat.Jpeg, new JpegFormat() },
-                        { FileFormat.Jpg, new JpegFormat() },
-                        { FileFormat.Png, new PngFormat() }
+                        { FileFormat.Bmp, "image/bmp" },
+                        { FileFormat.Gif, "image/gif" },
+                        { FileFormat.Jpeg, "image/jpeg" },
+                        { FileFormat.Jpg, "image/jpeg" },
+                        { FileFormat.Png, "image/png" }
                 };
 
         private readonly TimeSpan _sessionExpiration;
@@ -406,14 +406,7 @@ namespace NuClear.VStore.Sessions
 
         private static void ValidateBitmapImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)
         {
-            var maxHeaderSize = BitmapImageFormatsMap.Values.Max(x => x.HeaderSize);
-            var header = new byte[maxHeaderSize];
-
-            var position = inputStream.Position;
-            inputStream.Read(header, 0, header.Length);
-            inputStream.Position = position;
-
-            var format = BitmapImageFormatsMap.Values.FirstOrDefault(x => x.IsSupportedFileFormat(header.Take(x.HeaderSize).ToArray()));
+            var format = Image.DetectFormat(inputStream);
             if (format == null)
             {
                 throw new InvalidBinaryException(templateCode, new InvalidImageError());
@@ -421,9 +414,9 @@ namespace NuClear.VStore.Sessions
 
             var extension = fileFormat.ToString().ToLowerInvariant();
             // Image format is not consistent with filename extension:
-            if (!format.SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            if (!format.FileExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             {
-                throw new InvalidBinaryException(templateCode, new BinaryExtensionMismatchContentError(extension, format.Extension.ToLowerInvariant()));
+                throw new InvalidBinaryException(templateCode, new BinaryExtensionMismatchContentError(extension, format.Name.ToLowerInvariant()));
             }
         }
 
@@ -431,10 +424,10 @@ namespace NuClear.VStore.Sessions
         {
             var imageFormats = constraints.SupportedFileFormats
                                           .Aggregate(
-                                              new List<IImageFormat>(),
+                                              new List<string>(),
                                               (result, next) =>
                                                   {
-                                                      if (BitmapImageFormatsMap.TryGetValue(next, out IImageFormat imageFormat))
+                                                      if (BitmapImageFormatsMap.TryGetValue(next, out var imageFormat))
                                                       {
                                                           result.Add(imageFormat);
                                                       }
@@ -443,9 +436,10 @@ namespace NuClear.VStore.Sessions
                                                   });
 
             Image<Rgba32> image;
+            IImageFormat format;
             try
             {
-                image = Image.Load(inputStream);
+                image = Image.Load(inputStream, out format);
             }
             catch (Exception)
             {
@@ -454,9 +448,9 @@ namespace NuClear.VStore.Sessions
 
             using (image)
             {
-                if (!imageFormats.Exists(x => x.GetType() == image.CurrentImageFormat.GetType()))
+                if (!imageFormats.Contains(format.DefaultMimeType, StringComparer.OrdinalIgnoreCase))
                 {
-                    throw new InvalidBinaryException(templateCode, new BinaryInvalidFormatError(image.CurrentImageFormat.Extension));
+                    throw new InvalidBinaryException(templateCode, new BinaryInvalidFormatError(format.Name.ToLowerInvariant()));
                 }
 
                 if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
