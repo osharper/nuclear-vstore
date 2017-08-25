@@ -6,8 +6,8 @@
     <RootNamespace>NuClear.VStore.Worker</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.Worker</PackageId>
-    <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>
+    <!--<RuntimeIdentifier>win10-x64</RuntimeIdentifier>-->
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
@@ -16,14 +16,14 @@
 
   <ItemGroup>
     <None Update="appsettings.development.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </None>
     <None Update="dockerfile;appsettings.stage.json;appsettings.production.json">
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 

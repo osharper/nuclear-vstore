@@ -5,22 +5,29 @@
     <RootNamespace>NuClear.VStore.Host</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.Host</PackageId>
-    <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>
+    <!--<RuntimeIdentifier>win10-x64</RuntimeIdentifier>-->
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
   </PropertyGroup>
+
   <ItemGroup>
-    <None Update="dockerfile">
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
-    <None Include="appsettings*.json">
+    <None Update="appsettings.development.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+    <None Update="dockerfile;appsettings.stage.json;appsettings.production.json">
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\VStore\VStore.csproj" />
   </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
