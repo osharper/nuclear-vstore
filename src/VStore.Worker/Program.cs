@@ -38,10 +38,18 @@ namespace NuClear.VStore.Worker
 {
     public sealed class Program
     {
+        private const string Aws = "AWS";
+        private const string Ceph = "Ceph";
+
         private static readonly IMetricServer MetricServer = new MetricServer(5000);
 
         public static void Main(string[] args)
         {
+#if DEBUG
+            // Useful while debugging in Rider
+            args = args.Where(x => !x.Contains(Assembly.GetEntryAssembly().GetName().Name)).ToArray();
+#endif
+
             var env = (Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production").ToLower();
 
             var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
@@ -64,7 +72,7 @@ namespace NuClear.VStore.Worker
                                               cts.Cancel();
                                               eventArgs.Cancel = true;
                                           };
-            var app = new CommandLineApplication { Name = "VStore.Worker" };
+            var app = new CommandLineApplication { Name = "VStore.Worker"  };
             app.HelpOption(CommandLine.HelpOptionTemplate);
             app.OnExecute(
                 () =>
@@ -181,39 +189,75 @@ namespace NuClear.VStore.Worker
             builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 
             builder.Register(
-                        _ =>
+                        x =>
                             {
-                                var options = configuration.GetAWSOptions();
-
-                                AWSCredentials credentials;
-                                if (options.Credentials != null)
-                                {
-                                    credentials = options.Credentials;
-                                }
-                                else
-                                {
-                                    var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
-                                    if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
-                                    {
-                                        credentials = FallbackCredentialsFactory.GetCredentials();
-                                    }
-                                }
-
-                                var config = options.DefaultClientConfig.ToS3Config();
+                                var awsOptions = configuration.GetAWSOptions(Ceph);
+                                var config = awsOptions.DefaultClientConfig.ToS3Config();
                                 config.ForcePathStyle = true;
 
-                                return new AmazonS3Client(credentials, config);
+                                var cephOptions = x.Resolve<CephOptions>();
+                                return new Amazon.S3.AmazonS3Client(new BasicAWSCredentials(cephOptions.AccessKey, cephOptions.SecretKey), config);
                             })
-                    .As<IAmazonS3>()
+                    .Named<IAmazonS3>(Ceph)
                     .SingleInstance();
-
-            builder.RegisterType<AmazonS3Proxy>().As<IAmazonS3Proxy>().SingleInstance();
-            builder.RegisterType<MetricsProvider>().SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var options = configuration.GetAWSOptions(Aws);
+                                return options.CreateServiceClient<IAmazonS3>();
+                            })
+                    .Named<IAmazonS3>(Aws)
+                    .SingleInstance();
+            builder.RegisterType<S3MultipartUploadClient>()
+                    .As<IS3MultipartUploadClient>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IAmazonS3),
+                        (parameterInfo, context) => context.ResolveNamed<IAmazonS3>(Ceph))
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var amazonS3 = x.ResolveNamed<IAmazonS3>(Ceph);
+                                var metricsProvider = x.Resolve<MetricsProvider>();
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Ceph);
+                            })
+                    .Named<IS3Client>(Ceph)
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var amazonS3 = x.ResolveNamed<IAmazonS3>(Aws);
+                                var metricsProvider = x.Resolve<MetricsProvider>();
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Aws);
+                            })
+                    .Named<IS3Client>(Aws)
+                    .SingleInstance();
+            builder.RegisterType<CephS3Client>()
+                    .As<ICephS3Client>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                        (parameterInfo, context) => context.ResolveNamed<IS3Client>(Ceph))
+                    .SingleInstance();
+            builder.RegisterType<S3.AmazonS3Client>()
+                    .As<IAmazonS3Client>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                        (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
+                    .SingleInstance();
             builder.RegisterType<LockSessionManager>().SingleInstance();
             builder.RegisterType<SessionCleanupService>().SingleInstance();
-            builder.RegisterType<TemplatesStorageReader>().InstancePerDependency();
-            builder.RegisterType<ObjectsStorageReader>().InstancePerDependency();
+            builder.RegisterType<TemplatesStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .InstancePerDependency();
+            builder.RegisterType<ObjectsStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .InstancePerDependency();
             builder.RegisterType<EventSender>().InstancePerDependency();
+            builder.RegisterType<MetricsProvider>().SingleInstance();
 
             var container = builder.Build();
 

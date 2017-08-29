@@ -33,7 +33,7 @@ namespace NuClear.VStore.Templates
         private static readonly IReadOnlyCollection<FileFormat> ArticleFileFormats =
             new[] { FileFormat.Chm };
 
-        private readonly IAmazonS3Proxy _amazonS3;
+        private readonly IS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly LockSessionManager _lockSessionManager;
         private readonly string _bucketName;
@@ -42,11 +42,11 @@ namespace NuClear.VStore.Templates
         public TemplatesManagementService(
             VStoreOptions vstoreOptions,
             CephOptions cephOptions,
-            IAmazonS3Proxy amazonS3,
+            IS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
             LockSessionManager lockSessionManager)
         {
-            _amazonS3 = amazonS3;
+            _s3Client = s3Client;
             _templatesStorageReader = templatesStorageReader;
             _lockSessionManager = lockSessionManager;
             _bucketName = cephOptions.TemplatesBucketName;
@@ -312,7 +312,7 @@ namespace NuClear.VStore.Templates
             metadataWrapper.Write(MetadataElement.AuthorLogin, authorInfo.AuthorLogin);
             metadataWrapper.Write(MetadataElement.AuthorName, authorInfo.AuthorName);
 
-            await _amazonS3.PutObjectAsync(putRequest);
+            await _s3Client.PutObjectAsync(putRequest);
         }
     }
 }

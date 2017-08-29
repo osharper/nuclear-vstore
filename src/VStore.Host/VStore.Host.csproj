@@ -5,8 +5,8 @@
     <RootNamespace>NuClear.VStore.Host</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.Host</PackageId>
-    <RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>
-    <!--<RuntimeIdentifier>win10-x64</RuntimeIdentifier>-->
+    <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
+    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
   </PropertyGroup>
@@ -29,6 +29,8 @@
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="Autofac" Version="4.6.1" />
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="4.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
     <PackageReference Include="Prometheus.Client.Owin" Version="1.1.0" />
