@@ -6,6 +6,7 @@ namespace NuClear.VStore.Prometheus
     {
         public static class Backends
         {
+            public const string Aws = "aws";
             public const string Ceph = "ceph";
         }
     }

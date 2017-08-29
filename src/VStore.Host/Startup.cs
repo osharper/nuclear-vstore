@@ -6,8 +6,9 @@ using System.Text;
 
 using Amazon;
 using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
+
+using Autofac;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -58,6 +59,9 @@ namespace NuClear.VStore.Host
     // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class Startup
     {
+        private const string Aws = "AWS";
+        private const string Ceph = "Ceph";
+
         private static readonly JsonConverter[] CustomConverters =
             {
                 new StringEnumConverter { CamelCaseText = true },
@@ -89,18 +93,13 @@ namespace NuClear.VStore.Host
         public void ConfigureServices(IServiceCollection services)
         {
             services
-                .AddOptions()
-                .Configure<CephOptions>(_configuration.GetSection("Ceph"))
-                .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
-                .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
-                .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
-                .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
-                .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)))
-                .AddSingleton(x => x.GetRequiredService<IOptions<CephOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<LockOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<VStoreOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<JwtOptions>>().Value)
-                .AddSingleton(x => x.GetRequiredService<IOptions<KafkaOptions>>().Value);
+                 .AddOptions()
+                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
+                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
+                 .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
+                 .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
+                 .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
+                 .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)));
 
             services.AddMvcCore(
                         options =>
@@ -153,41 +152,99 @@ namespace NuClear.VStore.Host
                         options.OperationFilter<ImplicitApiVersionParameter>();
                         options.OperationFilter<UploadFileOperationFilter>();
                     });
+        }
 
-            services.AddSingleton<EventSender>();
-            services.AddSingleton<IAmazonS3>(
-                x =>
-                    {
-                        var options = _configuration.GetAWSOptions();
+        public void ConfigureContainer(ContainerBuilder builder)
+        {
+            builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<JwtOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
-                        AWSCredentials credentials;
-                        if (options.Credentials != null)
-                        {
-                            credentials = options.Credentials;
-                        }
-                        else
-                        {
-                            var storeChain = new CredentialProfileStoreChain(options.ProfilesLocation);
-                            if (string.IsNullOrEmpty(options.Profile) || !storeChain.TryGetAWSCredentials(options.Profile, out credentials))
+            builder.Register(
+                        x =>
                             {
-                                credentials = FallbackCredentialsFactory.GetCredentials();
-                            }
-                        }
+                                var awsOptions = _configuration.GetAWSOptions(Ceph);
+                                var config = awsOptions.DefaultClientConfig.ToS3Config();
+                                config.ForcePathStyle = true;
 
-                        var config = options.DefaultClientConfig.ToS3Config();
-                        config.ForcePathStyle = true;
-
-                        return new AmazonS3Client(credentials, config);
-                    });
-            services.AddSingleton<MetricsProvider>();
-            services.AddSingleton<IAmazonS3Proxy>(x => new AmazonS3Proxy(x.GetRequiredService<IAmazonS3>(), x.GetRequiredService<MetricsProvider>()));
-            services.AddSingleton<LockSessionManager>();
-            services.AddSingleton<TemplatesStorageReader>();
-            services.AddSingleton<TemplatesManagementService>();
-            services.AddSingleton<SessionStorageReader>();
-            services.AddSingleton<SessionManagementService>();
-            services.AddSingleton<ObjectsStorageReader>();
-            services.AddSingleton<ObjectsManagementService>();
+                                var cephOptions = x.Resolve<CephOptions>();
+                                return new Amazon.S3.AmazonS3Client(new BasicAWSCredentials(cephOptions.AccessKey, cephOptions.SecretKey), config);
+                            })
+                    .Named<IAmazonS3>(Ceph)
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var options = _configuration.GetAWSOptions(Aws);
+                                return options.CreateServiceClient<IAmazonS3>();
+                            })
+                    .Named<IAmazonS3>(Aws)
+                    .SingleInstance();
+            builder.RegisterType<S3MultipartUploadClient>()
+                    .As<IS3MultipartUploadClient>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IAmazonS3),
+                        (parameterInfo, context) => context.ResolveNamed<IAmazonS3>(Ceph))
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var amazonS3 = x.ResolveNamed<IAmazonS3>(Ceph);
+                                var metricsProvider = x.Resolve<MetricsProvider>();
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Ceph);
+                            })
+                    .Named<IS3Client>(Ceph)
+                    .PreserveExistingDefaults()
+                    .SingleInstance();
+            builder.Register(
+                        x =>
+                            {
+                                var amazonS3 = x.ResolveNamed<IAmazonS3>(Aws);
+                                var metricsProvider = x.Resolve<MetricsProvider>();
+                                return new S3ClientPrometheusDecorator(new S3Client(amazonS3), metricsProvider, Labels.Backends.Aws);
+                            })
+                    .Named<IS3Client>(Aws)
+                    .PreserveExistingDefaults()
+                    .SingleInstance();
+            builder.RegisterType<CephS3Client>()
+                    .As<ICephS3Client>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                        (parameterInfo, context) => context.ResolveNamed<IS3Client>(Ceph))
+                    .SingleInstance();
+            builder.RegisterType<S3.AmazonS3Client>()
+                    .As<IAmazonS3Client>()
+                    .WithParameter(
+                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                        (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
+                    .SingleInstance();
+            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<SessionStorageReader>().SingleInstance();
+            builder.RegisterType<SessionManagementService>().SingleInstance();
+            builder.RegisterType<TemplatesStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<TemplatesManagementService>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<ObjectsStorageReader>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<ObjectsManagementService>()
+                   .WithParameter(
+                       (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
+                       (parameterInfo, context) => context.Resolve<ICephS3Client>())
+                   .SingleInstance();
+            builder.RegisterType<EventSender>().SingleInstance();
+            builder.RegisterType<MetricsProvider>().SingleInstance();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
