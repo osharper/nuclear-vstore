@@ -316,23 +316,23 @@ namespace MigrationTool
 
             var allowedText = newElement.Properties
                 .GetValue("fasComments")
-                .FirstOrDefault(fc => fc.Value<string>("raw") == raw)
-                ?.Value<string>("text");
+                .FirstOrDefault(fc => fc.Value<string>("raw") == raw)?
+                .Value<string>("text");
 
-            if (allowedText != element.Text)
+            if (allowedText == element.Text)
             {
-                _logger.LogWarning(
-                    "Element {id} within object {objectId} contains FAS text {text}, but allowed for this (raw) type {type} is {allowedText}. Element's FAS type will be set as {custom}",
-                    element.Id,
-                    element.AdvertisementId,
-                    element.Text,
-                    raw,
-                    allowedText,
-                    CustomFasToken);
-                return CustomFasToken;
+                return raw;
             }
 
-            return raw;
+            _logger.LogWarning(
+                "Element {id} within object {objectId} contains FAS text {text}, but allowed for this (raw) type {type} is {allowedText}. Element's FAS type will be set as {custom}",
+                element.Id,
+                element.AdvertisementId,
+                element.Text,
+                raw,
+                allowedText,
+                CustomFasToken);
+            return CustomFasToken;
         }
 
         private static string GetFasCommentType(FasComment fasComment)
