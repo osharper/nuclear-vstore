@@ -113,7 +113,7 @@ namespace MigrationTool
 
         private async Task<bool> ImportPositionsAsync()
         {
-            Position[] positions;
+            IReadOnlyCollection<Position> positions;
             using (var context = GetNewContext())
             {
                 // Get positions from current pricelist:
@@ -155,7 +155,7 @@ namespace MigrationTool
                 positions = await context.Positions
                     .Where(p => positionIds.Contains(p.Id) && p.AdvertisementTemplateId != null)
                     .Include(p => p.AdvertisementTemplate)
-                    .ToArrayAsync();
+                    .ToListAsync();
             }
 
             var existedPositions = (await Repository.GetPositionsAsync()).ToDictionary(p => p.Id);
@@ -198,7 +198,7 @@ namespace MigrationTool
                                          }
                                      });
 
-            _logger.LogInformation("Imported positions: {imported} of {total}", importedCount.ToString(), positions.Length.ToString());
+            _logger.LogInformation("Imported positions: {imported} of {total}", importedCount.ToString(), positions.Count.ToString());
             if (failedIds.Count > 0)
             {
                 _logger.LogWarning("Id's of failed positions: {list}", failedIds);
@@ -340,7 +340,7 @@ namespace MigrationTool
 
         private async Task<bool> ImportTemplatesAsync(IReadOnlyCollection<long> templateIds)
         {
-            AdvertisementTemplate[] templates;
+            IReadOnlyCollection<AdvertisementTemplate> templates;
             using (var context = GetNewContext())
             {
                 var positions = await (from p in context.Prices
@@ -401,7 +401,7 @@ namespace MigrationTool
                                          }
                                      });
 
-            _logger.LogInformation("Imported templates: {imported} of {total}", importedCount.ToString(), templates.Length.ToString());
+            _logger.LogInformation("Imported templates: {imported} of {total}", importedCount.ToString(), templates.Count.ToString());
             if (failedIds.Count > 0)
             {
                 _logger.LogWarning("Id's of failed templates: {list}", failedIds);
@@ -513,7 +513,7 @@ namespace MigrationTool
                 }
 
                 var segment = new ArraySegment<long>(advertisementsToImport, offset, count)
-                    .ToArray(); // EF doesn't build query with ArraySegment
+                    .ToList(); // EF doesn't build query with ArraySegment
 
                 var failedAdsInBatch = await ImportAdvertisementsByIdsAsync(segment);
                 importedCount += count - failedAdsInBatch.Count;
@@ -565,7 +565,7 @@ namespace MigrationTool
             return failedAds;
         }
 
-        private async Task<Advertisement[]> GetAdvertisementsByIds(IReadOnlyCollection<long> ids)
+        private async Task<IReadOnlyCollection<Advertisement>> GetAdvertisementsByIds(IReadOnlyCollection<long> ids)
         {
             using (var context = GetNewContext())
             {
@@ -581,7 +581,7 @@ namespace MigrationTool
                                     .Include(a => a.AdvertisementElements)
                                         .ThenInclude(ae => ae.AdvertisementElementDenialReasons)
                                         .ThenInclude(aedr => aedr.DenialReason)
-                                    .ToArrayAsync();
+                                    .ToListAsync();
             }
         }
 
@@ -638,23 +638,18 @@ namespace MigrationTool
             return false;
         }
 
-        private async Task ParallelImport<T>(T[] arr, Func<T, Task> callback)
+        private async Task ParallelImport<T>(IEnumerable<T> list, Func<T, Task> callback)
         {
-            for (var segmentNum = 0; ; ++segmentNum)
-            {
-                var offset = segmentNum * _maxDegreeOfParallelism;
-                var count = Math.Min(arr.Length - offset, _maxDegreeOfParallelism);
-                if (count <= 0)
-                {
-                    break;
-                }
-
-                var segment = new ArraySegment<T>(arr, offset, count);
-                var tasks = segment
-                    .Select(callback)
-                    .ToList();
-                await Task.WhenAll(tasks);
-            }
+            var partitioner = Partitioner.Create(list);
+            var partitions = partitioner.GetOrderablePartitions(_maxDegreeOfParallelism)
+                                        .Select(async partition =>
+                                                    {
+                                                        while (partition.MoveNext())
+                                                        {
+                                                            await callback(partition.Current.Value);
+                                                        }
+                                                    });
+            await Task.WhenAll(partitions);
         }
 
         private async Task ImportAdvertisementAsync(Advertisement advertisement)
@@ -938,9 +933,8 @@ namespace MigrationTool
                 case ElementDescriptorType.VectorImage:
                 case ElementDescriptorType.Article:
                     {
-                        var existed = existedConstraint as IBinaryElementConstraints;
-                        var generated = generatedConstraint as IBinaryElementConstraints;
-                        if (existed == null || generated == null)
+                        if (!(existedConstraint is IBinaryElementConstraints existed) ||
+                            !(generatedConstraint is IBinaryElementConstraints generated))
                         {
                             throw new ArgumentException("Incorrect constraint type");
                         }
@@ -971,9 +965,8 @@ namespace MigrationTool
 
                 case ElementDescriptorType.FasComment:
                     {
-                        var existed = existedConstraint as TextElementConstraints;
-                        var generated = generatedConstraint as TextElementConstraints;
-                        if (existed == null || generated == null)
+                        if (!(existedConstraint is TextElementConstraints existed) ||
+                            !(generatedConstraint is TextElementConstraints generated))
                         {
                             throw new ArgumentException("Incorrect constraint type");
                         }

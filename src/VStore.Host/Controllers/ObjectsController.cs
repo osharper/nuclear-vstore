@@ -126,9 +126,9 @@ namespace NuClear.VStore.Host.Controllers
                         objectDescriptor.TemplateId,
                         objectDescriptor.TemplateVersionId,
                         objectDescriptor.Language,
-                        objectDescriptor.Author,
-                        objectDescriptor.AuthorLogin,
-                        objectDescriptor.AuthorName,
+                        objectDescriptor.Metadata.Author,
+                        objectDescriptor.Metadata.AuthorLogin,
+                        objectDescriptor.Metadata.AuthorName,
                         objectDescriptor.Properties,
                         objectDescriptor.Elements
                     });
@@ -161,9 +161,9 @@ namespace NuClear.VStore.Host.Controllers
                         objectDescriptor.TemplateId,
                         objectDescriptor.TemplateVersionId,
                         objectDescriptor.Language,
-                        objectDescriptor.Author,
-                        objectDescriptor.AuthorLogin,
-                        objectDescriptor.AuthorName,
+                        objectDescriptor.Metadata.Author,
+                        objectDescriptor.Metadata.AuthorLogin,
+                        objectDescriptor.Metadata.AuthorName,
                         objectDescriptor.Properties,
                         objectDescriptor.Elements
                     });

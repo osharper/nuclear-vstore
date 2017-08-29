@@ -51,7 +51,7 @@ namespace NuClear.VStore.Host.Controllers
                 var uploadUrls = UploadUrl.Generate(
                     templateDescriptor,
                     templateCode => Url.Action(
-                        "UploadFile",
+                        nameof(UploadFile),
                         new
                         {
                             sessionId,
