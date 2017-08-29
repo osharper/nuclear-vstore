@@ -18,6 +18,7 @@ namespace MigrationTool
     public class ConverterService
     {
         private const int BytesInKilobyte = 1024;
+        private const string CustomFasToken = "custom";
         private const long VideoElementTemplateIdentifier = 1005145157231706304L;
         private readonly ILogger<ConverterService> _logger;
 
@@ -308,12 +309,30 @@ namespace MigrationTool
             }
 
             var raw = GetFasCommentType(element.FasCommentType.Value);
+            if (raw == CustomFasToken)
+            {
+                return raw;
+            }
+
             var allowedText = newElement.Properties
-                .Property("fasComments")
+                .GetValue("fasComments")
                 .FirstOrDefault(fc => fc.Value<string>("raw") == raw)
                 ?.Value<string>("text");
 
-            return allowedText != element.Text ? "custom" : raw;
+            if (allowedText != element.Text)
+            {
+                _logger.LogWarning(
+                    "Element {id} within object {objectId} contains FAS text {text}, but allowed for this (raw) type {type} is {allowedText}. Element's FAS type will be set as {custom}",
+                    element.Id,
+                    element.AdvertisementId,
+                    element.Text,
+                    raw,
+                    allowedText,
+                    CustomFasToken);
+                return CustomFasToken;
+            }
+
+            return raw;
         }
 
         private static string GetFasCommentType(FasComment fasComment)
@@ -321,7 +340,7 @@ namespace MigrationTool
             switch (fasComment)
             {
                 case FasComment.NewFasComment:
-                    return "custom";
+                    return CustomFasToken;
                 case FasComment.RussiaAlcohol:
                 case FasComment.CyprusAlcohol:
                 case FasComment.ChileAlcohol:
