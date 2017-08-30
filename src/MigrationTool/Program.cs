@@ -23,16 +23,16 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        private static readonly IReadOnlyDictionary<string, (Language DefaultLang, int CountryCode)> InstanceMap = new Dictionary<string, (Language, int)>
+        private static readonly IReadOnlyDictionary<string, (Language DefaultLang, int CountryCode, bool MigrateModerationStatuses)> InstanceMap = new Dictionary<string, (Language, int, bool)>
             {
-                { "ErmRu", (Language.Ru, 1) },
-                { "ErmUa", (Language.Ru, 11) },
-                { "ErmAe", (Language.En, 14) },
-                { "ErmCl", (Language.Es, 20) },
-                { "ErmCy", (Language.En, 19) },
-                { "ErmCz", (Language.Cs, 18) },
-                { "ErmKg", (Language.Ru, 23) },
-                { "ErmKz", (Language.Ru, 4) }
+                { "ErmRu", (Language.Ru, 1, true) },
+                { "ErmUa", (Language.Ru, 11, false) },
+                { "ErmAe", (Language.En, 14, false) },
+                { "ErmCl", (Language.Es, 20, false) },
+                { "ErmCy", (Language.En, 19, false) },
+                { "ErmCz", (Language.Cs, 18, false) },
+                { "ErmKg", (Language.Ru, 23, false) },
+                { "ErmKz", (Language.Ru, 4, false) }
             };
 
         private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap =
@@ -137,6 +137,7 @@ namespace MigrationTool
                                                           options,
                                                           TemplatesMap[instance.Key],
                                                           TemplatesModerationModesMap,
+                                                          instance.Value.MigrateModerationStatuses,
                                                           repository,
                                                           converter,
                                                           importLogger);
