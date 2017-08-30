@@ -21,16 +21,16 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        private static readonly IReadOnlyDictionary<string, Language> InstanceMap = new Dictionary<string, Language>
+        private static readonly IReadOnlyDictionary<string, (Language Lang, bool MigrateModerationStatuses)> InstanceMap = new Dictionary<string, (Language, bool)>
             {
-                { "ErmRu", Language.Ru },
-                { "ErmUa", Language.Ru },
-                { "ErmAe", Language.En },
-                { "ErmCl", Language.Es },
-                { "ErmCy", Language.En },
-                { "ErmCz", Language.Cs },
-                { "ErmKg", Language.Ru },
-                { "ErmKz", Language.Ru }
+                { "ErmRu", (Language.Ru, true) },
+                { "ErmUa", (Language.Ru, false) },
+                { "ErmAe", (Language.En, false) },
+                { "ErmCl", (Language.Es, false) },
+                { "ErmCy", (Language.En, false) },
+                { "ErmCz", (Language.Cs, false) },
+                { "ErmKg", (Language.Ru, false) },
+                { "ErmKz", (Language.Ru, false) }
             };
 
         private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap = new Dictionary<string, IDictionary<long, long>>();
@@ -125,7 +125,16 @@ namespace MigrationTool
 
                 try
                 {
-                    var importService = new ImportService(contextOptions, instance.Value, options, TemplatesMap[instance.Key], repository, converter, importLogger);
+                    var importService = new ImportService(
+                        contextOptions,
+                        instance.Value.Lang,
+                        options,
+                        TemplatesMap[instance.Key],
+                        instance.Value.MigrateModerationStatuses,
+                        repository,
+                        converter,
+                        importLogger);
+
                     if (await importService.ImportAsync(options.Mode))
                     {
                         logger.LogInformation("Import from {instance} finished successfully", instance.Key);

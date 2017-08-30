@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 using MigrationTool.Json;
+using MigrationTool.Models;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -416,18 +417,18 @@ namespace MigrationTool
             }
         }
 
-        public async Task<JToken> UploadFileAsync(Uri uploadUrl, Models.File file, FileFormat format)
+        public async Task<JToken> UploadFileAsync(Uri uploadUrl, AdvertisementElement element, FileFormat format)
         {
             var url = uploadUrl;
             var stringResponse = string.Empty;
-            var fileIdStr = file.Id.ToString();
+            var fileIdStr = element.File.Id.ToString();
             try
             {
-                var fileName = file.FileName;
+                var fileName = element.File.FileName;
                 if (string.IsNullOrEmpty(fileName))
                 {
                     fileName = $"file_{fileIdStr}.{format.ToString().ToLowerInvariant()}";
-                    _logger.LogWarning("File {id} hasn't name and will have generated name: {name}", fileIdStr, fileName);
+                    _logger.LogWarning("File {id} within object {objectId} hasn't name and will have generated name: {name}", fileIdStr, element.AdvertisementId, fileName);
                 }
                 else
                 {
@@ -436,7 +437,7 @@ namespace MigrationTool
 
                 using (var content = new MultipartFormDataContent())
                 {
-                    using (var memoryStream = new MemoryStream(file.Data, false))
+                    using (var memoryStream = new MemoryStream(element.File.Data, false))
                     {
                         using (var streamContent = new StreamContent(memoryStream))
                         {
@@ -450,7 +451,7 @@ namespace MigrationTool
                             {
                                 stringResponse = (await HandleResponse(response)).ResponseContent;
                                 response.EnsureSuccessStatusCode();
-                                _logger.LogInformation("File {id} uploaded successfully to {url}", fileIdStr, url);
+                                _logger.LogInformation("File {fileId} within object {objectId} uploaded successfully to {url}", fileIdStr, element.AdvertisementId, url);
                                 return JObject.Parse(stringResponse);
                             }
                         }
@@ -459,7 +460,14 @@ namespace MigrationTool
             }
             catch (Exception ex)
             {
-                _logger.LogError(new EventId(), ex, "File {id} upload error to {url}, response: {response}", fileIdStr, url, stringResponse);
+                _logger.LogError(
+                    new EventId(),
+                    ex,
+                    "File {fileId} within object {objectId} upload error to {url}, response: {response}",
+                    fileIdStr,
+                    element.AdvertisementId,
+                    url,
+                    stringResponse);
                 throw;
             }
         }

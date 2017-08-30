@@ -42,6 +42,7 @@ namespace MigrationTool
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
+        private readonly bool _migrateModerationStatuses;
         private readonly JTokenEqualityComparer _jsonEqualityComparer = new JTokenEqualityComparer();
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
@@ -53,6 +54,7 @@ namespace MigrationTool
             Language language,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
+            bool migrateModerationStatuses,
             ApiRepository repository,
             ConverterService converter,
             ILogger<ImportService> logger)
@@ -72,6 +74,7 @@ namespace MigrationTool
             _contextOptions = contextOptions;
             _language = language;
             _instanceTemplatesMap = instanceTemplatesMap;
+            _migrateModerationStatuses = migrateModerationStatuses;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
             _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
@@ -681,6 +684,11 @@ namespace MigrationTool
                 await Repository.SelectObjectToWhitelist(objectId);
             }
 
+            if (!_migrateModerationStatuses)
+            {
+                return;
+            }
+
             var moderationStatus = Converter.GetAdvertisementModerationStatus(advertisement);
             if (moderationStatus.Status != ModerationStatus.OnApproval)
             {
@@ -1080,7 +1088,7 @@ namespace MigrationTool
                     };
                 case ElementDescriptorType.FasComment:
                 {
-                    var raw = Converter.ConvertFasCommentType(element);
+                    var raw = Converter.ConvertFasCommentType(element, newElem);
                     return new FasElementValue
                     {
                         Raw = raw,
@@ -1100,7 +1108,7 @@ namespace MigrationTool
 
                     var constraints = (BitmapImageElementConstraints)newElem.Constraints.For(Language.Unspecified);
                     var format = Converter.PreprocessImageFile(element.File, templateId, templateCode, constraints);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, format);
                     Interlocked.Increment(ref _uploadedBinariesCount);
 
                     return new BitmapImageElementValue
@@ -1118,7 +1126,7 @@ namespace MigrationTool
 
                     EnsureFileElementIsValid(elementType, element, newElem);
                     var format = Converter.DetectFileFormat(element.File, templateCode);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, format);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, format);
                     Interlocked.Increment(ref _uploadedBinariesCount);
                     return new VectorImageElementValue
                         {
@@ -1134,7 +1142,7 @@ namespace MigrationTool
                     }
 
                     EnsureFileElementIsValid(elementType, element, newElem);
-                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element.File, FileFormat.Chm);
+                    var json = await Repository.UploadFileAsync(new Uri(newElem.UploadUrl, UriKind.RelativeOrAbsolute), element, FileFormat.Chm);
                     Interlocked.Increment(ref _uploadedBinariesCount);
                     return new ArticleElementValue
                         {
