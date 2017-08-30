@@ -41,6 +41,7 @@ namespace MigrationTool
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
+        private readonly bool _migrateModerationStatuses;
         private readonly JTokenEqualityComparer _jsonEqualityComparer = new JTokenEqualityComparer();
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
@@ -52,6 +53,7 @@ namespace MigrationTool
             Language language,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
+            bool migrateModerationStatuses,
             ApiRepository repository,
             ConverterService converter,
             ILogger<ImportService> logger)
@@ -70,6 +72,7 @@ namespace MigrationTool
             _contextOptions = contextOptions;
             _language = language;
             _instanceTemplatesMap = instanceTemplatesMap;
+            _migrateModerationStatuses = migrateModerationStatuses;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
             _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
@@ -669,6 +672,11 @@ namespace MigrationTool
             if (advertisement.IsSelectedToWhiteList)
             {
                 await Repository.SelectObjectToWhitelist(objectId);
+            }
+
+            if (!_migrateModerationStatuses)
+            {
+                return;
             }
 
             var moderationStatus = Converter.GetAdvertisementModerationStatus(advertisement);
