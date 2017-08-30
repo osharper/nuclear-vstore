@@ -33,6 +33,7 @@ namespace MigrationTool
         private readonly DateTime _thresholdDate;
         private readonly DateTime _positionsBeginDate;
         private readonly Language _language;
+        private readonly int _countryCode;
         private readonly string _languageCode;
         private readonly int _batchSize;
         private readonly int _maxDegreeOfParallelism;
@@ -53,6 +54,7 @@ namespace MigrationTool
         public ImportService(
             DbContextOptions<ErmContext> contextOptions,
             Language language,
+            int countryCode,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
             IDictionary<long, IDictionary<int, ModerationMode>> templatesModerationModesMap,
@@ -73,6 +75,7 @@ namespace MigrationTool
             _batchSize = options.AdvertisementsImportBatchSize;
             _contextOptions = contextOptions;
             _language = language;
+            _countryCode = countryCode;
             _instanceTemplatesMap = instanceTemplatesMap;
             _templatesModerationModesMap = templatesModerationModesMap;
             _languageCode = language.ToString().ToLowerInvariant();
@@ -677,6 +680,12 @@ namespace MigrationTool
                 await Repository.SelectObjectToWhitelist(objectId);
             }
 
+            var mappedTemplateId = _instanceTemplatesMap[advertisement.AdvertisementTemplateId];
+            if (_templatesModerationModesMap[mappedTemplateId][_countryCode] == ModerationMode.Off)
+            {
+                return;
+            }
+
             var moderationStatus = Converter.GetAdvertisementModerationStatus(advertisement);
             if (moderationStatus.Status != ModerationStatus.OnApproval)
             {
@@ -1014,9 +1023,10 @@ namespace MigrationTool
 
         private TemplateDescriptor GenerateTemplateDescriptor(AdvertisementTemplate template)
         {
+            var mappedTemplateId = _instanceTemplatesMap[template.Id];
             return new TemplateDescriptor
             {
-                Id = _instanceTemplatesMap[template.Id],
+                Id = mappedTemplateId,
                 Elements = template.ElementTemplatesLink
                                        .Where(link => !link.IsDeleted && !link.ElementTemplate.IsDeleted)
                                        .OrderBy(link => link.ExportCode)
@@ -1026,7 +1036,7 @@ namespace MigrationTool
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
                     { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList },
-                    { Tokens.ModerationModesToken, JObject.FromObject(_templatesModerationModesMap[_instanceTemplatesMap[template.Id]], _jsonSerializer) }
+                    { Tokens.ModerationModesToken, JObject.FromObject(_templatesModerationModesMap[mappedTemplateId], _jsonSerializer) }
                 }
             };
         }

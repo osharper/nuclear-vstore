@@ -133,6 +133,7 @@ namespace MigrationTool
                 {
                     var importService = new ImportService(contextOptions,
                                                           instance.Value.DefaultLang,
+                                                          instance.Value.CountryCode,
                                                           options,
                                                           TemplatesMap[instance.Key],
                                                           TemplatesModerationModesMap,
