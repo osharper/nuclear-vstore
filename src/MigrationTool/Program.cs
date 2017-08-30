@@ -14,6 +14,8 @@ using MigrationTool.Models;
 using NuClear.VStore.Descriptors;
 using System.Threading.Tasks;
 
+using MigrationTool.Json;
+
 using Serilog;
 
 namespace MigrationTool
@@ -21,19 +23,23 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        private static readonly IReadOnlyDictionary<string, Language> InstanceMap = new Dictionary<string, Language>
+        private static readonly IReadOnlyDictionary<string, (Language DefaultLang, int CountryCode)> InstanceMap = new Dictionary<string, (Language, int)>
             {
-                { "ErmRu", Language.Ru },
-                { "ErmUa", Language.Ru },
-                { "ErmAe", Language.En },
-                { "ErmCl", Language.Es },
-                { "ErmCy", Language.En },
-                { "ErmCz", Language.Cs },
-                { "ErmKg", Language.Ru },
-                { "ErmKz", Language.Ru }
+                { "ErmRu", (Language.Ru, 1) },
+                { "ErmUa", (Language.Ru, 11) },
+                { "ErmAe", (Language.En, 14) },
+                { "ErmCl", (Language.Es, 20) },
+                { "ErmCy", (Language.En, 19) },
+                { "ErmCz", (Language.Cs, 18) },
+                { "ErmKg", (Language.Ru, 23) },
+                { "ErmKz", (Language.Ru, 4) }
             };
 
-        private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap = new Dictionary<string, IDictionary<long, long>>();
+        private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap =
+            new Dictionary<string, IDictionary<long, long>>();
+
+        private static readonly IDictionary<long, IDictionary<int, ModerationMode>> TemplatesModerationModesMap =
+            new Dictionary<long, IDictionary<int, ModerationMode>>();
 
         private static IConfigurationRoot Configuration { get; set; }
 
@@ -125,7 +131,15 @@ namespace MigrationTool
 
                 try
                 {
-                    var importService = new ImportService(contextOptions, instance.Value, options, TemplatesMap[instance.Key], repository, converter, importLogger);
+                    var importService = new ImportService(contextOptions,
+                                                          instance.Value.DefaultLang,
+                                                          options,
+                                                          TemplatesMap[instance.Key],
+                                                          TemplatesModerationModesMap,
+                                                          repository,
+                                                          converter,
+                                                          importLogger);
+
                     if (await importService.ImportAsync(options.Mode))
                     {
                         logger.LogInformation("Import from {instance} finished successfully", instance.Key);
@@ -179,13 +193,13 @@ namespace MigrationTool
                         }
 
                         var values = line.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (values.Length % 2 != 0 || values.Length < 1)
+                        if (values.Length % 3 != 0 || values.Length < 1)
                         {
                             throw new IOException("Incorrect number of values in line: " + lineNumber.ToString());
                         }
 
                         var referenceValue = new long?();
-                        for (var i = 0; i < values.Length; i += 2)
+                        for (var i = 0; i < values.Length; i += 3)
                         {
                             var instance = values[i];
                             if (!InstanceMap.ContainsKey(instance))
@@ -193,7 +207,15 @@ namespace MigrationTool
                                 throw new IOException("Incorrect instance: " + instance + " on line " + lineNumber.ToString());
                             }
 
-                            if (!long.TryParse(values[i + 1], out long id))
+                            var moderationMode = values[i + 1];
+                            if (!Enum.TryParse(moderationMode, true, out ModerationMode mode) ||
+                                !Enum.IsDefined(typeof(ModerationMode), mode) ||
+                                !mode.ToString().Equals(moderationMode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new IOException("Incorrect moderation mode: " + moderationMode + " on line " + lineNumber.ToString());
+                            }
+
+                            if (!long.TryParse(values[i + 2], out var id))
                             {
                                 throw new InvalidCastException("Cannot parse id for " + instance + " instance on line " + lineNumber.ToString());
                             }
@@ -215,7 +237,14 @@ namespace MigrationTool
                                 referenceValue = id;
                             }
 
+                            // Add moderation mode:
                             TemplatesMap[instance][id] = referenceValue.Value;
+                            if (!TemplatesModerationModesMap.ContainsKey(referenceValue.Value))
+                            {
+                                TemplatesModerationModesMap.Add(referenceValue.Value, new Dictionary<int, ModerationMode>());
+                            }
+
+                            TemplatesModerationModesMap[referenceValue.Value][InstanceMap[instance].CountryCode] = mode;
                         }
                     }
                 }

@@ -15,6 +15,7 @@ using MigrationTool.Json;
 using MigrationTool.Models;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors;
@@ -41,9 +42,11 @@ namespace MigrationTool
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
+        private readonly IDictionary<long, IDictionary<int, ModerationMode>> _templatesModerationModesMap;
         private readonly JTokenEqualityComparer _jsonEqualityComparer = new JTokenEqualityComparer();
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
+        private readonly JsonSerializer _jsonSerializer = new JsonSerializer();
 
         private long _uploadedBinariesCount;
 
@@ -52,6 +55,7 @@ namespace MigrationTool
             Language language,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
+            IDictionary<long, IDictionary<int, ModerationMode>> templatesModerationModesMap,
             ApiRepository repository,
             ConverterService converter,
             ILogger<ImportService> logger)
@@ -70,9 +74,11 @@ namespace MigrationTool
             _contextOptions = contextOptions;
             _language = language;
             _instanceTemplatesMap = instanceTemplatesMap;
+            _templatesModerationModesMap = templatesModerationModesMap;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
             _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
+            _jsonSerializer.Converters.Add(new StringEnumConverter(true));
             Repository = repository;
             Converter = converter;
         }
@@ -1019,7 +1025,8 @@ namespace MigrationTool
                 Properties = new JObject
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
-                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList }
+                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList },
+                    { Tokens.ModerationModesToken, JObject.FromObject(_templatesModerationModesMap[_instanceTemplatesMap[template.Id]], _jsonSerializer) }
                 }
             };
         }
