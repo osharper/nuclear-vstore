@@ -6,6 +6,8 @@ namespace MigrationTool
     {
         public ImportMode Mode { get; set; }
 
+        public bool FetchAdvertisementBeforeImport { get; set; }
+
         public int MaxDegreeOfParallelism { get; set; }
 
         public int MaxImportTries { get; set; } = 3;
