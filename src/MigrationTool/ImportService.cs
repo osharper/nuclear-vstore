@@ -664,6 +664,7 @@ namespace MigrationTool
             if (fetchAdvertisementBeforeImport)
             {
                 versionId = await Repository.GetObjectVersionAsync(advertisement.Id);
+                _logger.LogInformation("Object {id} has been fetched preliminarily with version {versionId}", objectId, versionId);
             }
 
             if (string.IsNullOrEmpty(versionId))
