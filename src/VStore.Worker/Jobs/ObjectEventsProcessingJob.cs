@@ -158,7 +158,7 @@ namespace NuClear.VStore.Worker.Jobs
             var retry =
                 Policy<IReadOnlyCollection<ObjectVersionRecord>>
                     .Handle<ObjectNotFoundException>()
-                    .WaitAndRetryAsync(5, attempt => TimeSpan.FromSeconds(1));
+                    .WaitAndRetryAsync(60, attempt => TimeSpan.FromSeconds(1));
             return Policy.WrapAsync(fallback, retry);
         }
 
