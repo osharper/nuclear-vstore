@@ -28,6 +28,7 @@ namespace MigrationTool
 {
     public class ApiRepository
     {
+        private const string DefaultServer = "okapi";
         private readonly Uri _apiUri;
         private readonly Uri _storageUri;
         private readonly Uri _templateUri;
@@ -115,16 +116,22 @@ namespace MigrationTool
                 using (var response = await _httpClient.GetAsync(methodUri))
                 {
                     (stringResponse, server, requestId) = await HandleResponse(response);
+                    if (response.StatusCode == HttpStatusCode.NotFound && server == DefaultServer)
+                    {
+                        _logger.LogDebug("Advertisement {id} not found", objectId);
+                        return null;
+                    }
+
                     response.EnsureSuccessStatusCode();
                     var res = JsonConvert.DeserializeObject<IReadOnlyList<ApiVersionedDescriptor>>(stringResponse, ApiSerializerSettings.Default);
                     if (res == null)
                     {
-                        throw new SerializationException("Cannot deserialize response: " + stringResponse);
+                        throw new SerializationException("Cannot deserialize response for object " + objectId + ": " + stringResponse);
                     }
 
                     if (res.Count != 1)
                     {
-                        throw new NotSupportedException("Unsupported count of objects in response: " + res.Count.ToString());
+                        throw new NotSupportedException("Unsupported count of objects in response for object " + objectId + ": " + res.Count.ToString());
                     }
 
                     return res.First().VersionId;
@@ -376,7 +383,7 @@ namespace MigrationTool
                 {
                     (stringResponse, server, requestId) = await HandleResponse(response);
                     if (response.StatusCode == HttpStatusCode.NotFound &&
-                        server == "okapi")
+                        server == DefaultServer)
                     {
                         _logger.LogDebug("Template {id} not found", templateId);
                         return null;

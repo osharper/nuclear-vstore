@@ -35,6 +35,7 @@ namespace MigrationTool
         private readonly Language _language;
         private readonly int _countryCode;
         private readonly string _languageCode;
+        private readonly bool _fetchAdvertisementBeforeImport;
         private readonly int _batchSize;
         private readonly int _maxDegreeOfParallelism;
         private readonly int _truncatedImportSize;
@@ -69,6 +70,7 @@ namespace MigrationTool
                 throw new ArgumentOutOfRangeException(nameof(options.MaxDegreeOfParallelism));
             }
 
+            _fetchAdvertisementBeforeImport = options.FetchAdvertisementBeforeImport;
             _thresholdDate = options.ThresholdDate;
             _positionsBeginDate = options.PositionsBeginDate;
             _maxImportTries = options.MaxImportTries;
@@ -563,7 +565,7 @@ namespace MigrationTool
                                      {
                                          try
                                          {
-                                             await ImportAdvertisementAsync(advertisement);
+                                             await ImportAdvertisementAsync(advertisement, _fetchAdvertisementBeforeImport);
                                              Interlocked.Increment(ref batchImportedCount);
                                          }
                                          catch (Exception ex)
@@ -618,7 +620,7 @@ namespace MigrationTool
                                                            try
                                                            {
                                                                ++tries;
-                                                               await ImportAdvertisementAsync(advertisement);
+                                                               await ImportAdvertisementAsync(advertisement, true);
                                                                Interlocked.Increment(ref imported);
                                                                hasFailed = false;
                                                            }
@@ -664,18 +666,27 @@ namespace MigrationTool
             await Task.WhenAll(partitions);
         }
 
-        private async Task ImportAdvertisementAsync(Advertisement advertisement)
+        private async Task ImportAdvertisementAsync(Advertisement advertisement, bool fetchAdvertisementBeforeImport)
         {
             var versionId = string.Empty;
             var objectId = advertisement.Id.ToString();
-            var objectDescriptor = await GenerateObjectDescriptorAsync(advertisement);
-            try
+            if (fetchAdvertisementBeforeImport)
             {
-                versionId = await Repository.CreateObjectAsync(advertisement.Id, advertisement.FirmId.ToString(), objectDescriptor);
+                versionId = await Repository.GetObjectVersionAsync(advertisement.Id);
+                _logger.LogInformation("Object {id} has been fetched preliminarily with version {versionId}", objectId, versionId);
             }
-            catch (ObjectAlreadyExistsException ex)
+
+            if (string.IsNullOrEmpty(versionId))
             {
-                _logger.LogWarning(new EventId(), ex, "Object {id} already exists, try to continue execution", objectId);
+                var objectDescriptor = await GenerateObjectDescriptorAsync(advertisement);
+                try
+                {
+                    versionId = await Repository.CreateObjectAsync(advertisement.Id, advertisement.FirmId.ToString(), objectDescriptor);
+                }
+                catch (ObjectAlreadyExistsException ex)
+                {
+                    _logger.LogWarning(new EventId(), ex, "Object {id} already exists, try to continue execution", objectId);
+                }
             }
 
             if (advertisement.IsSelectedToWhiteList)
