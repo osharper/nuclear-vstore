@@ -168,10 +168,15 @@ namespace NuClear.VStore.Host
             builder.Register(x => x.Resolve<IOptions<JwtOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
-            builder.Register(
+            builder.Register<IDistributedLockFactory>(
                        x =>
                            {
                                var lockOptions = x.Resolve<DistributedLockOptions>();
+                               if (lockOptions.DeveloperMode)
+                               {
+                                   return new InMemoryLockFactory();
+                               }
+
                                var endpoints = lockOptions.EndPoints
                                                           .Aggregate(new List<RedLockEndPoint>(),
                                                                      (result, next) =>
