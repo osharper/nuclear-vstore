@@ -1,136 +1,46 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 
-using Amazon.S3;
-using Amazon.S3.Model;
-
-using Microsoft.Extensions.Logging;
-
-using Newtonsoft.Json;
-
-using NuClear.VStore.Descriptors;
-using NuClear.VStore.Http;
-using NuClear.VStore.Json;
 using NuClear.VStore.Options;
-using NuClear.VStore.S3;
+
+using RedLockNet;
 
 namespace NuClear.VStore.Locks
 {
     public sealed class LockSessionManager
     {
-        private readonly ICephS3Client _cephS3Client;
-        private readonly ILogger<LockSessionManager> _logger;
-        private readonly string _bucketName;
+        private static readonly TimeSpan CheckLockExpiration = TimeSpan.FromSeconds(10);
+
+        private readonly IDistributedLockFactory _lockFactory;
         private readonly TimeSpan _expiration;
 
-        public LockSessionManager(ICephS3Client cephS3Client, LockOptions lockOptions, ILogger<LockSessionManager> logger)
+        public LockSessionManager(IDistributedLockFactory lockFactory, DistributedLockOptions lockOptions)
         {
-            _cephS3Client = cephS3Client;
-            _logger = logger;
-            _bucketName = lockOptions.BucketName;
-            _expiration = lockOptions.Expiration;
-        }
 
-        public async Task<IReadOnlyCollection<long>> GetAllCurrentLockSessionsAsync()
-        {
-            var response = await _cephS3Client.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName });
-            return response.S3Objects.Select(x => x.Key.AsLockObjectId()).ToArray();
+            _lockFactory = lockFactory;
+            _expiration = lockOptions.Expiration;
         }
 
         public async Task EnsureLockSessionNotExists(long rootObjectKey)
         {
-            var lockId = rootObjectKey.AsS3LockKey();
-            var response = await _cephS3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
-            if (response.Versions.Count > 0)
+            using (var redLock = await _lockFactory.CreateLockAsync(rootObjectKey.ToString(), CheckLockExpiration))
             {
-                throw new LockAlreadyExistsException(rootObjectKey);
+                if (!redLock.IsAcquired)
+                {
+                    throw new LockAlreadyExistsException(rootObjectKey);
+                }
             }
         }
 
-        public async Task<LockSession> CreateLockSessionAsync(long rootObjectKey)
+        public async Task<IRedLock> CreateLockSessionAsync(long rootObjectKey)
         {
-            await EnsureLockSessionNotExists(rootObjectKey);
-
-            var lockSession = new LockSession(rootObjectKey, this);
-            var lockSessionDescriptor = lockSession.CreateDescriptor(_expiration);
-
-            var lockId = rootObjectKey.AsS3LockKey();
-            var json = JsonConvert.SerializeObject(lockSessionDescriptor, SerializerSettings.Default);
-            var putObjectResponse = await _cephS3Client.PutObjectAsync(
-                                        new PutObjectRequest
-                                            {
-                                                BucketName = _bucketName,
-                                                Key = lockId,
-                                                ContentType = ContentType.Json,
-                                                ContentBody = json,
-                                                CannedACL = S3CannedACL.PublicRead
-                                            });
-
-            var listVersionsResponse = await _cephS3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
-            var versions = listVersionsResponse.Versions;
-
-            var versionId = versions.Single(v => v.ETag == putObjectResponse.ETag).VersionId;
-            if (versionId != versions[versions.Count - 1].VersionId)
+            var redLock = await _lockFactory.CreateLockAsync(rootObjectKey.ToString(), _expiration);
+            if (!redLock.IsAcquired)
             {
                 throw new LockAlreadyExistsException(rootObjectKey);
             }
 
-            return lockSession;
-        }
-
-        public async Task<bool> IsLockSessionExpired(long rootObjectKey)
-        {
-            var lockSessionDescriptor = await GetLockSessionDescriptor(rootObjectKey.AsS3LockKey());
-            var isExpired = lockSessionDescriptor?.ExpirationDate <= DateTime.UtcNow;
-            if (isExpired)
-            {
-                _logger.LogWarning("Expired lock session found for object with id = {id}.", rootObjectKey);
-            }
-
-            return isExpired;
-        }
-
-        public async Task DeleteLockSessionAsync(long rootObjectKey)
-        {
-            var lockId = rootObjectKey.AsS3LockKey();
-            try
-            {
-                var response = await _cephS3Client.ListVersionsAsync(new ListVersionsRequest { BucketName = _bucketName, Prefix = lockId });
-                foreach (var version in response.Versions)
-                {
-                    await _cephS3Client.DeleteObjectAsync(_bucketName, lockId, version.VersionId);
-                }
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode != HttpStatusCode.NotFound)
-            {
-                throw new S3Exception(ex);
-            }
-        }
-
-        private async Task<LockSessionDescriptor> GetLockSessionDescriptor(string key)
-        {
-            string content;
-            try
-            {
-                using (var getObjectResponse = await _cephS3Client.GetObjectAsync(_bucketName, key))
-                {
-                    using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
-                    {
-                        content = reader.ReadToEnd();
-                    }
-                }
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return null;
-            }
-
-            return JsonConvert.DeserializeObject<LockSessionDescriptor>(content, SerializerSettings.Default);
+            return redLock;
         }
     }
 }

@@ -9,7 +9,6 @@
         public struct Commands
         {
             public const string Collect = "collect";
-            public const string Locks = "locks";
             public const string Binaries = "binaries";
             public const string Produce = "produce";
             public const string Events = "events";

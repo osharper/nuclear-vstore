@@ -14,7 +14,6 @@ namespace NuClear.VStore.Worker
         private static readonly Dictionary<string, Type> Registry =
             new Dictionary<string, Type>
                 {
-                    { "collect-locks", typeof(LockCleanupJob) },
                     { "collect-binaries", typeof(BinariesCleanupJob) },
                     { "produce-events", typeof(ObjectEventsProcessingJob) }
                 };

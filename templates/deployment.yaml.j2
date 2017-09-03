@@ -57,8 +57,6 @@ spec:
           value: {{ objects_bucket_name }}
         - name: VSTORE_Ceph__FilesBucketName
           value: {{ files_bucket_name }}
-        - name: VSTORE_Ceph__Locks__BucketName
-          value: {{ locks_bucket_name }}
         - name: VSTORE_VStore__FileStorageEndpoint
           value: {{ ceph_rgw_url }}/{{ files_bucket_name }}/
         - name: VSTORE_VStore__SessionExpiration

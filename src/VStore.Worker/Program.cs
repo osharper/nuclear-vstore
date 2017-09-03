@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 using Amazon;
 using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
 using Autofac;
@@ -90,18 +89,10 @@ namespace NuClear.VStore.Worker
                         config.Description = "Run cleanup job. See available arguments for details.";
                         config.HelpOption(CommandLine.HelpOptionTemplate);
                         config.Command(
-                            CommandLine.Commands.Locks,
-                            commandConfig =>
-                                {
-                                    commandConfig.Description = "Collect expired locks.";
-                                    commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
-                                    commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
-                                });
-                        config.Command(
                             CommandLine.Commands.Binaries,
                             commandConfig =>
                                 {
-                                    commandConfig.Description = "Collect orphan binary files.";
+                                    commandConfig.Description = "Collect unrefenced and expired binary files.";
                                     commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
                                     commandConfig.Argument(CommandLine.Arguments.Range, "Time range in hours.");
                                     commandConfig.Argument(CommandLine.Arguments.Delay, "Delay between collections.");
@@ -167,7 +158,6 @@ namespace NuClear.VStore.Worker
             var services = new ServiceCollection()
                 .AddOptions()
                 .Configure<CephOptions>(configuration.GetSection("Ceph"))
-                .Configure<LockOptions>(configuration.GetSection("Ceph:Locks"))
                 .Configure<VStoreOptions>(configuration.GetSection("VStore"))
                 .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
                 .AddLogging();
@@ -176,7 +166,6 @@ namespace NuClear.VStore.Worker
             builder.Populate(services);
 
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
-            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
@@ -184,7 +173,6 @@ namespace NuClear.VStore.Worker
 
             builder.RegisterType<JobRegistry>().SingleInstance();
             builder.RegisterType<JobRunner>().SingleInstance();
-            builder.RegisterType<LockCleanupJob>().SingleInstance();
             builder.RegisterType<BinariesCleanupJob>().SingleInstance();
             builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 

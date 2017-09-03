@@ -74,11 +74,9 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("Template Id must be set", nameof(id));
             }
 
-            LockSession lockSession = null;
+            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
             try
             {
-                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
-
                 if (await _templatesStorageReader.IsTemplateExists(id))
                 {
                     throw new ObjectAlreadyExistsException(id);
@@ -91,10 +89,7 @@ namespace NuClear.VStore.Templates
             }
             finally
             {
-                if (lockSession != null)
-                {
-                    await lockSession.ReleaseAsync();
-                }
+                redLock?.Dispose();
             }
         }
 
@@ -110,11 +105,9 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("VersionId must be set", nameof(versionId));
             }
 
-            LockSession lockSession = null;
+            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
             try
             {
-                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
-
                 if (!await _templatesStorageReader.IsTemplateExists(id))
                 {
                     throw new ObjectNotFoundException($"Template '{id}' does not exist");
@@ -133,10 +126,7 @@ namespace NuClear.VStore.Templates
             }
             finally
             {
-                if (lockSession != null)
-                {
-                    await lockSession.ReleaseAsync();
-                }
+                redLock?.Dispose();
             }
         }
 

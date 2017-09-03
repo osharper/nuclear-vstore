@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Text;
 
@@ -49,6 +51,10 @@ using NuClear.VStore.Templates;
 using Prometheus.Client.Collectors;
 using Prometheus.Client.Owin;
 
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
+
 using Serilog;
 using Serilog.Events;
 
@@ -95,7 +101,7 @@ namespace NuClear.VStore.Host
             services
                  .AddOptions()
                  .Configure<CephOptions>(_configuration.GetSection("Ceph"))
-                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
+                 .Configure<DistributedLockOptions>(_configuration.GetSection("DistributedLocks"))
                  .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
                  .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
                  .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
@@ -157,10 +163,27 @@ namespace NuClear.VStore.Host
         public void ConfigureContainer(ContainerBuilder builder)
         {
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
-            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<DistributedLockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<JwtOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
+
+            builder.Register(
+                       x =>
+                           {
+                               var lockOptions = x.Resolve<DistributedLockOptions>();
+                               var endpoints = lockOptions.EndPoints
+                                                          .Aggregate(new List<RedLockEndPoint>(),
+                                                                     (result, next) =>
+                                                                         {
+                                                                             result.Add(new DnsEndPoint(next.Host, next.Port));
+                                                                             return result;
+                                                                         });
+                               var loggerFactory = x.Resolve<ILoggerFactory>();
+                               return RedLockFactory.Create(endpoints, loggerFactory);
+                           })
+                   .As<IDistributedLockFactory>()
+                   .SingleInstance();
 
             builder.Register(
                         x =>
