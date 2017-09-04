@@ -227,10 +227,10 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private static void VerifyObjectElementsConsistency(
+        private static async Task VerifyObjectElementsConsistency(
             long objectId,
             Language language,
-            IReadOnlyCollection<IObjectElementDescriptor> elementDescriptors)
+            IEnumerable<IObjectElementDescriptor> elementDescriptors)
         {
             var allErrors = new ConcurrentDictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
             var tasks = elementDescriptors.Select(
@@ -251,6 +251,8 @@ namespace NuClear.VStore.Objects
                                                allErrors[element.TemplateCode] = errors;
                                            }
                                        }));
+
+            await Task.WhenAll(tasks);
 
             if (allErrors.Count > 0)
             {
@@ -306,7 +308,7 @@ namespace NuClear.VStore.Objects
         private async Task<string> PutObject(long id, string versionId, AuthorInfo authorInfo, IObjectDescriptor objectDescriptor)
         {
             PreprocessObjectElements(objectDescriptor.Elements);
-            VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
+            await VerifyObjectElementsConsistency(id, objectDescriptor.Language, objectDescriptor.Elements);
             var metadataForBinaries = await RetrieveMetadataForBinaries(id, objectDescriptor.Elements);
 
             await _eventSender.SendAsync(_objectEventsTopic, new ObjectVersionCreatingEvent(id, versionId));
