@@ -73,11 +73,9 @@ namespace NuClear.VStore.Objects
         {
             CheckRequredProperties(id, objectDescriptor);
 
-            LockSession lockSession = null;
+            var lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
             try
             {
-                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
-
                 if (await _objectsStorageReader.IsObjectExists(id))
                 {
                     throw new ObjectAlreadyExistsException(id);
@@ -128,11 +126,9 @@ namespace NuClear.VStore.Objects
                 throw new ArgumentException("Object version must be set", nameof(versionId));
             }
 
-            LockSession lockSession = null;
+            var lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
             try
             {
-                lockSession = await _lockSessionManager.CreateLockSessionAsync(id);
-
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
                 if (objectDescriptor == null)
                 {

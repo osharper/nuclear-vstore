@@ -14,6 +14,9 @@ using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
+using Polly;
+using Polly.Wrap;
+
 namespace NuClear.VStore.Worker.Jobs
 {
     public sealed class ObjectEventsProcessingJob : AsyncJob
@@ -146,6 +149,19 @@ namespace NuClear.VStore.Worker.Jobs
                           TaskScheduler.Default)
                       .Unwrap();
 
+        private static PolicyWrap<IReadOnlyCollection<ObjectVersionRecord>> CreateGetObjectVersionsResiliencePolicy()
+        {
+            var fallback =
+                Policy<IReadOnlyCollection<ObjectVersionRecord>>
+                    .Handle<ObjectNotFoundException>()
+                    .FallbackAsync((IReadOnlyCollection<ObjectVersionRecord>)null);
+            var retry =
+                Policy<IReadOnlyCollection<ObjectVersionRecord>>
+                    .Handle<ObjectNotFoundException>()
+                    .WaitAndRetryAsync(300, attempt => TimeSpan.FromSeconds(1));
+            return Policy.WrapAsync(fallback, retry);
+        }
+
         private async Task ProduceObjectVersionCreatedEvents()
         {
             var events = _versionEventReceiver.Receive<ObjectVersionCreatingEvent>(_objectEventsTopic, _consumingBatchSize);
@@ -155,18 +171,22 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
 
                 IReadOnlyCollection<ObjectVersionRecord> versionRecords;
-                try
+                if (string.IsNullOrEmpty(versionId))
+                {
+                    var policy = CreateGetObjectVersionsResiliencePolicy();
+                    versionRecords = await policy.ExecuteAsync(async () => await _objectsStorageReader.GetObjectVersions(objectId, versionId));
+                    if (versionRecords == null)
+                    {
+                        _logger.LogWarning(
+                            "{taskName}: Got an event for the object with id = '{objectId}' that was not eventually created. The event will be skipped.",
+                            nameof(ProduceBinaryReferencesEvents),
+                            objectId);
+                        continue;
+                    }
+                }
+                else
                 {
                     versionRecords = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
-                }
-                catch (ObjectNotFoundException) when (string.IsNullOrEmpty(versionId))
-                {
-                    _logger.LogWarning(
-                        "{taskName}: Got an event for the object with id = {objectId} that was not eventually created. The event will be skipped.",
-                        nameof(ProduceObjectVersionCreatedEvents),
-                        objectId);
-
-                    continue;
                 }
 
                 _logger.LogInformation(
@@ -207,18 +227,22 @@ namespace NuClear.VStore.Worker.Jobs
                 var versionId = @event.Source.CurrentVersionId;
 
                 IReadOnlyCollection<ObjectVersionRecord> versionRecords;
-                try
+                if (string.IsNullOrEmpty(versionId))
+                {
+                    var policy = CreateGetObjectVersionsResiliencePolicy();
+                    versionRecords = await policy.ExecuteAsync(async () => await _objectsStorageReader.GetObjectVersions(objectId, versionId));
+                    if (versionRecords == null)
+                    {
+                        _logger.LogWarning(
+                            "{taskName}: Got an event for the object with id = '{objectId}' that was not eventually created. The event will be skipped.",
+                            nameof(ProduceBinaryReferencesEvents),
+                            objectId);
+                        continue;
+                    }
+                }
+                else
                 {
                     versionRecords = await _objectsStorageReader.GetObjectVersions(objectId, versionId);
-                }
-                catch (ObjectNotFoundException) when (string.IsNullOrEmpty(versionId))
-                {
-                    _logger.LogWarning(
-                        "{taskName}: Got an event for the object with id = {objectId} that was not eventually created. The event will be skipped.",
-                        nameof(ProduceBinaryReferencesEvents),
-                        objectId);
-
-                    continue;
                 }
 
                 _logger.LogInformation(
