@@ -40,7 +40,7 @@ namespace NuClear.VStore.Templates
         {
             var listResponse = await _s3Client.ListObjectsAsync(new ListObjectsRequest { BucketName = _bucketName, Marker = continuationToken });
 
-            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(long.Parse(x.Key), x.LastModified)).ToArray();
+            var records = listResponse.S3Objects.Select(x => new IdentifyableObjectRecord<long>(long.Parse(x.Key), x.LastModified)).ToList();
             return new ContinuationContainer<IdentifyableObjectRecord<long>>(records, listResponse.NextMarker);
         }
 

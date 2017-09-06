@@ -420,7 +420,7 @@ namespace MigrationTool
                                          .Where(t => templateIds.Contains(t.Id))
                                          .Include(t => t.ElementTemplatesLink)
                                             .ThenInclude(link => link.ElementTemplate)
-                                         .ToArrayAsync();
+                                         .ToListAsync();
             }
 
             long importedCount = 0;
