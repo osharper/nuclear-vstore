@@ -291,11 +291,12 @@ namespace MigrationTool
                 var denialReasons = advertisement.AdvertisementElements
                                                  .SelectMany(ae => ae.AdvertisementElementDenialReasons)
                                                  .Select(aedr => string.IsNullOrEmpty(aedr.Comment) ? aedr.DenialReason.Name : $"{aedr.DenialReason.Name} - {aedr.Comment}");
-
+                var notes = advertisement.AdvertisementElements.SelectMany(ae => ae.Notes).Select(n => n.Text);
+                var comment = string.Join("\n", denialReasons.Concat(notes));
                 return new ModerationResult
                     {
                         Status = ModerationStatus.Rejected,
-                        Comment = string.Join("; ", denialReasons)
+                        Comment = comment.Substring(0, Math.Min(3000, comment.Length))
                     };
             }
 

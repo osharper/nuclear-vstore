@@ -30,6 +30,8 @@ namespace MigrationTool
 {
     public class ImportService
     {
+        private const int AdvertisementElementTypeIdentifier = 187;
+
         private readonly DateTime _thresholdDate;
         private readonly DateTime _positionsBeginDate;
         private readonly DateTime? _ordersModificationBeginDate;
@@ -55,6 +57,10 @@ namespace MigrationTool
         private readonly JsonSerializer _jsonSerializer = new JsonSerializer();
 
         private long _uploadedBinariesCount;
+        private long _selectedToWhitelistCount;
+        private long _rejectedCount;
+        private long _approvedCount;
+        private long _draftedCount;
         private IReadOnlyDictionary<long, DateTime?> _advOrdersLink;
 
         public ImportService(
@@ -232,6 +238,15 @@ namespace MigrationTool
             }
 
             return true;
+        }
+
+        private void ResetCounters()
+        {
+            _uploadedBinariesCount = 0L;
+            _approvedCount = 0L;
+            _draftedCount = 0L;
+            _rejectedCount = 0L;
+            _selectedToWhitelistCount = 0L;
         }
 
         private void EnsurePositionsAreEqual(PositionDescriptor apiPosition, Position ermPosition)
@@ -439,7 +454,7 @@ namespace MigrationTool
 
         private async Task<bool> DemoImportAdvertisementsAsync(IReadOnlyCollection<long> templateIds)
         {
-            _uploadedBinariesCount = 0L;
+            ResetCounters();
             var advertisementIds = new List<long>(templateIds.Count * _truncatedImportSize);
             using (var context = GetNewContext())
             {
@@ -470,6 +485,13 @@ namespace MigrationTool
 
             var failedAds = await ImportAdvertisementsByIdsAsync(advertisementIds);
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
             return failedAds.Count == 0;
         }
 
@@ -565,8 +587,8 @@ namespace MigrationTool
                                                          .ToArray();
             }
 
+            ResetCounters();
             var importedCount = 0L;
-            _uploadedBinariesCount = 0L;
             var failedAds = new List<Advertisement>();
             for (var segmentNum = 0; ; ++segmentNum)
             {
@@ -591,6 +613,13 @@ namespace MigrationTool
 
             _logger.LogInformation("Total imported advertisements: {imported} of {total}", importedCount.ToString(), advertisementsToImport.Length.ToString());
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
 
             // All advertisements were imported, check the failed ones:
             if (failedAds.Count > 0)
@@ -642,7 +671,7 @@ namespace MigrationTool
         {
             using (var context = GetNewContext())
             {
-                return await context.Advertisements
+                var advertisements = await context.Advertisements
                                     .Where(a => ids.Contains(a.Id))
                                     .Include(a => a.AdvertisementElements)
                                         .ThenInclude(ae => ae.AdvertisementElementTemplate)
@@ -655,12 +684,37 @@ namespace MigrationTool
                                         .ThenInclude(ae => ae.AdvertisementElementDenialReasons)
                                         .ThenInclude(aedr => aedr.DenialReason)
                                     .ToListAsync();
+
+                var adsElementsIds = advertisements.SelectMany(a => a.AdvertisementElements)
+                                                   .Select(ae => ae.Id)
+                                                   .ToList();
+
+                var notes = await context.Notes
+                                         .Where(n => adsElementsIds.Contains(n.ParentId) &&
+                                                     n.ParentType == AdvertisementElementTypeIdentifier &&
+                                                     !n.IsDeleted)
+                                         .OrderByDescending(n => n.ModifiedOn)
+                                         .GroupBy(n => n.ParentId)
+                                         .ToDictionaryAsync(g => g.Key, g => g.Take(2).ToList());
+
+                foreach (var advertisement in advertisements)
+                {
+                    foreach (var element in advertisement.AdvertisementElements)
+                    {
+                        if (notes.TryGetValue(element.Id, out var elementNotes))
+                        {
+                            element.Notes = elementNotes;
+                        }
+                    }
+                }
+
+                return advertisements;
             }
         }
 
         private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<Advertisement> failedAds)
         {
-            _uploadedBinariesCount = 0;
+            ResetCounters();
             var imported = 0;
             var totallyFailedAds = new ConcurrentBag<long>();
             _logger.LogInformation("Start to import failed advertisements, total {count}", failedAds.Count.ToString());
@@ -702,6 +756,14 @@ namespace MigrationTool
 
             _logger.LogInformation("Failed advertisements repeated import done, imported: {imported} of {total}", imported.ToString(), failedAds.Count.ToString());
             _logger.LogInformation("Total uploaded binaries during repeated import: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist during repeated import: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements during repeated import: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
+
             if (totallyFailedAds.Count < 1)
             {
                 return true;
@@ -751,6 +813,7 @@ namespace MigrationTool
             if (advertisement.IsSelectedToWhiteList)
             {
                 await Repository.SelectObjectToWhitelist(objectId);
+                Interlocked.Increment(ref _selectedToWhitelistCount);
             }
 
             if (!_migrateModerationStatuses)
@@ -774,6 +837,21 @@ namespace MigrationTool
                 }
 
                 await Repository.UpdateObjectModerationStatusAsync(objectId, versionId, moderationStatus);
+            }
+
+            switch (moderationStatus.Status)
+            {
+                case ModerationStatus.Approved:
+                    Interlocked.Increment(ref _approvedCount);
+                    break;
+                case ModerationStatus.Rejected:
+                    Interlocked.Increment(ref _rejectedCount);
+                    break;
+                case ModerationStatus.OnApproval:
+                    Interlocked.Increment(ref _draftedCount);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(moderationStatus), moderationStatus.Status, "Unsupported moderation status");
             }
         }
 

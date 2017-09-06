@@ -32,6 +32,8 @@ namespace MigrationTool.Models
 
         public virtual DbSet<File> Files { get; set; }
 
+        public virtual DbSet<Note> Notes { get; set; }
+
         public virtual DbSet<OrderPositionAdvertisement> OrderPositionAdvertisement { get; set; }
 
         public virtual DbSet<OrderPosition> OrderPositions { get; set; }
@@ -555,6 +557,26 @@ namespace MigrationTool.Models
                 entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
 
                 entity.Property(e => e.PublishDate).HasColumnType("datetime2(2)");
+            });
+
+            modelBuilder.Entity<Note>(entity =>
+            {
+                entity.ToTable("Notes", "Shared");
+
+                entity.HasIndex(e => new { e.ParentId, e.ParentType })
+                    .HasName("IX_Notes_ParentId_ParentType");
+
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.CreatedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.IsDeleted).HasDefaultValueSql("0");
+
+                entity.Property(e => e.ModifiedOn).HasColumnType("datetime2(2)");
+
+                entity.Property(e => e.Text).HasColumnType("ntext");
+
+                entity.Property(e => e.Title).HasMaxLength(256);
             });
         }
     }
