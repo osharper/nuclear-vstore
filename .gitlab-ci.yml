@@ -15,7 +15,7 @@ before_script:
 # ================= Test & Build =================
 
 build:app:
-  image: $REGISTRY/microsoft/aspnetcore-build:1.1.2
+  image: $REGISTRY/microsoft/aspnetcore-build:2.0.0
   stage: build:app
   when: always
   script:
