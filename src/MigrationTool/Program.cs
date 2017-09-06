@@ -14,6 +14,8 @@ using MigrationTool.Models;
 using NuClear.VStore.Descriptors;
 using System.Threading.Tasks;
 
+using MigrationTool.Json;
+
 using Serilog;
 
 namespace MigrationTool
@@ -21,19 +23,23 @@ namespace MigrationTool
     // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        private static readonly IReadOnlyDictionary<string, (Language Lang, bool MigrateModerationStatuses)> InstanceMap = new Dictionary<string, (Language, bool)>
+        private static readonly IReadOnlyDictionary<string, (Language DefaultLang, int CountryCode, bool MigrateModerationStatuses)> InstanceMap = new Dictionary<string, (Language, int, bool)>
             {
-                { "ErmRu", (Language.Ru, true) },
-                { "ErmUa", (Language.Ru, false) },
-                { "ErmAe", (Language.En, false) },
-                { "ErmCl", (Language.Es, false) },
-                { "ErmCy", (Language.En, false) },
-                { "ErmCz", (Language.Cs, false) },
-                { "ErmKg", (Language.Ru, false) },
-                { "ErmKz", (Language.Ru, false) }
+                { "ErmRu", (Language.Ru, 1, true) },
+                { "ErmUa", (Language.Ru, 11, false) },
+                { "ErmAe", (Language.En, 14, false) },
+                { "ErmCl", (Language.Es, 20, false) },
+                { "ErmCy", (Language.En, 19, false) },
+                { "ErmCz", (Language.Cs, 18, false) },
+                { "ErmKg", (Language.Ru, 23, false) },
+                { "ErmKz", (Language.Ru, 4, false) }
             };
 
-        private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap = new Dictionary<string, IDictionary<long, long>>();
+        private static readonly IDictionary<string, IDictionary<long, long>> TemplatesMap =
+            new Dictionary<string, IDictionary<long, long>>();
+
+        private static readonly IDictionary<long, IDictionary<int, ModerationMode>> TemplatesModerationModesMap =
+            new Dictionary<long, IDictionary<int, ModerationMode>>();
 
         private static IConfigurationRoot Configuration { get; set; }
 
@@ -128,15 +134,16 @@ namespace MigrationTool
 
                 try
                 {
-                    var importService = new ImportService(
-                        contextOptions,
-                        instance.Value.Lang,
-                        options,
-                        TemplatesMap[instance.Key],
-                        instance.Value.MigrateModerationStatuses,
-                        repository,
-                        converter,
-                        importLogger);
+                    var importService = new ImportService(contextOptions,
+                                                          instance.Value.DefaultLang,
+                                                          instance.Value.CountryCode,
+                                                          options,
+                                                          TemplatesMap[instance.Key],
+                                                          TemplatesModerationModesMap,
+                                                          instance.Value.MigrateModerationStatuses,
+                                                          repository,
+                                                          converter,
+                                                          importLogger);
 
                     if (await importService.ImportAsync(options.Mode))
                     {
@@ -201,13 +208,13 @@ namespace MigrationTool
                         }
 
                         var values = line.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (values.Length % 2 != 0 || values.Length < 1)
+                        if (values.Length % 3 != 0 || values.Length < 1)
                         {
                             throw new IOException("Incorrect number of values in line: " + lineNumber.ToString());
                         }
 
                         var referenceValue = new long?();
-                        for (var i = 0; i < values.Length; i += 2)
+                        for (var i = 0; i < values.Length; i += 3)
                         {
                             var instance = values[i];
                             if (!InstanceMap.ContainsKey(instance))
@@ -215,7 +222,15 @@ namespace MigrationTool
                                 throw new IOException("Incorrect instance: " + instance + " on line " + lineNumber.ToString());
                             }
 
-                            if (!long.TryParse(values[i + 1], out long id))
+                            var moderationMode = values[i + 1];
+                            if (!Enum.TryParse(moderationMode, true, out ModerationMode mode) ||
+                                !Enum.IsDefined(typeof(ModerationMode), mode) ||
+                                !mode.ToString().Equals(moderationMode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new IOException("Incorrect moderation mode: " + moderationMode + " on line " + lineNumber.ToString());
+                            }
+
+                            if (!long.TryParse(values[i + 2], out var id))
                             {
                                 throw new InvalidCastException("Cannot parse id for " + instance + " instance on line " + lineNumber.ToString());
                             }
@@ -237,7 +252,14 @@ namespace MigrationTool
                                 referenceValue = id;
                             }
 
+                            // Add moderation mode:
                             TemplatesMap[instance][id] = referenceValue.Value;
+                            if (!TemplatesModerationModesMap.ContainsKey(referenceValue.Value))
+                            {
+                                TemplatesModerationModesMap.Add(referenceValue.Value, new Dictionary<int, ModerationMode>());
+                            }
+
+                            TemplatesModerationModesMap[referenceValue.Value][InstanceMap[instance].CountryCode] = mode;
                         }
                     }
                 }

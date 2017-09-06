@@ -21,6 +21,7 @@
         public const string NameToken = "name";
         public const string IsRequiredToken = "isRequired";
         public const string IsWhiteListedToken = "isWhiteListed";
+        public const string ModerationModesToken = "moderationModes";
         public const char ModifiedElementsDelimiter = ';';
     }
 }

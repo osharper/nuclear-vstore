@@ -15,6 +15,7 @@ using MigrationTool.Json;
 using MigrationTool.Models;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors;
@@ -35,6 +36,7 @@ namespace MigrationTool
         private readonly DateTime? _ordersMaxDistributionDate;
         private readonly DateTime? _ordersMinDistributionDate;
         private readonly Language _language;
+        private readonly int _countryCode;
         private readonly string _languageCode;
         private readonly bool _fetchAdvertisementBeforeImport;
         private readonly int _batchSize;
@@ -45,10 +47,12 @@ namespace MigrationTool
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
+        private readonly IDictionary<long, IDictionary<int, ModerationMode>> _templatesModerationModesMap;
         private readonly bool _migrateModerationStatuses;
         private readonly JTokenEqualityComparer _jsonEqualityComparer = new JTokenEqualityComparer();
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
+        private readonly JsonSerializer _jsonSerializer = new JsonSerializer();
 
         private long _uploadedBinariesCount;
         private IReadOnlyDictionary<long, DateTime?> _advOrdersLink;
@@ -56,8 +60,10 @@ namespace MigrationTool
         public ImportService(
             DbContextOptions<ErmContext> contextOptions,
             Language language,
+            int countryCode,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
+            IDictionary<long, IDictionary<int, ModerationMode>> templatesModerationModesMap,
             bool migrateModerationStatuses,
             ApiRepository repository,
             ConverterService converter,
@@ -85,11 +91,14 @@ namespace MigrationTool
             _batchSize = options.AdvertisementsImportBatchSize;
             _contextOptions = contextOptions;
             _language = language;
+            _countryCode = countryCode;
             _instanceTemplatesMap = instanceTemplatesMap;
+            _templatesModerationModesMap = templatesModerationModesMap;
             _migrateModerationStatuses = migrateModerationStatuses;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
             _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
+            _jsonSerializer.Converters.Add(new StringEnumConverter(true));
             Repository = repository;
             Converter = converter;
         }
@@ -749,6 +758,12 @@ namespace MigrationTool
                 return;
             }
 
+            var mappedTemplateId = _instanceTemplatesMap[advertisement.AdvertisementTemplateId];
+            if (_templatesModerationModesMap[mappedTemplateId][_countryCode] == ModerationMode.Off)
+            {
+                return;
+            }
+
             var moderationStatus = Converter.GetAdvertisementModerationStatus(advertisement);
             if (moderationStatus.Status != ModerationStatus.OnApproval)
             {
@@ -1086,9 +1101,10 @@ namespace MigrationTool
 
         private TemplateDescriptor GenerateTemplateDescriptor(AdvertisementTemplate template)
         {
+            var mappedTemplateId = _instanceTemplatesMap[template.Id];
             return new TemplateDescriptor
             {
-                Id = _instanceTemplatesMap[template.Id],
+                Id = mappedTemplateId,
                 Elements = template.ElementTemplatesLink
                                        .Where(link => !link.IsDeleted && !link.ElementTemplate.IsDeleted)
                                        .OrderBy(link => link.ExportCode)
@@ -1097,7 +1113,8 @@ namespace MigrationTool
                 Properties = new JObject
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
-                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList }
+                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList },
+                    { Tokens.ModerationModesToken, JObject.FromObject(_templatesModerationModesMap[mappedTemplateId], _jsonSerializer) }
                 }
             };
         }
