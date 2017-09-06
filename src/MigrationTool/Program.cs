@@ -107,6 +107,9 @@ namespace MigrationTool
 
             options.ThresholdDate = ConvertDateParameterToUniversalTime(logger, nameof(options.ThresholdDate), options.ThresholdDate);
             options.PositionsBeginDate = ConvertDateParameterToUniversalTime(logger, nameof(options.PositionsBeginDate), options.PositionsBeginDate);
+            options.OrdersModificationBeginDate = ConvertDateParameterToUniversalTime(logger, nameof(options.OrdersModificationBeginDate), options.OrdersModificationBeginDate);
+            options.OrdersMinDistributionDate = ConvertDateParameterToUniversalTime(logger, nameof(options.OrdersMinDistributionDate), options.OrdersMinDistributionDate);
+            options.OrdersMaxDistributionDate = ConvertDateParameterToUniversalTime(logger, nameof(options.OrdersMaxDistributionDate), options.OrdersMaxDistributionDate);
 
             foreach (var instance in InstanceMap)
             {
@@ -159,15 +162,25 @@ namespace MigrationTool
             return 0;
         }
 
-        private static DateTime ConvertDateParameterToUniversalTime(Microsoft.Extensions.Logging.ILogger logger, string parameterName, DateTime value)
+        private static DateTime? ConvertDateParameterToUniversalTime(Microsoft.Extensions.Logging.ILogger logger, string parameterName, DateTime? date)
         {
-            if (value.Kind == DateTimeKind.Utc)
+            if (!date.HasValue)
             {
-                return value;
+                return null;
             }
 
-            var newValue = value.ToUniversalTime();
-            logger.LogWarning("{parameter} parameter value was manually converted to UTC: {newValue:o} from {value:o}", parameterName, newValue, value);
+            return ConvertDateParameterToUniversalTime(logger, parameterName, date.Value);
+        }
+
+        private static DateTime ConvertDateParameterToUniversalTime(Microsoft.Extensions.Logging.ILogger logger, string parameterName, DateTime date)
+        {
+            if (date.Kind == DateTimeKind.Utc)
+            {
+                return date;
+            }
+
+            var newValue = date.ToUniversalTime();
+            logger.LogWarning("{parameter} parameter value was manually converted to UTC: {newValue:o} from {value:o}", parameterName, newValue, date);
             return newValue;
         }
 

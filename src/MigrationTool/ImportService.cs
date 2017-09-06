@@ -31,6 +31,9 @@ namespace MigrationTool
     {
         private readonly DateTime _thresholdDate;
         private readonly DateTime _positionsBeginDate;
+        private readonly DateTime? _ordersModificationBeginDate;
+        private readonly DateTime? _ordersMaxDistributionDate;
+        private readonly DateTime? _ordersMinDistributionDate;
         private readonly Language _language;
         private readonly string _languageCode;
         private readonly bool _fetchAdvertisementBeforeImport;
@@ -48,6 +51,7 @@ namespace MigrationTool
         private readonly ILogger<ImportService> _logger;
 
         private long _uploadedBinariesCount;
+        private IReadOnlyDictionary<long, DateTime?> _advOrdersLink;
 
         public ImportService(
             DbContextOptions<ErmContext> contextOptions,
@@ -64,9 +68,17 @@ namespace MigrationTool
                 throw new ArgumentOutOfRangeException(nameof(options.MaxDegreeOfParallelism));
             }
 
+            if (options.OrdersMaxDistributionDate.HasValue && options.OrdersMinDistributionDate.HasValue)
+            {
+                throw new InvalidOperationException($"Cannot specify both {nameof(options.OrdersMinDistributionDate)} and {nameof(options.OrdersMaxDistributionDate)} parameters");
+            }
+
             _fetchAdvertisementBeforeImport = options.FetchAdvertisementBeforeImport;
             _thresholdDate = options.ThresholdDate;
             _positionsBeginDate = options.PositionsBeginDate;
+            _ordersModificationBeginDate = options.OrdersModificationBeginDate;
+            _ordersMinDistributionDate = options.OrdersMinDistributionDate;
+            _ordersMaxDistributionDate = options.OrdersMaxDistributionDate;
             _maxImportTries = options.MaxImportTries;
             _maxDegreeOfParallelism = options.MaxDegreeOfParallelism;
             _truncatedImportSize = options.TruncatedImportSize;
@@ -469,22 +481,61 @@ namespace MigrationTool
                     _logger.LogInformation("Import orders to organization unit {name} with branch code {code}", organizationUnit.Name, organizationUnit.DgppId);
                 }
 
-                var advertisementIds = await (from o in context.Orders
-                                              join op in context.OrderPositions on o.Id equals op.OrderId
-                                              join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
-                                              join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
-                                              where !o.IsDeleted
-                                                    && o.IsActive
-                                                    && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
-                                                        o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Future and current orders that are not in the archive
-                                                    && !op.IsDeleted
-                                                    && op.IsActive
-                                                    && !adv.IsDeleted
-                                                    && adv.FirmId != null // Do not import stubs
-                                                    && (organizationUnit == null || o.DestOrganizationUnitId == organizationUnit.Id)
-                                              select new { adv.Id, TemplateId = adv.AdvertisementTemplateId })
-                                           .Distinct()
-                                           .ToListAsync();
+                var utcNow = DateTime.UtcNow;
+                var rawResult = await (from o in context.Orders
+                                       join op in context.OrderPositions on o.Id equals op.OrderId
+                                       join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
+                                       join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
+                                       where !o.IsDeleted
+                                             && o.IsActive
+                                             && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
+                                                 o.WorkflowStepId != 6 && o.EndDistributionDateFact > utcNow) // Future and current orders that are not in the archive
+                                             && !op.IsDeleted
+                                             && op.IsActive
+                                             && !adv.IsDeleted
+                                             && adv.FirmId != null // Do not import stubs
+                                             && (organizationUnit == null || o.DestOrganizationUnitId == organizationUnit.Id)
+                                             && (_ordersModificationBeginDate == null || o.ModifiedOn >= _ordersModificationBeginDate)
+                                       select new
+                                           {
+                                               adv.Id,
+                                               TemplateId = adv.AdvertisementTemplateId,
+                                               OrderId = o.Id,
+                                               OrderModifiedOn = o.ModifiedOn,
+                                               OrderEndDistributionDate = o.EndDistributionDateFact
+                                           })
+                                    .Distinct()
+                                    .ToListAsync();
+
+                var advertisementsToFilter = rawResult.GroupBy(adv => new { adv.Id, adv.TemplateId })
+                                                .Select(adv => new
+                                                    {
+                                                        adv.Key.Id,
+                                                        adv.Key.TemplateId,
+                                                        OrderMaxModifiedDate = adv.Max(x => x.OrderModifiedOn),
+                                                        OrderMaxEndDistributionDate = adv.Max(x => x.OrderEndDistributionDate)
+                                                    });
+
+                if (_ordersMaxDistributionDate.HasValue || _ordersMinDistributionDate.HasValue)
+                {
+                    advertisementsToFilter = _ordersMinDistributionDate.HasValue
+                                                 ? advertisementsToFilter.Where(a => a.OrderMaxEndDistributionDate >= _ordersMinDistributionDate.Value)
+                                                 : advertisementsToFilter.Where(a => a.OrderMaxEndDistributionDate <= _ordersMaxDistributionDate.Value);
+                }
+
+                var advertisementIds = advertisementsToFilter
+                    .OrderBy(adv => adv.OrderMaxModifiedDate)
+                    .ToList();
+
+                _logger.LogInformation(
+                    "Found {count} advertisements since orders max modification date {modifyDate:o} and {order} max orders distribution date {distributionDate:o}",
+                    advertisementIds.Count,
+                    _ordersModificationBeginDate,
+                    _ordersMinDistributionDate.HasValue ? "after" : "before",
+                    _ordersMinDistributionDate ?? _ordersMaxDistributionDate
+                    );
+
+                _advOrdersLink = advertisementIds.ToDictionary(a => a.Id, a => a.OrderMaxModifiedDate);
 
                 var missedTemplatesIds = advertisementIds.Select(adv => adv.TemplateId)
                                                          .Distinct()
@@ -556,6 +607,14 @@ namespace MigrationTool
                                      {
                                          try
                                          {
+                                             if (_advOrdersLink != null)
+                                             {
+                                                 _logger.LogInformation(
+                                                     "Start import advertisement {advId} with linked orders max modified date {maxOrderModifiedOn:o}",
+                                                     advertisement.Id,
+                                                     _advOrdersLink[advertisement.Id]);
+                                             }
+
                                              await ImportAdvertisementAsync(advertisement, _fetchAdvertisementBeforeImport);
                                              Interlocked.Increment(ref batchImportedCount);
                                          }

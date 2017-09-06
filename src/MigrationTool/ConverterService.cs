@@ -28,6 +28,7 @@ namespace MigrationTool
                 { "image/bmp", FileFormat.Bmp },
                 { "image/gif", FileFormat.Gif },
                 { "image/jpeg", FileFormat.Jpeg },
+                { "image/pjpeg", FileFormat.Jpeg },
                 { "image/png", FileFormat.Png },
                 { "image/svg+xml", FileFormat.Svg },
                 { "image/x-png", FileFormat.Png }
