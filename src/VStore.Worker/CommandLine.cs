@@ -17,9 +17,9 @@
 
         public struct Arguments
         {
-            public const string Range = "range";
             public const string Mode = "mode";
             public const string Delay = "delay";
+            public const string BatchSize = "batchsize";
         }
 
         public struct ArgumentValues

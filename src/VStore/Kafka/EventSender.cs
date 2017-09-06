@@ -28,13 +28,18 @@ namespace NuClear.VStore.Kafka
                 {
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "socket.blocking.max.ms", 5 },
+                    { "socket.blocking.max.ms", 1 },
                     { "queue.buffering.max.ms", 5 },
+                    { "queue.buffering.max.kbytes", 10240 },
+#if DEBUG
+                    { "debug", "msg" },
+#endif
                     {
                         "default.topic.config",
                         new Dictionary<string, object>
                             {
-                                { "message.timeout.ms", 5000 }
+                                { "message.timeout.ms", 5000 },
+                                { "request.required.acks", -1 }
                             }
                     }
                 };

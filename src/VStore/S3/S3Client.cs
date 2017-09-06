@@ -1,6 +1,5 @@
 ﻿using System.Threading.Tasks;
 
-using Amazon.Runtime.Internal.Auth;
 using Amazon.S3;
 using Amazon.S3.Model;
 

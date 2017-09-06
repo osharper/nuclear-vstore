@@ -10,13 +10,11 @@ namespace NuClear.VStore.Worker
 {
     public sealed class JobRunner
     {
-        private readonly string _environment;
         private readonly ILogger<JobRunner> _logger;
         private readonly JobRegistry _jobRegistry;
 
-        public JobRunner(string environment, ILogger<JobRunner> logger, JobRegistry jobRegistry)
+        public JobRunner(ILogger<JobRunner> logger, JobRegistry jobRegistry)
         {
-            _environment = environment;
             _logger = logger;
             _jobRegistry = jobRegistry;
         }
@@ -31,7 +29,7 @@ namespace NuClear.VStore.Worker
                              ? null
                              : x[1]?.Split(new[] { CommandLine.ArgumentValueSeparator }, StringSplitOptions.RemoveEmptyEntries).ToArray());
 
-            var job = _jobRegistry.GetJob(_environment, workerId, jobId);
+            var job = _jobRegistry.GetJob(workerId, jobId);
             if (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation("Job '{workerJobType}' with id = '{workerJobId}' for worker '{workerId}' is starting.", job.GetType().Name, jobId, workerId);

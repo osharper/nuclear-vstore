@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,7 +8,6 @@ using System.Threading.Tasks;
 
 using Amazon;
 using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
 
 using Autofac;
@@ -46,10 +46,11 @@ namespace NuClear.VStore.Worker
         public static void Main(string[] args)
         {
 #if DEBUG
-            // Useful while debugging in Rider
-            args = args.Where(x => !x.Contains(Assembly.GetEntryAssembly().GetName().Name)).ToArray();
+            if (Debugger.IsAttached)
+            {
+                args = args.Skip(1).ToArray();
+            }
 #endif
-
             var env = (Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production").ToLower();
 
             var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
@@ -70,9 +71,11 @@ namespace NuClear.VStore.Worker
                                           {
                                               logger.LogInformation("Application is shutting down...");
                                               cts.Cancel();
+                                              container.Dispose();
+
                                               eventArgs.Cancel = true;
                                           };
-            var app = new CommandLineApplication { Name = "VStore.Worker"  };
+            var app = new CommandLineApplication { Name = "VStore.Worker" };
             app.HelpOption(CommandLine.HelpOptionTemplate);
             app.OnExecute(
                 () =>
@@ -82,7 +85,7 @@ namespace NuClear.VStore.Worker
                         return 0;
                     });
 
-            var jobRunner = container.Resolve<JobRunner>(new TypedParameter(typeof(string), env));
+            var jobRunner = container.Resolve<JobRunner>();
             app.Command(
                 CommandLine.Commands.Collect,
                 config =>
@@ -103,7 +106,7 @@ namespace NuClear.VStore.Worker
                                 {
                                     commandConfig.Description = "Collect orphan binary files.";
                                     commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
-                                    commandConfig.Argument(CommandLine.Arguments.Range, "Time range in hours.");
+                                    commandConfig.Argument(CommandLine.Arguments.BatchSize, "Maximun amount of events to process for one iteration.");
                                     commandConfig.Argument(CommandLine.Arguments.Delay, "Delay between collections.");
                                     commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
                                 });
@@ -182,6 +185,8 @@ namespace NuClear.VStore.Worker
 
             builder.RegisterType<MemoryCache>().As<IMemoryCache>().SingleInstance();
 
+            builder.RegisterType<EventSender>().SingleInstance();
+
             builder.RegisterType<JobRegistry>().SingleInstance();
             builder.RegisterType<JobRunner>().SingleInstance();
             builder.RegisterType<LockCleanupJob>().SingleInstance();
@@ -256,7 +261,6 @@ namespace NuClear.VStore.Worker
                        (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                        (parameterInfo, context) => context.Resolve<ICephS3Client>())
                    .InstancePerDependency();
-            builder.RegisterType<EventSender>().InstancePerDependency();
             builder.RegisterType<MetricsProvider>().SingleInstance();
 
             var container = builder.Build();

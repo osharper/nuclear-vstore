@@ -28,11 +28,11 @@ namespace NuClear.VStore.Worker
             _logger = logger;
         }
 
-        public AsyncJob GetJob(string environment, string workerId, string jobId)
+        public AsyncJob GetJob(string workerId, string jobId)
         {
             if (Registry.TryGetValue($"{workerId}-{jobId}", out var jobType))
             {
-                return (AsyncJob)_lifetimeScope.Resolve(jobType, new TypedParameter(typeof(string), environment));
+                return (AsyncJob)_lifetimeScope.Resolve(jobType);
             }
 
             _logger.LogCritical("Job with id = '{workerJobId}' for worker '{workerId}' has not beed registered.", jobId, workerId);

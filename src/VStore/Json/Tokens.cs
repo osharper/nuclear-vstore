@@ -2,6 +2,7 @@
 {
     public sealed class Tokens
     {
+        public const string ArchivePrefix = "archive";
         public const string SessionPostfix = "session";
         public const string ObjectPostfix = "object";
         public const string PropertiesToken = "properties";

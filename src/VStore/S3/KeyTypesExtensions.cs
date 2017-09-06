@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 
+using NuClear.VStore.Json;
+
 namespace NuClear.VStore.S3
 {
     public static class KeyTypesExtensions
@@ -39,6 +41,8 @@ namespace NuClear.VStore.S3
             var separatorIndex = key.IndexOf(Separator, StringComparison.Ordinal);
             return new Guid(key.Substring(0, separatorIndex));
         }
+
+        public static string AsArchivedFileKey(this string key, DateTime archiveDate) => $"{Tokens.ArchivePrefix}{Separator}{archiveDate:yyyy-MM-dd}{Separator}{key}";
 
         public static string AsCacheEntryKey(this long id, string versionId) => $"{id.ToString()}:{versionId}";
     }

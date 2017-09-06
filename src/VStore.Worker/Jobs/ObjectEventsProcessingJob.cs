@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,17 +16,16 @@ using NuClear.VStore.Options;
 using NuClear.VStore.S3;
 
 using Polly;
+using Polly.Retry;
 using Polly.Wrap;
 
 namespace NuClear.VStore.Worker.Jobs
 {
-    public sealed class ObjectEventsProcessingJob : AsyncJob
+    public sealed class ObjectEventsProcessingJob : AsyncJob, IDisposable
     {
         private const string VersionsGroupId = "vstore-versions-producer";
         private const string BinariesGroupId = "vstore-binaries-producer";
 
-        private readonly int _consumingBatchSize;
-        private readonly string _objectEventsTopic;
         private readonly string _objectVersionsTopic;
         private readonly string _binariesUsingsTopic;
 
@@ -35,119 +35,97 @@ namespace NuClear.VStore.Worker.Jobs
         private readonly EventReceiver _versionEventReceiver;
         private readonly EventReceiver _binariesEventReceiver;
 
+        private CancellationTokenRegistration _cancellationRegistration;
+
         public ObjectEventsProcessingJob(
-            string environment,
             ILogger<ObjectEventsProcessingJob> logger,
             ObjectsStorageReader objectsStorageReader,
             KafkaOptions kafkaOptions,
             EventSender eventSender)
         {
-            _consumingBatchSize = kafkaOptions.ConsumingBatchSize;
-            _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
             _objectVersionsTopic = kafkaOptions.ObjectVersionsTopic;
             _binariesUsingsTopic = kafkaOptions.BinariesReferencesTopic;
 
             _logger = logger;
             _objectsStorageReader = objectsStorageReader;
             _eventSender = eventSender;
-            _versionEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"{VersionsGroupId}-{environment}");
-            _binariesEventReceiver = new EventReceiver(logger, kafkaOptions.BrokerEndpoints, $"{BinariesGroupId}-{environment}");
+            _versionEventReceiver = new EventReceiver(
+                logger,
+                kafkaOptions.BrokerEndpoints,
+                $"{VersionsGroupId}-{kafkaOptions.ConsumerGroupToken}",
+                new[] { kafkaOptions.ObjectEventsTopic });
+            _binariesEventReceiver = new EventReceiver(
+                logger,
+                kafkaOptions.BrokerEndpoints,
+                $"{BinariesGroupId}-{kafkaOptions.ConsumerGroupToken}",
+                new[] { kafkaOptions.ObjectEventsTopic });
+        }
+
+        public void Dispose()
+        {
+            _cancellationRegistration.Dispose();
+            _versionEventReceiver.Dispose();
+            _binariesEventReceiver.Dispose();
         }
 
         protected override async Task ExecuteInternalAsync(IReadOnlyDictionary<string, string[]> args, CancellationToken cancellationToken)
         {
+            var subscriptions = new List<IDisposable>();
             if (args.TryGetValue(CommandLine.Arguments.Mode, out var modes))
             {
-                var tasks = new List<Task>();
                 if (modes.Contains(CommandLine.ArgumentValues.Versions))
                 {
-                    var task = Run(
-                        async () =>
-                            {
-                                while (!cancellationToken.IsCancellationRequested)
-                                {
-                                    try
-                                    {
-                                        await ProduceObjectVersionCreatedEvents();
-                                    }
-                                    catch (ObjectNotFoundException ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
-                                            nameof(ProduceObjectVersionCreatedEvents),
-                                            ex.Message);
-                                        await Task.Delay(1000, cancellationToken);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogError(
-                                            new EventId(),
-                                            ex,
-                                            "{taskName}: Unexpected error occured: {errorMessage}.",
-                                            nameof(ProduceObjectVersionCreatedEvents),
-                                            ex.Message);
-                                        await Task.Delay(1000, cancellationToken);
-                                    }
-                                }
-                            },
-                        cancellationToken);
-                    tasks.Add(task);
-
-                    _logger.LogInformation("{taskName} task started.", nameof(ProduceObjectVersionCreatedEvents));
+                    var subscription = ObjectVersionCreatedEventsProducing(cancellationToken);
+                    subscriptions.Add(subscription);
+                    _logger.LogInformation("{taskName} task started.", nameof(ObjectVersionCreatedEventsProducing));
                 }
 
                 if (modes.Contains(CommandLine.ArgumentValues.Binaries))
                 {
-                    var task = Run(
-                        async () =>
-                            {
-                                while (!cancellationToken.IsCancellationRequested)
-                                {
-                                    try
-                                    {
-                                        await ProduceBinaryReferencesEvents();
-                                    }
-                                    catch (ObjectNotFoundException ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
-                                            nameof(ProduceObjectVersionCreatedEvents),
-                                            ex.Message);
-                                        await Task.Delay(1000, cancellationToken);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogError(
-                                            new EventId(),
-                                            ex,
-                                            "{taskName}: Unexpected error occured: {errorMessage}.",
-                                            nameof(ProduceBinaryReferencesEvents),
-                                            ex.Message);
-                                        await Task.Delay(1000, cancellationToken);
-                                    }
-                                }
-                            },
-                        cancellationToken);
-                    tasks.Add(task);
-
-                    _logger.LogInformation("{taskName} task started.", nameof(ProduceBinaryReferencesEvents));
+                    var subscription = BinaryReferenceEventsProducing(cancellationToken);
+                    subscriptions.Add(subscription);
+                    _logger.LogInformation("{taskName} task started.", nameof(BinaryReferenceEventsProducing));
                 }
-
-                await Task.WhenAll(tasks);
             }
             else
             {
                 throw new ArgumentException("Mode argument not specified.");
             }
+
+            var taskCompletionSource = new TaskCompletionSource<object>();
+            _cancellationRegistration = cancellationToken.Register(
+                () =>
+                    {
+                        subscriptions.ForEach(x => x.Dispose());
+                        taskCompletionSource.TrySetResult(null);
+                    });
+
+            await taskCompletionSource.Task;
         }
 
-        private static async Task Run(Func<Task> task, CancellationToken cancellationToken) =>
-            await Task.Factory.StartNew(
-                          async () => await task(),
-                          cancellationToken,
-                          TaskCreationOptions.LongRunning,
-                          TaskScheduler.Default)
-                      .Unwrap();
+        private static RetryPolicy CreateRetryPolicy(ILogger logger, string taskName)
+            => Policy.Handle<Exception>()
+                     .WaitAndRetryForever(
+                         attempt => TimeSpan.FromSeconds(1),
+                         (ex, duration) =>
+                             {
+                                 if (ex is ObjectNotFoundException)
+                                 {
+                                     logger.LogWarning(
+                                         "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
+                                         taskName,
+                                         ex.Message);
+                                 }
+                                 else
+                                 {
+                                     logger.LogError(
+                                         new EventId(),
+                                         ex,
+                                         "{taskName}: Unexpected error occured: {errorMessage}.",
+                                         taskName,
+                                         ex.Message);
+                                 }
+                             });
 
         private static PolicyWrap<IReadOnlyCollection<ObjectVersionRecord>> CreateGetObjectVersionsResiliencePolicy()
         {
@@ -162,10 +140,9 @@ namespace NuClear.VStore.Worker.Jobs
             return Policy.WrapAsync(fallback, retry);
         }
 
-        private async Task ProduceObjectVersionCreatedEvents()
+        private IDisposable ObjectVersionCreatedEventsProducing(CancellationToken cancellationToken)
         {
-            var events = _versionEventReceiver.Receive<ObjectVersionCreatingEvent>(_objectEventsTopic, _consumingBatchSize);
-            foreach (var @event in events)
+            async Task ProcessAsync(KafkaEvent<ObjectVersionCreatingEvent> @event)
             {
                 var objectId = @event.Source.ObjectId;
                 var versionId = @event.Source.CurrentVersionId;
@@ -174,14 +151,14 @@ namespace NuClear.VStore.Worker.Jobs
                 if (string.IsNullOrEmpty(versionId))
                 {
                     var policy = CreateGetObjectVersionsResiliencePolicy();
-                    versionRecords = await policy.ExecuteAsync(async () => await _objectsStorageReader.GetObjectVersions(objectId, versionId));
+                    versionRecords = await policy.ExecuteAsync(() => _objectsStorageReader.GetObjectVersions(objectId, versionId));
                     if (versionRecords == null)
                     {
                         _logger.LogWarning(
                             "{taskName}: Got an event for the object with id = '{objectId}' that was not eventually created. The event will be skipped.",
-                            nameof(ProduceBinaryReferencesEvents),
+                            nameof(ObjectVersionCreatedEventsProducing),
                             objectId);
-                        continue;
+                        return;
                     }
                 }
                 else
@@ -191,7 +168,7 @@ namespace NuClear.VStore.Worker.Jobs
 
                 _logger.LogInformation(
                     "{taskName}: There are '{versionsCount}' new versions were created after the versionId = {versionId} for the object id = '{objectId}'.",
-                    nameof(ProduceObjectVersionCreatedEvents),
+                    nameof(ObjectVersionCreatedEventsProducing),
                     versionRecords.Count,
                     versionId,
                     objectId);
@@ -208,20 +185,28 @@ namespace NuClear.VStore.Worker.Jobs
 
                     _logger.LogInformation(
                         "{taskName}: Event for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
-                        nameof(ProduceObjectVersionCreatedEvents),
+                        nameof(ObjectVersionCreatedEventsProducing),
                         record.Id,
                         record.VersionId,
                         _objectVersionsTopic);
                 }
+
+                await _versionEventReceiver.CommitAsync(@event);
             }
 
-            await _versionEventReceiver.CommitAsync(events.Select(x => x.TopicPartitionOffset));
+            var observable = _versionEventReceiver.Subscribe<ObjectVersionCreatingEvent>(cancellationToken);
+            return observable
+                .Do(@event =>
+                        {
+                            var retry = CreateRetryPolicy(_logger, nameof(ObjectVersionCreatedEventsProducing));
+                            retry.Execute(() => ProcessAsync(@event).GetAwaiter().GetResult());
+                        })
+                .Subscribe();
         }
 
-        private async Task ProduceBinaryReferencesEvents()
+        private IDisposable BinaryReferenceEventsProducing(CancellationToken cancellationToken)
         {
-            var events = _binariesEventReceiver.Receive<ObjectVersionCreatingEvent>(_objectEventsTopic, _consumingBatchSize);
-            foreach (var @event in events)
+            async Task ProcessAsync(KafkaEvent<ObjectVersionCreatingEvent> @event)
             {
                 var objectId = @event.Source.ObjectId;
                 var versionId = @event.Source.CurrentVersionId;
@@ -230,14 +215,14 @@ namespace NuClear.VStore.Worker.Jobs
                 if (string.IsNullOrEmpty(versionId))
                 {
                     var policy = CreateGetObjectVersionsResiliencePolicy();
-                    versionRecords = await policy.ExecuteAsync(async () => await _objectsStorageReader.GetObjectVersions(objectId, versionId));
+                    versionRecords = await policy.ExecuteAsync(() => _objectsStorageReader.GetObjectVersions(objectId, versionId));
                     if (versionRecords == null)
                     {
                         _logger.LogWarning(
                             "{taskName}: Got an event for the object with id = '{objectId}' that was not eventually created. The event will be skipped.",
-                            nameof(ProduceBinaryReferencesEvents),
+                            nameof(ObjectVersionCreatedEventsProducing),
                             objectId);
-                        continue;
+                        return;
                     }
                 }
                 else
@@ -248,7 +233,7 @@ namespace NuClear.VStore.Worker.Jobs
                 _logger.LogInformation(
                     "{taskName}: There are '{versionsCount}' new versions were created after the versionId = {versionId} " +
                     "for the object id = '{objectId}'.",
-                    nameof(ProduceBinaryReferencesEvents),
+                    nameof(BinaryReferenceEventsProducing),
                     versionRecords.Count,
                     versionId,
                     objectId);
@@ -262,11 +247,11 @@ namespace NuClear.VStore.Worker.Jobs
                     {
                         await _eventSender.SendAsync(
                             _binariesUsingsTopic,
-                            new BinaryReferencedEvent(objectId, record.VersionId, fileInfo.TemplateCode, fileInfo.FileKey));
+                            new BinaryReferencedEvent(objectId, record.VersionId, fileInfo.TemplateCode, fileInfo.FileKey, record.LastModified));
                         _logger.LogInformation(
                             "{taskName}: Event for binary reference {fileKey} for element with templateCode = '{templateCode}' " +
                             "for object id = '{objectId}' and versionId = {versionId} sent to {topic}.",
-                            nameof(ProduceBinaryReferencesEvents),
+                            nameof(BinaryReferenceEventsProducing),
                             fileInfo.FileKey,
                             fileInfo.TemplateCode,
                             record.Id,
@@ -274,9 +259,18 @@ namespace NuClear.VStore.Worker.Jobs
                             _binariesUsingsTopic);
                     }
                 }
+
+                await _binariesEventReceiver.CommitAsync(@event);
             }
 
-            await _binariesEventReceiver.CommitAsync(events.Select(x => x.TopicPartitionOffset));
+            var observable = _binariesEventReceiver.Subscribe<ObjectVersionCreatingEvent>(cancellationToken);
+            return observable
+                .Do(@event =>
+                        {
+                            var retry = CreateRetryPolicy(_logger, nameof(BinaryReferenceEventsProducing));
+                            retry.Execute(() => ProcessAsync(@event).GetAwaiter().GetResult());
+                        })
+                .Subscribe();
         }
     }
 }

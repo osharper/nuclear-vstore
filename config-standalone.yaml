@@ -41,7 +41,7 @@ vstore:
   session_expiration: "00:01:00"
 
   binaries_collector_timedelay: "00:30:00"
-  binaries_collector_timerange: "02:00:00"
+  binaries_collector_batchsize: 100
 
   kafka_endpoints: "kafka1.c.n3.hw,kafka2.c.n3.hw,kafka3.c.n3.hw"
 

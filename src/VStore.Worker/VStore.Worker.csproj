@@ -5,8 +5,8 @@
     <RootNamespace>NuClear.VStore.Worker</RootNamespace>
     <OutputType>Exe</OutputType>
     <PackageId>VStore.Worker</PackageId>
-    <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>
+    <!--<RuntimeIdentifier>win10-x64</RuntimeIdentifier>-->
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
@@ -52,5 +52,6 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="3.0.1" />
     <PackageReference Include="Serilog.Sinks.Literate" Version="3.0.0" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="1.0.0" />
+    <PackageReference Include="System.Reactive.Linq" Version="3.1.1" />
   </ItemGroup>
 </Project>
