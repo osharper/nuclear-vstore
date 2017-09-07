@@ -18,6 +18,12 @@ namespace MigrationTool
 
         public DateTime ThresholdDate { get; set; }
 
+        public DateTime? OrdersModificationBeginDate { get; set; }
+
+        public DateTime? OrdersMinDistributionDate { get; set; }
+
+        public DateTime? OrdersMaxDistributionDate { get; set; }
+
         public DateTime PositionsBeginDate { get; set; }
 
         public string ApiToken { get; set; }

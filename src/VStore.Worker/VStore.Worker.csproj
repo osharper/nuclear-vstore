@@ -40,6 +40,7 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.CommandlineUtils" Version="1.1.1" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
+    <PackageReference Include="Polly" Version="5.3.1" />
     <PackageReference Include="Prometheus.Client.MetricServer" Version="1.1.2" />
     <PackageReference Include="System.Console" Version="4.3.0" />
     <PackageReference Include="AWSSDK.S3" Version="3.3.10.1" />
@@ -51,5 +52,6 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="3.0.1" />
     <PackageReference Include="Serilog.Sinks.Literate" Version="3.0.0" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="1.0.0" />
+    <PackageReference Include="System.Reactive.Linq" Version="3.1.1" />
   </ItemGroup>
 </Project>

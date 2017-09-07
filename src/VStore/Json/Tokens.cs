@@ -2,6 +2,7 @@
 {
     public sealed class Tokens
     {
+        public const string ArchivePrefix = "archive";
         public const string SessionPostfix = "session";
         public const string ObjectPostfix = "object";
         public const string PropertiesToken = "properties";
@@ -20,6 +21,7 @@
         public const string NameToken = "name";
         public const string IsRequiredToken = "isRequired";
         public const string IsWhiteListedToken = "isWhiteListed";
+        public const string ModerationModesToken = "moderationModes";
         public const char ModifiedElementsDelimiter = ';';
     }
 }

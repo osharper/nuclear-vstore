@@ -28,6 +28,7 @@ namespace MigrationTool
                 { "image/bmp", FileFormat.Bmp },
                 { "image/gif", FileFormat.Gif },
                 { "image/jpeg", FileFormat.Jpeg },
+                { "image/pjpeg", FileFormat.Jpeg },
                 { "image/png", FileFormat.Png },
                 { "image/svg+xml", FileFormat.Svg },
                 { "image/x-png", FileFormat.Png }
@@ -290,11 +291,12 @@ namespace MigrationTool
                 var denialReasons = advertisement.AdvertisementElements
                                                  .SelectMany(ae => ae.AdvertisementElementDenialReasons)
                                                  .Select(aedr => string.IsNullOrEmpty(aedr.Comment) ? aedr.DenialReason.Name : $"{aedr.DenialReason.Name} - {aedr.Comment}");
-
+                var notes = advertisement.AdvertisementElements.SelectMany(ae => ae.Notes).Select(n => n.Text);
+                var comment = string.Join("\n", denialReasons.Concat(notes));
                 return new ModerationResult
                     {
-                        Status = ModerationStatus.Approved,
-                        Comment = string.Join("; ", denialReasons)
+                        Status = ModerationStatus.Rejected,
+                        Comment = comment.Substring(0, Math.Min(3000, comment.Length))
                     };
             }
 

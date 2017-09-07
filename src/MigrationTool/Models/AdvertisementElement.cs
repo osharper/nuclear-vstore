@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MigrationTool.Models
 {
@@ -8,6 +9,7 @@ namespace MigrationTool.Models
         public AdvertisementElement()
         {
             AdvertisementElementDenialReasons = new HashSet<AdvertisementElementDenialReason>();
+            Notes = new List<Note>();
         }
 
         public long Id { get; set; }
@@ -30,5 +32,7 @@ namespace MigrationTool.Models
         public AdvertisementElementTemplate AdvertisementElementTemplate { get; set; }
         public Advertisement Advertisement { get; set; }
         public File File { get; set; }
+        [NotMapped]
+        public IReadOnlyList<Note> Notes { get; set; }
     }
 }

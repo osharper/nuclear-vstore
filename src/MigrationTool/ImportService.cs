@@ -15,6 +15,7 @@ using MigrationTool.Json;
 using MigrationTool.Models;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors;
@@ -29,9 +30,15 @@ namespace MigrationTool
 {
     public class ImportService
     {
+        private const int AdvertisementElementTypeIdentifier = 187;
+
         private readonly DateTime _thresholdDate;
         private readonly DateTime _positionsBeginDate;
+        private readonly DateTime? _ordersModificationBeginDate;
+        private readonly DateTime? _ordersMaxDistributionDate;
+        private readonly DateTime? _ordersMinDistributionDate;
         private readonly Language _language;
+        private readonly int _countryCode;
         private readonly string _languageCode;
         private readonly bool _fetchAdvertisementBeforeImport;
         private readonly int _batchSize;
@@ -42,18 +49,27 @@ namespace MigrationTool
         private readonly DbContextOptions<ErmContext> _contextOptions;
 
         private readonly IDictionary<long, long> _instanceTemplatesMap;
+        private readonly IDictionary<long, IDictionary<int, ModerationMode>> _templatesModerationModesMap;
         private readonly bool _migrateModerationStatuses;
         private readonly JTokenEqualityComparer _jsonEqualityComparer = new JTokenEqualityComparer();
         private readonly ConcurrentDictionary<Tuple<long, int>, long> _templateElementsMap = new ConcurrentDictionary<Tuple<long, int>, long>();
         private readonly ILogger<ImportService> _logger;
+        private readonly JsonSerializer _jsonSerializer = new JsonSerializer();
 
         private long _uploadedBinariesCount;
+        private long _selectedToWhitelistCount;
+        private long _rejectedCount;
+        private long _approvedCount;
+        private long _draftedCount;
+        private IReadOnlyDictionary<long, DateTime?> _advOrdersLink;
 
         public ImportService(
             DbContextOptions<ErmContext> contextOptions,
             Language language,
+            int countryCode,
             Options options,
             IDictionary<long, long> instanceTemplatesMap,
+            IDictionary<long, IDictionary<int, ModerationMode>> templatesModerationModesMap,
             bool migrateModerationStatuses,
             ApiRepository repository,
             ConverterService converter,
@@ -64,20 +80,31 @@ namespace MigrationTool
                 throw new ArgumentOutOfRangeException(nameof(options.MaxDegreeOfParallelism));
             }
 
+            if (options.OrdersMaxDistributionDate.HasValue && options.OrdersMinDistributionDate.HasValue)
+            {
+                throw new InvalidOperationException($"Cannot specify both {nameof(options.OrdersMinDistributionDate)} and {nameof(options.OrdersMaxDistributionDate)} parameters");
+            }
+
             _fetchAdvertisementBeforeImport = options.FetchAdvertisementBeforeImport;
             _thresholdDate = options.ThresholdDate;
             _positionsBeginDate = options.PositionsBeginDate;
+            _ordersModificationBeginDate = options.OrdersModificationBeginDate;
+            _ordersMinDistributionDate = options.OrdersMinDistributionDate;
+            _ordersMaxDistributionDate = options.OrdersMaxDistributionDate;
             _maxImportTries = options.MaxImportTries;
             _maxDegreeOfParallelism = options.MaxDegreeOfParallelism;
             _truncatedImportSize = options.TruncatedImportSize;
             _batchSize = options.AdvertisementsImportBatchSize;
             _contextOptions = contextOptions;
             _language = language;
+            _countryCode = countryCode;
             _instanceTemplatesMap = instanceTemplatesMap;
+            _templatesModerationModesMap = templatesModerationModesMap;
             _migrateModerationStatuses = migrateModerationStatuses;
             _languageCode = language.ToString().ToLowerInvariant();
             _logger = logger;
             _destOrganizationUnitBranchCode = options.DestOrganizationUnitBranchCode;
+            _jsonSerializer.Converters.Add(new StringEnumConverter(true));
             Repository = repository;
             Converter = converter;
         }
@@ -211,6 +238,15 @@ namespace MigrationTool
             }
 
             return true;
+        }
+
+        private void ResetCounters()
+        {
+            _uploadedBinariesCount = 0L;
+            _approvedCount = 0L;
+            _draftedCount = 0L;
+            _rejectedCount = 0L;
+            _selectedToWhitelistCount = 0L;
         }
 
         private void EnsurePositionsAreEqual(PositionDescriptor apiPosition, Position ermPosition)
@@ -418,7 +454,7 @@ namespace MigrationTool
 
         private async Task<bool> DemoImportAdvertisementsAsync(IReadOnlyCollection<long> templateIds)
         {
-            _uploadedBinariesCount = 0L;
+            ResetCounters();
             var advertisementIds = new List<long>(templateIds.Count * _truncatedImportSize);
             using (var context = GetNewContext())
             {
@@ -449,6 +485,13 @@ namespace MigrationTool
 
             var failedAds = await ImportAdvertisementsByIdsAsync(advertisementIds);
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
             return failedAds.Count == 0;
         }
 
@@ -469,22 +512,61 @@ namespace MigrationTool
                     _logger.LogInformation("Import orders to organization unit {name} with branch code {code}", organizationUnit.Name, organizationUnit.DgppId);
                 }
 
-                var advertisementIds = await (from o in context.Orders
-                                              join op in context.OrderPositions on o.Id equals op.OrderId
-                                              join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
-                                              join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
-                                              where !o.IsDeleted
-                                                    && o.IsActive
-                                                    && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
-                                                        o.WorkflowStepId != 6 && o.EndDistributionDateFact > DateTime.UtcNow)   // Future and current orders that are not in the archive
-                                                    && !op.IsDeleted
-                                                    && op.IsActive
-                                                    && !adv.IsDeleted
-                                                    && adv.FirmId != null // Do not import stubs
-                                                    && (organizationUnit == null || o.DestOrganizationUnitId == organizationUnit.Id)
-                                              select new { adv.Id, TemplateId = adv.AdvertisementTemplateId })
-                                           .Distinct()
-                                           .ToListAsync();
+                var utcNow = DateTime.UtcNow;
+                var rawResult = await (from o in context.Orders
+                                       join op in context.OrderPositions on o.Id equals op.OrderId
+                                       join opa in context.OrderPositionAdvertisement on op.Id equals opa.OrderPositionId
+                                       join adv in context.Advertisements on opa.AdvertisementId equals adv.Id
+                                       where !o.IsDeleted
+                                             && o.IsActive
+                                             && (o.WorkflowStepId == 6 && o.EndDistributionDateFact >= _thresholdDate || // Archived orders that were placed
+                                                 o.WorkflowStepId != 6 && o.EndDistributionDateFact > utcNow) // Future and current orders that are not in the archive
+                                             && !op.IsDeleted
+                                             && op.IsActive
+                                             && !adv.IsDeleted
+                                             && adv.FirmId != null // Do not import stubs
+                                             && (organizationUnit == null || o.DestOrganizationUnitId == organizationUnit.Id)
+                                             && (_ordersModificationBeginDate == null || o.ModifiedOn >= _ordersModificationBeginDate)
+                                       select new
+                                           {
+                                               adv.Id,
+                                               TemplateId = adv.AdvertisementTemplateId,
+                                               OrderId = o.Id,
+                                               OrderModifiedOn = o.ModifiedOn,
+                                               OrderEndDistributionDate = o.EndDistributionDateFact
+                                           })
+                                    .Distinct()
+                                    .ToListAsync();
+
+                var advertisementsToFilter = rawResult.GroupBy(adv => new { adv.Id, adv.TemplateId })
+                                                .Select(adv => new
+                                                    {
+                                                        adv.Key.Id,
+                                                        adv.Key.TemplateId,
+                                                        OrderMaxModifiedDate = adv.Max(x => x.OrderModifiedOn),
+                                                        OrderMaxEndDistributionDate = adv.Max(x => x.OrderEndDistributionDate)
+                                                    });
+
+                if (_ordersMaxDistributionDate.HasValue || _ordersMinDistributionDate.HasValue)
+                {
+                    advertisementsToFilter = _ordersMinDistributionDate.HasValue
+                                                 ? advertisementsToFilter.Where(a => a.OrderMaxEndDistributionDate >= _ordersMinDistributionDate.Value)
+                                                 : advertisementsToFilter.Where(a => a.OrderMaxEndDistributionDate <= _ordersMaxDistributionDate.Value);
+                }
+
+                var advertisementIds = advertisementsToFilter
+                    .OrderBy(adv => adv.OrderMaxModifiedDate)
+                    .ToList();
+
+                _logger.LogInformation(
+                    "Found {count} advertisements since orders max modification date {modifyDate:o} and {order} max orders distribution date {distributionDate:o}",
+                    advertisementIds.Count,
+                    _ordersModificationBeginDate,
+                    _ordersMinDistributionDate.HasValue ? "after" : "before",
+                    _ordersMinDistributionDate ?? _ordersMaxDistributionDate
+                    );
+
+                _advOrdersLink = advertisementIds.ToDictionary(a => a.Id, a => a.OrderMaxModifiedDate);
 
                 var missedTemplatesIds = advertisementIds.Select(adv => adv.TemplateId)
                                                          .Distinct()
@@ -505,8 +587,8 @@ namespace MigrationTool
                                                          .ToArray();
             }
 
+            ResetCounters();
             var importedCount = 0L;
-            _uploadedBinariesCount = 0L;
             var failedAds = new List<Advertisement>();
             for (var segmentNum = 0; ; ++segmentNum)
             {
@@ -531,6 +613,13 @@ namespace MigrationTool
 
             _logger.LogInformation("Total imported advertisements: {imported} of {total}", importedCount.ToString(), advertisementsToImport.Length.ToString());
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
 
             // All advertisements were imported, check the failed ones:
             if (failedAds.Count > 0)
@@ -556,6 +645,14 @@ namespace MigrationTool
                                      {
                                          try
                                          {
+                                             if (_advOrdersLink != null)
+                                             {
+                                                 _logger.LogInformation(
+                                                     "Start import advertisement {advId} with linked orders max modified date {maxOrderModifiedOn:o}",
+                                                     advertisement.Id,
+                                                     _advOrdersLink[advertisement.Id]);
+                                             }
+
                                              await ImportAdvertisementAsync(advertisement, _fetchAdvertisementBeforeImport);
                                              Interlocked.Increment(ref batchImportedCount);
                                          }
@@ -574,7 +671,7 @@ namespace MigrationTool
         {
             using (var context = GetNewContext())
             {
-                return await context.Advertisements
+                var advertisements = await context.Advertisements
                                     .Where(a => ids.Contains(a.Id))
                                     .Include(a => a.AdvertisementElements)
                                         .ThenInclude(ae => ae.AdvertisementElementTemplate)
@@ -587,12 +684,37 @@ namespace MigrationTool
                                         .ThenInclude(ae => ae.AdvertisementElementDenialReasons)
                                         .ThenInclude(aedr => aedr.DenialReason)
                                     .ToListAsync();
+
+                var adsElementsIds = advertisements.SelectMany(a => a.AdvertisementElements)
+                                                   .Select(ae => ae.Id)
+                                                   .ToList();
+
+                var notes = await context.Notes
+                                         .Where(n => adsElementsIds.Contains(n.ParentId) &&
+                                                     n.ParentType == AdvertisementElementTypeIdentifier &&
+                                                     !n.IsDeleted)
+                                         .OrderByDescending(n => n.ModifiedOn)
+                                         .GroupBy(n => n.ParentId)
+                                         .ToDictionaryAsync(g => g.Key, g => g.Take(2).ToList());
+
+                foreach (var advertisement in advertisements)
+                {
+                    foreach (var element in advertisement.AdvertisementElements)
+                    {
+                        if (notes.TryGetValue(element.Id, out var elementNotes))
+                        {
+                            element.Notes = elementNotes;
+                        }
+                    }
+                }
+
+                return advertisements;
             }
         }
 
         private async Task<bool> ImportFailedAdvertisements(IReadOnlyCollection<Advertisement> failedAds)
         {
-            _uploadedBinariesCount = 0;
+            ResetCounters();
             var imported = 0;
             var totallyFailedAds = new ConcurrentBag<long>();
             _logger.LogInformation("Start to import failed advertisements, total {count}", failedAds.Count.ToString());
@@ -634,6 +756,14 @@ namespace MigrationTool
 
             _logger.LogInformation("Failed advertisements repeated import done, imported: {imported} of {total}", imported.ToString(), failedAds.Count.ToString());
             _logger.LogInformation("Total uploaded binaries during repeated import: {totalBinaries}", _uploadedBinariesCount);
+            _logger.LogInformation("Total advertisements selected to whitelist during repeated import: {selectedToWhitelistCount}", _selectedToWhitelistCount);
+            _logger.LogInformation(
+                "Total moderated advertisements during repeated import: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                _approvedCount + _rejectedCount,
+                _approvedCount,
+                _rejectedCount,
+                _draftedCount);
+
             if (totallyFailedAds.Count < 1)
             {
                 return true;
@@ -683,9 +813,16 @@ namespace MigrationTool
             if (advertisement.IsSelectedToWhiteList)
             {
                 await Repository.SelectObjectToWhitelist(objectId);
+                Interlocked.Increment(ref _selectedToWhitelistCount);
             }
 
             if (!_migrateModerationStatuses)
+            {
+                return;
+            }
+
+            var mappedTemplateId = _instanceTemplatesMap[advertisement.AdvertisementTemplateId];
+            if (_templatesModerationModesMap[mappedTemplateId][_countryCode] == ModerationMode.Off)
             {
                 return;
             }
@@ -700,6 +837,21 @@ namespace MigrationTool
                 }
 
                 await Repository.UpdateObjectModerationStatusAsync(objectId, versionId, moderationStatus);
+            }
+
+            switch (moderationStatus.Status)
+            {
+                case ModerationStatus.Approved:
+                    Interlocked.Increment(ref _approvedCount);
+                    break;
+                case ModerationStatus.Rejected:
+                    Interlocked.Increment(ref _rejectedCount);
+                    break;
+                case ModerationStatus.OnApproval:
+                    Interlocked.Increment(ref _draftedCount);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(moderationStatus), moderationStatus.Status, "Unsupported moderation status");
             }
         }
 
@@ -1027,9 +1179,10 @@ namespace MigrationTool
 
         private TemplateDescriptor GenerateTemplateDescriptor(AdvertisementTemplate template)
         {
+            var mappedTemplateId = _instanceTemplatesMap[template.Id];
             return new TemplateDescriptor
             {
-                Id = _instanceTemplatesMap[template.Id],
+                Id = mappedTemplateId,
                 Elements = template.ElementTemplatesLink
                                        .Where(link => !link.IsDeleted && !link.ElementTemplate.IsDeleted)
                                        .OrderBy(link => link.ExportCode)
@@ -1038,7 +1191,8 @@ namespace MigrationTool
                 Properties = new JObject
                 {
                     { Tokens.NameToken, new JObject { { _languageCode, template.Name } } },
-                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList }
+                    { Tokens.IsWhiteListedToken, template.IsAllowedToWhiteList },
+                    { Tokens.ModerationModesToken, JObject.FromObject(_templatesModerationModesMap[mappedTemplateId], _jsonSerializer) }
                 }
             };
         }

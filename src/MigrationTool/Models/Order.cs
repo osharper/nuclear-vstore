@@ -19,11 +19,6 @@ namespace MigrationTool.Models
         public DateTime BeginDistributionDate { get; set; }
         public DateTime EndDistributionDatePlan { get; set; }
         public DateTime EndDistributionDateFact { get; set; }
-        public int BeginReleaseNumber { get; set; }
-        public int EndReleaseNumberPlan { get; set; }
-        public int EndReleaseNumberFact { get; set; }
-        public short ReleaseCountPlan { get; set; }
-        public short ReleaseCountFact { get; set; }
         public int WorkflowStepId { get; set; }
         public DateTime? ApprovalDate { get; set; }
         public DateTime? RejectionDate { get; set; }

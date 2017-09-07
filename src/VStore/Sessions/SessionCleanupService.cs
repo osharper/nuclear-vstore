@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Amazon.S3;
 using Amazon.S3.Model;
 
 using Microsoft.Extensions.Logging;
@@ -36,15 +38,75 @@ namespace NuClear.VStore.Sessions
             _removedSessionsMetric = metricsProvider.GetRemovedSessionsMetric();
         }
 
-        public async Task<bool> DeleteSessionAsync(Guid sessionId)
+        public async Task<int> ArchiveSessionAsync(Guid sessionId, DateTime archiveDate)
         {
-            var listResponse = await _cephS3Client.ListObjectsAsync(new ListObjectsRequest { BucketName = _filesBucketName, Prefix = sessionId.ToString() });
+            var listResponse = await _cephS3Client.ListObjectsAsync(
+                                   new ListObjectsRequest
+                                       {
+                                           BucketName = _filesBucketName,
+                                           Prefix = sessionId.ToString()
+                                       });
             if (listResponse.S3Objects.Count == 0)
             {
-                return false;
+                return 0;
             }
 
-            foreach (var obj in listResponse.S3Objects.OrderByDescending(x => x.Size))
+            var s3Objects = listResponse.S3Objects.OrderByDescending(x => x.Size).ToList();
+            foreach (var obj in s3Objects)
+            {
+                var getMetadataRespose = await _cephS3Client.GetObjectMetadataAsync(_filesBucketName, obj.Key);
+                var archivedFileKey = obj.Key.AsArchivedFileKey(archiveDate);
+                var copyRequest = new CopyObjectRequest
+                    {
+                        SourceBucket = _filesBucketName,
+                        SourceKey = obj.Key,
+                        DestinationBucket = _filesBucketName,
+                        DestinationKey = archivedFileKey,
+                        MetadataDirective = S3MetadataDirective.REPLACE,
+                        CannedACL = S3CannedACL.PublicRead
+                    };
+                foreach (var metadataKey in getMetadataRespose.Metadata.Keys)
+                {
+                    copyRequest.Metadata.Add(metadataKey, getMetadataRespose.Metadata[metadataKey]);
+                }
+
+                await _cephS3Client.CopyObjectAsync(copyRequest);
+                _logger.LogInformation(
+                    "File {fileKey} copied to {archivedFileKey} while archiving session '{sessionId}'.",
+                    obj.Key,
+                    archivedFileKey,
+                    sessionId);
+            }
+
+            var count = await DeleteSessionFilesAsync(sessionId, s3Objects);
+            _logger.LogInformation("Session '{sessionId}' archived.", sessionId);
+
+            return count;
+        }
+
+        public async Task<int> DeleteArchievedSessionAsync(Guid sessionId, DateTime archiveDate)
+        {
+            var listResponse = await _cephS3Client.ListObjectsAsync(
+                                   new ListObjectsRequest
+                                       {
+                                           BucketName = _filesBucketName,
+                                           Prefix = sessionId.ToString().AsArchivedFileKey(archiveDate)
+                                       });
+            if (listResponse.S3Objects.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = await DeleteSessionFilesAsync(sessionId, listResponse.S3Objects.OrderByDescending(x => x.Size));
+            _logger.LogInformation("Archieved session '{sessionId}' deleted.", sessionId);
+
+            return count;
+        }
+
+        private async Task<int> DeleteSessionFilesAsync(Guid sessionId, IEnumerable<S3Object> s3Objects)
+        {
+            var count = 0;
+            foreach (var obj in s3Objects)
             {
                 await _cephS3Client.DeleteObjectAsync(_filesBucketName, obj.Key);
                 if (obj.Key.EndsWith(Tokens.SessionPostfix))
@@ -56,11 +118,11 @@ namespace NuClear.VStore.Sessions
                     _removedBinariesMetric.Inc();
                 }
 
-                _logger.LogInformation("File with key '{fileKey}' deleted while deleting session '{sessionId}'.", obj.Key, sessionId);
+                _logger.LogInformation("File {fileKey} deleted while archiving or deleting session '{sessionId}'.", obj.Key, sessionId);
+                ++count;
             }
 
-            _logger.LogInformation("Session '{sessionId}' deleted.", sessionId);
-            return true;
+            return count;
         }
     }
 }

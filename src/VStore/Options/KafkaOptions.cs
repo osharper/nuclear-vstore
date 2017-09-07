@@ -3,7 +3,7 @@
     public sealed class KafkaOptions
     {
         public string BrokerEndpoints { get; set; }
-        public int ConsumingBatchSize { get; set; }
+        public string ConsumerGroupToken { get; set; }
         public string ObjectEventsTopic { get; set; }
         public string ObjectVersionsTopic { get; set; }
         public string SessionEventsTopic { get; set; }

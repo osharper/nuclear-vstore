@@ -18,6 +18,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="ImageSharp" Version="1.0.0-alpha9-00182" />
     <PackageReference Include="Prometheus.Client" Version="1.1.2" />
+    <PackageReference Include="System.Reactive.Linq" Version="3.1.1" />
     <PackageReference Include="RedLock.net" Version="2.0.0-pre1" />
     <PackageReference Include="System.ValueTuple" Version="4.4.0" />
   </ItemGroup>
