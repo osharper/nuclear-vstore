@@ -10,6 +10,7 @@ using Amazon.S3;
 
 using Autofac;
 
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
@@ -126,6 +127,38 @@ namespace NuClear.VStore.Host
                                     settings.Converters.Insert(index, CustomConverters[index]);
                                 }
                             });
+
+            var jwtOptions = services.GetRequiredService<JwtOptions>();
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                    .AddJwtBearer(options => {
+                                          options.Audience = "http://localhost:5001/";
+                                          options.Authority = "http://localhost:5000/";
+                                            /*
+                                            new JwtBearerOptions
+                                                {
+                                                    AutomaticAuthenticate = true,
+                                                    AutomaticChallenge = true,
+                                                    TokenValidationParameters =
+                                                        new TokenValidationParameters
+                                                            {
+                                                                ValidateIssuer = true,
+                                                                ValidIssuer = jwtOptions.Issuer,
+
+                                                                ValidateAudience = false,
+
+                                                                ValidateIssuerSigningKey = true,
+                                                                IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtOptions.SecretKey)),
+
+                                                                ValidateLifetime = false,
+                                                                LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
+                                                                                        {
+                                                                                            var utcNow = DateTime.UtcNow;
+                                                                                            return !(notBefore > utcNow || utcNow > expires);
+                                                                                        }
+                                                            }
+                                                }
+                                             */
+                    });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
             services.AddMemoryCache();
@@ -291,31 +324,7 @@ namespace NuClear.VStore.Host
             app.UseMiddleware<CrosscuttingTraceIdentifierMiddleware>();
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location"));
 
-            var jwtOptions = app.ApplicationServices.GetRequiredService<JwtOptions>();
-            app.UseJwtBearerAuthentication(
-                new JwtBearerOptions
-                    {
-                        AutomaticAuthenticate = true,
-                        AutomaticChallenge = true,
-                        TokenValidationParameters =
-                            new TokenValidationParameters
-                                {
-                                    ValidateIssuer = true,
-                                    ValidIssuer = jwtOptions.Issuer,
-
-                                    ValidateAudience = false,
-
-                                    ValidateIssuerSigningKey = true,
-                                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtOptions.SecretKey)),
-
-                                    ValidateLifetime = false,
-                                    LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
-                                                            {
-                                                                var utcNow = DateTime.UtcNow;
-                                                                return !(notBefore > utcNow || utcNow > expires);
-                                                            }
-                                }
-                    });
+            app.UseAuthentication();
 
             app.UseMvc();
 

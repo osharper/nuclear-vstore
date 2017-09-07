@@ -1,8 +1,7 @@
-﻿using System.IO;
+﻿using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
 
 using Autofac.Extensions.DependencyInjection;
-
-using Microsoft.AspNetCore.Hosting;
 
 namespace NuClear.VStore.Host
 {
@@ -10,14 +9,13 @@ namespace NuClear.VStore.Host
     {
         public static void Main(string[] args)
         {
-            var host = new WebHostBuilder()
-                .UseKestrel()
-                .ConfigureServices(services => services.AddAutofac())
-                .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseStartup<Startup>()
-                .Build();
-
-            host.Run();
+            BuildWebHost(args).Run();
         }
+
+        public static IWebHost BuildWebHost(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
+                   .ConfigureServices(services => services.AddAutofac())
+                   .UseStartup<Startup>()
+                   .Build();
     }
 }
