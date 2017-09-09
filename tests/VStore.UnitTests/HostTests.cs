@@ -19,7 +19,10 @@ using Moq;
 using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Host;
+using NuClear.VStore.Locks;
 using NuClear.VStore.S3;
+
+using RedLockNet;
 
 using Xunit;
 
@@ -47,6 +50,7 @@ namespace VStore.UnitTests
                                         {
                                             x.RegisterInstance(_mockS3Client.Object).Named<IS3Client>("AWS");
                                             x.RegisterInstance(_mockS3Client.Object).Named<IS3Client>("Ceph");
+                                            x.RegisterInstance(new InMemoryLockFactory()).As<IDistributedLockFactory>();
                                         });
                             })
                     .UseStartup<Startup>());

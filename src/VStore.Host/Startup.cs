@@ -188,6 +188,7 @@ namespace NuClear.VStore.Host
                                return RedLockFactory.Create(endpoints, loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
+                   .PreserveExistingDefaults()
                    .SingleInstance();
 
             builder.Register(
