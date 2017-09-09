@@ -9,7 +9,7 @@ namespace NuClear.VStore.Locks
 {
     public sealed class LockSessionManager
     {
-        private static readonly TimeSpan CheckLockExpiration = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan CheckLockExpiration = TimeSpan.FromSeconds(30);
 
         private readonly IDistributedLockFactory _lockFactory;
         private readonly TimeSpan _expiration;
