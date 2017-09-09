@@ -190,7 +190,6 @@ namespace NuClear.VStore.Host
                    .As<IDistributedLockFactory>()
                    .PreserveExistingDefaults()
                    .SingleInstance();
-
             builder.Register(
                         x =>
                             {

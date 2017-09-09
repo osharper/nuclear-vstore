@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +35,10 @@ using NuClear.VStore.Kafka;
 using NuClear.VStore.Prometheus;
 
 using Prometheus.Client.MetricServer;
+
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
 
 namespace NuClear.VStore.Worker
 {
@@ -182,6 +188,27 @@ namespace NuClear.VStore.Worker
             builder.RegisterType<BinariesCleanupJob>().SingleInstance();
             builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 
+            builder.Register<IDistributedLockFactory>(
+                       x =>
+                           {
+                               var lockOptions = x.Resolve<DistributedLockOptions>();
+                               if (lockOptions.DeveloperMode)
+                               {
+                                   return new InMemoryLockFactory();
+                               }
+
+                               var endpoints = lockOptions.EndPoints
+                                                          .Aggregate(new List<RedLockEndPoint>(),
+                                                                     (result, next) =>
+                                                                         {
+                                                                             result.Add(new DnsEndPoint(next.Host, next.Port));
+                                                                             return result;
+                                                                         });
+                               return RedLockFactory.Create(endpoints, x.Resolve<ILoggerFactory>());
+                           })
+                   .As<IDistributedLockFactory>()
+                   .PreserveExistingDefaults()
+                   .SingleInstance();
             builder.Register(
                         x =>
                             {
