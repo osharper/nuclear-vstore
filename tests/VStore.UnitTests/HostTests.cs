@@ -90,7 +90,7 @@ namespace VStore.UnitTests
             using (var response = await _client.GetAsync("/api/1.0/objects/123/versions"))
             {
                 Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-                _mockS3Client.Verify(s3 => s3.ListVersionsAsync(It.IsAny<ListVersionsRequest>()), Times.Exactly(2));
+                _mockS3Client.Verify(s3 => s3.ListVersionsAsync(It.IsAny<ListVersionsRequest>()), Times.Exactly(1));
             }
         }
 
