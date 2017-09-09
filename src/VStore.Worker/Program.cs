@@ -197,14 +197,22 @@ namespace NuClear.VStore.Worker
                                    return new InMemoryLockFactory();
                                }
 
+                               var loggerFactory = x.Resolve<ILoggerFactory>();
+                               var logger = loggerFactory.CreateLogger<Program>();
+
                                var endpoints = lockOptions.EndPoints
-                                                          .Aggregate(new List<RedLockEndPoint>(),
-                                                                     (result, next) =>
-                                                                         {
-                                                                             result.Add(new DnsEndPoint(next.Host, next.Port));
-                                                                             return result;
-                                                                         });
-                               return RedLockFactory.Create(endpoints, x.Resolve<ILoggerFactory>());
+                                                          .Aggregate(
+                                                              new List<RedLockEndPoint>(),
+                                                              (result, next) =>
+                                                                  {
+                                                                      var ipAddresses = Dns.GetHostAddressesAsync(next.Host).GetAwaiter().GetResult();
+                                                                      var ipAddress = ipAddresses[0].ToString();
+                                                                      result.Add(new DnsEndPoint(ipAddress, next.Port));
+
+                                                                      logger.LogInformation("{host} ({ipAddress}) will be used as RedLock endpoint.");
+                                                                      return result;
+                                                                  });
+                               return RedLockFactory.Create(endpoints, loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
                    .PreserveExistingDefaults()
@@ -281,8 +289,7 @@ namespace NuClear.VStore.Worker
 
             var container = builder.Build();
 
-            var loggerFactory = container.Resolve<ILoggerFactory>();
-            ConfigureLogger(configuration, loggerFactory);
+            ConfigureLogger(configuration, container.Resolve<ILoggerFactory>());
 
             return container;
         }

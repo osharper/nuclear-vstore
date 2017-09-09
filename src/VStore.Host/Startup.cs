@@ -177,14 +177,21 @@ namespace NuClear.VStore.Host
                                    return new InMemoryLockFactory();
                                }
 
-                               var endpoints = lockOptions.EndPoints
-                                                          .Aggregate(new List<RedLockEndPoint>(),
-                                                                     (result, next) =>
-                                                                         {
-                                                                             result.Add(new DnsEndPoint(next.Host, next.Port));
-                                                                             return result;
-                                                                         });
                                var loggerFactory = x.Resolve<ILoggerFactory>();
+                               var logger = loggerFactory.CreateLogger<Startup>();
+
+                               var endpoints = lockOptions.EndPoints
+                                                          .Aggregate(
+                                                              new List<RedLockEndPoint>(),
+                                                              (result, next) =>
+                                                                  {
+                                                                      var ipAddresses = Dns.GetHostAddressesAsync(next.Host).GetAwaiter().GetResult();
+                                                                      var ipAddress = ipAddresses[0].ToString();
+                                                                      result.Add(new DnsEndPoint(ipAddress, next.Port));
+
+                                                                      logger.LogInformation("{host} ({ipAddress}) will be used as RedLock endpoint.");
+                                                                      return result;
+                                                                  });
                                return RedLockFactory.Create(endpoints, loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
