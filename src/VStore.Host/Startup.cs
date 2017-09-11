@@ -188,12 +188,12 @@ namespace NuClear.VStore.Host
                                                   new List<RedLockEndPoint>(),
                                                   (result, next) =>
                                                       {
-                                                          var endpoint = next.Split(':');
-                                                          var host = endpoint[0];
-                                                          var port = int.Parse(endpoint[1]);
+                                                          var endpoint = next.Trim().Split(':');
+                                                          var host = endpoint[0].Trim();
+                                                          var port = int.Parse(endpoint[1].Trim());
 
-                                                          var ipAddresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
-                                                          var ipAddress = ipAddresses[0].ToString();
+                                                          var entry = Dns.GetHostEntryAsync(host).GetAwaiter().GetResult();
+                                                          var ipAddress = entry.AddressList[0].ToString();
                                                           result.Add(new DnsEndPoint(ipAddress, port));
 
                                                           logger.LogInformation(
