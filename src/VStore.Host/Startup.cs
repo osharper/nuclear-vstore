@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -180,18 +181,29 @@ namespace NuClear.VStore.Host
                                var loggerFactory = x.Resolve<ILoggerFactory>();
                                var logger = loggerFactory.CreateLogger<Startup>();
 
-                               var endpoints = lockOptions.EndPoints
-                                                          .Aggregate(
-                                                              new List<RedLockEndPoint>(),
-                                                              (result, next) =>
-                                                                  {
-                                                                      var ipAddresses = Dns.GetHostAddressesAsync(next.Host).GetAwaiter().GetResult();
-                                                                      var ipAddress = ipAddresses[0].ToString();
-                                                                      result.Add(new DnsEndPoint(ipAddress, next.Port));
+                               var endpoints =
+                                   lockOptions.EndPoints
+                                              .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                              .Aggregate(
+                                                  new List<RedLockEndPoint>(),
+                                                  (result, next) =>
+                                                      {
+                                                          var endpoint = next.Split(':');
+                                                          var host = endpoint[0];
+                                                          var port = int.Parse(endpoint[1]);
 
-                                                                      logger.LogInformation("{host} ({ipAddress}) will be used as RedLock endpoint.");
-                                                                      return result;
-                                                                  });
+                                                          var ipAddresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
+                                                          var ipAddress = ipAddresses[0].ToString();
+                                                          result.Add(new DnsEndPoint(ipAddress, port));
+
+                                                          logger.LogInformation(
+                                                              "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
+                                                              host,
+                                                              port,
+                                                              ipAddress,
+                                                              port);
+                                                          return result;
+                                                      });
                                return RedLockFactory.Create(endpoints, loggerFactory);
                            })
                    .As<IDistributedLockFactory>()

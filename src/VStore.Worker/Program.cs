@@ -168,6 +168,7 @@ namespace NuClear.VStore.Worker
             var services = new ServiceCollection()
                 .AddOptions()
                 .Configure<CephOptions>(configuration.GetSection("Ceph"))
+                .Configure<DistributedLockOptions>(configuration.GetSection("DistributedLocks"))
                 .Configure<VStoreOptions>(configuration.GetSection("VStore"))
                 .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
                 .AddLogging();
@@ -176,6 +177,7 @@ namespace NuClear.VStore.Worker
             builder.Populate(services);
 
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<DistributedLockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
@@ -200,18 +202,29 @@ namespace NuClear.VStore.Worker
                                var loggerFactory = x.Resolve<ILoggerFactory>();
                                var logger = loggerFactory.CreateLogger<Program>();
 
-                               var endpoints = lockOptions.EndPoints
-                                                          .Aggregate(
-                                                              new List<RedLockEndPoint>(),
-                                                              (result, next) =>
-                                                                  {
-                                                                      var ipAddresses = Dns.GetHostAddressesAsync(next.Host).GetAwaiter().GetResult();
-                                                                      var ipAddress = ipAddresses[0].ToString();
-                                                                      result.Add(new DnsEndPoint(ipAddress, next.Port));
+                               var endpoints =
+                                   lockOptions.EndPoints
+                                              .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                              .Aggregate(
+                                                  new List<RedLockEndPoint>(),
+                                                  (result, next) =>
+                                                      {
+                                                          var endpoint = next.Split(':');
+                                                          var host = endpoint[0];
+                                                          var port = int.Parse(endpoint[1]);
 
-                                                                      logger.LogInformation("{host} ({ipAddress}) will be used as RedLock endpoint.");
-                                                                      return result;
-                                                                  });
+                                                          var ipAddresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
+                                                          var ipAddress = ipAddresses[0].ToString();
+                                                          result.Add(new DnsEndPoint(ipAddress, port));
+
+                                                          logger.LogInformation(
+                                                              "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
+                                                              host,
+                                                              port,
+                                                              ipAddress,
+                                                              port);
+                                                          return result;
+                                                      });
                                return RedLockFactory.Create(endpoints, loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
