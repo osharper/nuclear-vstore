@@ -213,8 +213,8 @@ namespace NuClear.VStore.Worker
                                                           var host = endpoint[0].Trim();
                                                           var port = int.Parse(endpoint[1].Trim());
 
-                                                          var entry = Dns.GetHostEntryAsync(host).GetAwaiter().GetResult();
-                                                          var ipAddress = entry.AddressList[0].ToString();
+                                                          var addresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
+                                                          var ipAddress = addresses[0].ToString();
                                                           result.Add(new DnsEndPoint(ipAddress, port));
 
                                                           logger.LogInformation(
