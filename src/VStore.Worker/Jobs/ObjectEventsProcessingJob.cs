@@ -110,28 +110,28 @@ namespace NuClear.VStore.Worker.Jobs
                          attempt => TimeSpan.FromSeconds(1),
                          (ex, duration) =>
                              {
-                                 if (ex is ObjectNotFoundException)
+                                 switch (ex)
                                  {
-                                     logger.LogWarning(
-                                         "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
-                                         taskName,
-                                         ex.Message);
-                                 }
-                                 else if (ex is LockAlreadyExistsException)
-                                 {
-                                     logger.LogWarning(
-                                         "{taskName}: Got an event for the object currenty locked. Message: {errorMessage}. The event will be processed again.",
-                                         taskName,
-                                         ex.Message);
-                                 }
-                                 else
-                                 {
-                                     logger.LogError(
-                                         new EventId(),
-                                         ex,
-                                         "{taskName}: Unexpected error occured: {errorMessage}.",
-                                         taskName,
-                                         ex.Message);
+                                     case ObjectNotFoundException _:
+                                         logger.LogWarning(
+                                             "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
+                                     case LockAlreadyExistsException _:
+                                         logger.LogWarning(
+                                             "{taskName}: Got an event for the object currenty locked. Message: {errorMessage}. The event will be processed again.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
+                                     default:
+                                         logger.LogError(
+                                             new EventId(),
+                                             ex,
+                                             "{taskName}: Unexpected error occured: {errorMessage}.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
                                  }
                              });
 

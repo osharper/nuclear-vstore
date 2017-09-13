@@ -35,7 +35,7 @@ namespace NuClear.VStore.Templates
 
         private readonly IS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
-        private readonly LockSessionManager _lockSessionManager;
+        private readonly DistributedLockManager _distributedLockManager;
         private readonly string _bucketName;
         private readonly long _maxBinarySize;
 
@@ -44,11 +44,11 @@ namespace NuClear.VStore.Templates
             CephOptions cephOptions,
             IS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
-            LockSessionManager lockSessionManager)
+            DistributedLockManager distributedLockManager)
         {
             _s3Client = s3Client;
             _templatesStorageReader = templatesStorageReader;
-            _lockSessionManager = lockSessionManager;
+            _distributedLockManager = distributedLockManager;
             _bucketName = cephOptions.TemplatesBucketName;
             _maxBinarySize = vstoreOptions.MaxBinarySize;
         }
@@ -74,7 +74,7 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("Template Id must be set", nameof(id));
             }
 
-            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
+            var redLock = await _distributedLockManager.CreateLockAsync(id);
             try
             {
                 if (await _templatesStorageReader.IsTemplateExists(id))
@@ -105,7 +105,7 @@ namespace NuClear.VStore.Templates
                 throw new ArgumentException("VersionId must be set", nameof(versionId));
             }
 
-            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
+            var redLock = await _distributedLockManager.CreateLockAsync(id);
             try
             {
                 if (!await _templatesStorageReader.IsTemplateExists(id))

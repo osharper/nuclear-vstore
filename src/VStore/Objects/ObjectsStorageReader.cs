@@ -29,7 +29,7 @@ namespace NuClear.VStore.Objects
     {
         private readonly IS3Client _s3Client;
         private readonly TemplatesStorageReader _templatesStorageReader;
-        private readonly LockSessionManager _lockSessionManager;
+        private readonly DistributedLockManager _distributedLockManager;
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
         private readonly Uri _fileStorageEndpoint;
@@ -39,11 +39,11 @@ namespace NuClear.VStore.Objects
             VStoreOptions vStoreOptions,
             IS3Client s3Client,
             TemplatesStorageReader templatesStorageReader,
-            LockSessionManager lockSessionManager)
+            DistributedLockManager distributedLockManager)
         {
             _s3Client = s3Client;
             _templatesStorageReader = templatesStorageReader;
-            _lockSessionManager = lockSessionManager;
+            _distributedLockManager = distributedLockManager;
             _bucketName = cephOptions.ObjectsBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
@@ -120,7 +120,7 @@ namespace NuClear.VStore.Objects
 
             async Task<(bool IsTruncated, int NextVersionIndex, string NextVersionIdMarker)> ListVersions(int nextVersionIndex, string nextVersionIdMarker)
             {
-                await _lockSessionManager.EnsureLockSessionNotExists(id);
+                await _distributedLockManager.EnsureLockNotExists(id);
 
                 var response = await _s3Client.ListVersionsAsync(
                                    new ListVersionsRequest

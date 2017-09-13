@@ -257,7 +257,7 @@ namespace NuClear.VStore.Host
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<DistributedLockManager>().SingleInstance();
             builder.RegisterType<SessionStorageReader>().SingleInstance();
             builder.RegisterType<SessionManagementService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>()

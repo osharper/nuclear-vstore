@@ -39,7 +39,7 @@ namespace NuClear.VStore.Objects
         private readonly TemplatesStorageReader _templatesStorageReader;
         private readonly ObjectsStorageReader _objectsStorageReader;
         private readonly SessionStorageReader _sessionStorageReader;
-        private readonly LockSessionManager _lockSessionManager;
+        private readonly DistributedLockManager _distributedLockManager;
         private readonly EventSender _eventSender;
         private readonly string _bucketName;
         private readonly string _objectEventsTopic;
@@ -52,7 +52,7 @@ namespace NuClear.VStore.Objects
             TemplatesStorageReader templatesStorageReader,
             ObjectsStorageReader objectsStorageReader,
             SessionStorageReader sessionStorageReader,
-            LockSessionManager lockSessionManager,
+            DistributedLockManager distributedLockManager,
             EventSender eventSender,
             MetricsProvider metricsProvider)
         {
@@ -60,7 +60,7 @@ namespace NuClear.VStore.Objects
             _templatesStorageReader = templatesStorageReader;
             _objectsStorageReader = objectsStorageReader;
             _sessionStorageReader = sessionStorageReader;
-            _lockSessionManager = lockSessionManager;
+            _distributedLockManager = distributedLockManager;
             _eventSender = eventSender;
             _bucketName = cephOptions.ObjectsBucketName;
             _objectEventsTopic = kafkaOptions.ObjectEventsTopic;
@@ -73,7 +73,7 @@ namespace NuClear.VStore.Objects
         {
             CheckRequredProperties(id, objectDescriptor);
 
-            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
+            var redLock = await _distributedLockManager.CreateLockAsync(id);
             try
             {
                 if (await _objectsStorageReader.IsObjectExists(id))
@@ -123,7 +123,7 @@ namespace NuClear.VStore.Objects
                 throw new ArgumentException("Object version must be set", nameof(versionId));
             }
 
-            var redLock = await _lockSessionManager.CreateLockSessionAsync(id);
+            var redLock = await _distributedLockManager.CreateLockAsync(id);
             try
             {
                 var objectDescriptor = await _objectsStorageReader.GetObjectDescriptor(id, null);
