@@ -11,6 +11,7 @@ using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Events;
 using NuClear.VStore.Kafka;
+using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
@@ -113,6 +114,13 @@ namespace NuClear.VStore.Worker.Jobs
                                  {
                                      logger.LogWarning(
                                          "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
+                                         taskName,
+                                         ex.Message);
+                                 }
+                                 else if (ex is LockAlreadyExistsException)
+                                 {
+                                     logger.LogWarning(
+                                         "{taskName}: Got an event for the object currenty locked. Message: {errorMessage}. The event will be processed again.",
                                          taskName,
                                          ex.Message);
                                  }
