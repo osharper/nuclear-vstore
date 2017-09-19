@@ -309,8 +309,8 @@ namespace NuClear.VStore.Objects
                     var authorName = metadataWrapper.Read<string>(MetadataElement.AuthorName);
                     var modifiedElements = metadataWrapper.Read<string>(MetadataElement.ModifiedElements);
                     var modifiedElementIds = string.IsNullOrEmpty(modifiedElements)
-                                                 ? Array.Empty<int>()
-                                                 : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToArray();
+                                                 ? (IReadOnlyCollection<int>)Array.Empty<int>()
+                                                 : modifiedElements.Split(Tokens.ModifiedElementsDelimiter).Select(int.Parse).ToList();
                     string content;
                     using (var reader = new StreamReader(getObjectResponse.ResponseStream, Encoding.UTF8))
                     {

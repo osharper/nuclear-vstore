@@ -15,9 +15,9 @@ namespace NuClear.VStore.Host.Swashbuckle
             var multipartBodyFilters = context.ApiDescription.ActionDescriptor.FilterDescriptors
                                               .Select(x => x.Filter)
                                               .OfType<MultipartBodyLengthLimitAttribute>()
-                                              .ToArray();
+                                              .ToList();
 
-            if (multipartBodyFilters.Length == 0)
+            if (multipartBodyFilters.Count == 0)
             {
                 return;
             }
