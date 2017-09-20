@@ -128,37 +128,26 @@ namespace NuClear.VStore.Host
                                 }
                             });
 
-            var jwtOptions = services.GetRequiredService<JwtOptions>();
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     .AddJwtBearer(options => {
-                                          options.Audience = "http://localhost:5001/";
-                                          options.Authority = "http://localhost:5000/";
-                                            /*
-                                            new JwtBearerOptions
-                                                {
-                                                    AutomaticAuthenticate = true,
-                                                    AutomaticChallenge = true,
-                                                    TokenValidationParameters =
-                                                        new TokenValidationParameters
-                                                            {
-                                                                ValidateIssuer = true,
-                                                                ValidIssuer = jwtOptions.Issuer,
+                                          options.TokenValidationParameters = new TokenValidationParameters
+                                              {
+                                                  ValidateIssuer = true,
+                                                  ValidIssuer = _configuration["Jwt:Issuer"],
 
-                                                                ValidateAudience = false,
+                                                  ValidateAudience = false,
 
-                                                                ValidateIssuerSigningKey = true,
-                                                                IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtOptions.SecretKey)),
+                                                  ValidateIssuerSigningKey = true,
+                                                  IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_configuration["Jwt:SecretKey"])),
 
-                                                                ValidateLifetime = false,
-                                                                LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
-                                                                                        {
-                                                                                            var utcNow = DateTime.UtcNow;
-                                                                                            return !(notBefore > utcNow || utcNow > expires);
-                                                                                        }
-                                                            }
-                                                }
-                                             */
-                    });
+                                                  ValidateLifetime = false,
+                                                  LifetimeValidator = (notBefore, expires, securityToken, validationParameters) =>
+                                                                          {
+                                                                              var utcNow = DateTime.UtcNow;
+                                                                              return !(notBefore > utcNow || utcNow > expires);
+                                                                          }
+                                              };
+                                      });
 
             services.AddApiVersioning(options => options.ReportApiVersions = true);
             services.AddMemoryCache();
