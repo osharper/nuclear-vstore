@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ImageSharp;
+using SixLabors.ImageSharp;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
