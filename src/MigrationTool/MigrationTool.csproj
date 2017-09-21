@@ -41,7 +41,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.0.0" />
-    <PackageReference Include="Microsoft.NETCore.DotNetHostPolicy" Version="2.0.0" />
     <PackageReference Include="Microsoft.NETCore.Runtime.CoreCLR" Version="2.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="3.0.0" />
