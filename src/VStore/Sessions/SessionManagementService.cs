@@ -13,9 +13,6 @@ using Amazon.S3.Model;
 
 using CHMsharp;
 
-using ImageSharp;
-using ImageSharp.Formats;
-
 using Microsoft.Extensions.Caching.Memory;
 
 using Newtonsoft.Json;
@@ -35,6 +32,9 @@ using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
 
 using Prometheus.Client;
+
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 
 namespace NuClear.VStore.Sessions
 {
@@ -498,14 +498,16 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static bool IsImageContainsAlphaChannel(IImageBase<Rgba32> image)
+        private static bool IsImageContainsAlphaChannel(Image<Rgba32> image)
         {
-            var pixels = image.Pixels;
-            for (var i = 0; i < pixels.Length; ++i)
+            for (var x = 0; x < image.Width; ++x)
             {
-                if (pixels[i].A != byte.MaxValue)
+                for (var y = 0; y < image.Height; ++y)
                 {
-                    return true;
+                    if (image[x, y].A != byte.MaxValue)
+                    {
+                        return true;
+                    }
                 }
             }
 
