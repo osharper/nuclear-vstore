@@ -13,9 +13,6 @@ using Amazon.S3.Model;
 
 using CHMsharp;
 
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-
 using Microsoft.Extensions.Caching.Memory;
 
 using Newtonsoft.Json;
@@ -35,6 +32,9 @@ using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
 
 using Prometheus.Client;
+
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 
 namespace NuClear.VStore.Sessions
 {

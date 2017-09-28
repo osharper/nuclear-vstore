@@ -6,8 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using SixLabors.ImageSharp;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +21,8 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Objects;
+
+using SixLabors.ImageSharp;
 
 using File = System.IO.File;
 
@@ -420,7 +420,7 @@ namespace MigrationTool
                                          .Where(t => templateIds.Contains(t.Id))
                                          .Include(t => t.ElementTemplatesLink)
                                             .ThenInclude(link => link.ElementTemplate)
-                                         .ToArrayAsync();
+                                         .ToListAsync();
             }
 
             long importedCount = 0;

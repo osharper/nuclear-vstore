@@ -14,7 +14,7 @@ namespace NuClear.VStore.Descriptors.Sessions
                                                  x.Type == ElementDescriptorType.BitmapImage ||
                                                  x.Type == ElementDescriptorType.VectorImage)
                                      .Select(x => x.TemplateCode)
-                                     .ToArray();
+                                     .ToList();
         }
     }
 }

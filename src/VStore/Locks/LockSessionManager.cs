@@ -39,7 +39,7 @@ namespace NuClear.VStore.Locks
         public async Task<IReadOnlyCollection<long>> GetAllCurrentLockSessionsAsync()
         {
             var response = await _cephS3Client.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _bucketName });
-            return response.S3Objects.Select(x => x.Key.AsLockObjectId()).ToArray();
+            return response.S3Objects.Select(x => x.Key.AsLockObjectId()).ToList();
         }
 
         public async Task EnsureLockSessionNotExists(long rootObjectKey)

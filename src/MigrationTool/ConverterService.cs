@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-using SixLabors.ImageSharp;
-
 using Microsoft.Extensions.Logging;
 
 using MigrationTool.Json;
@@ -12,6 +10,8 @@ using MigrationTool.Models;
 
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Templates;
+
+using SixLabors.ImageSharp;
 
 namespace MigrationTool
 {

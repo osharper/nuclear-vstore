@@ -22,7 +22,7 @@ namespace NuClear.VStore.Sessions
         {
             return templateDescriptor.GetBinaryElementTemplateCodes()
                                      .Select(x => new UploadUrl(x, urlComposer(x)))
-                                     .ToArray();
+                                     .ToList();
         }
     }
 }
