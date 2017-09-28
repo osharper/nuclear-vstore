@@ -253,7 +253,7 @@ namespace NuClear.VStore.Sessions
                     var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
                     var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
 
-                    var fileExtension = Path.GetExtension(fileName);
+                    var fileExtension = Path.GetExtension(fileName).ToLowerInvariant();
                     var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
                     var copyRequest = new CopyObjectRequest
                         {
