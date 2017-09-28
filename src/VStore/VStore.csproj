@@ -9,7 +9,8 @@
     <RootNamespace>NuClear.VStore</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Confluent.Kafka" Version="0.11.0-ci-2" />
+    <PackageReference Include="Confluent.Kafka" Version="0.11.0-ci-2" NoWarn="NU1701" />
+    <PackageReference Include="librdkafka.redist" Version="0.11.0" NoWarn="NU1701" />
     <PackageReference Include="AWSSDK.S3" Version="3.3.11" />
     <PackageReference Include="2GIS.ChmLibCore" Version="1.0.3" />
     <PackageReference Include="HtmlAgilityPack" Version="1.5.5" />

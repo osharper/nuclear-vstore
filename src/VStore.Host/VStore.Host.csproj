@@ -27,6 +27,7 @@
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="librdkafka.redist" Version="0.11.0" NoWarn="NU1701" />
     <PackageReference Include="Autofac" Version="4.6.1" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="4.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="2.0.0" />
