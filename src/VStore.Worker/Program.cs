@@ -32,8 +32,6 @@ using NuClear.VStore.Templates;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Prometheus;
 
-using Prometheus.Client.MetricServer;
-
 namespace NuClear.VStore.Worker
 {
     public sealed class Program
