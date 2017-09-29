@@ -273,11 +273,8 @@ namespace NuClear.VStore.Host
         // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app,
             IHostingEnvironment env,
-            ILoggerFactory loggerFactory,
             IApplicationLifetime appLifetime)
         {
-            loggerFactory.AddSerilog();
-
             // Ensure any buffered events are sent at shutdown
             appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
 

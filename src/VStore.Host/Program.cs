@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Hosting;
 
 using Autofac.Extensions.DependencyInjection;
 
+using Serilog;
+
 namespace NuClear.VStore.Host
 {
     public class Program
@@ -16,6 +18,7 @@ namespace NuClear.VStore.Host
             WebHost.CreateDefaultBuilder(args)
                    .ConfigureServices(services => services.AddAutofac())
                    .UseStartup<Startup>()
+                   .UseSerilog()
                    .Build();
     }
 }
