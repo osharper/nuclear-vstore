@@ -21,7 +21,6 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -58,7 +57,7 @@ using Swashbuckle.AspNetCore.Swagger;
 namespace NuClear.VStore.Host
 {
     // ReSharper disable once ClassNeverInstantiated.Global
-    public sealed class Startup
+    public sealed class Startup : StartupBase
     {
         private const string Aws = "AWS";
         private const string Ceph = "Ceph";
@@ -75,9 +74,11 @@ namespace NuClear.VStore.Host
             };
 
         private readonly IConfigurationRoot _configuration;
+        private readonly IHostingEnvironment _env;
 
         public Startup(IHostingEnvironment env)
         {
+            _env = env;
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json")
@@ -91,7 +92,7 @@ namespace NuClear.VStore.Host
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // ReSharper disable once UnusedMember.Global
-        public void ConfigureServices(IServiceCollection services)
+        public override void ConfigureServices(IServiceCollection services)
         {
             services
                  .AddOptions()
@@ -271,9 +272,7 @@ namespace NuClear.VStore.Host
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         // ReSharper disable once UnusedMember.Global
-        public void Configure(IApplicationBuilder app,
-            IHostingEnvironment env,
-            IApplicationLifetime appLifetime)
+        public override void Configure(IApplicationBuilder app)
         {
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
@@ -289,7 +288,7 @@ namespace NuClear.VStore.Host
                                                         { "message", feature.Error.Message }
                                                     };
 
-                                    if (env.IsDevelopment())
+                                    if (_env.IsDevelopment())
                                     {
                                         error.Add("details", feature.Error.ToString());
                                     }
@@ -311,7 +310,7 @@ namespace NuClear.VStore.Host
 
             app.UseMvc();
 
-            if (!env.IsProduction())
+            if (!_env.IsProduction())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI(
@@ -330,7 +329,7 @@ namespace NuClear.VStore.Host
             }
         }
 
-        private static void AttachToLog4Net(Serilog.ILogger logger, string loggerName, string level)
+        private static void AttachToLog4Net(ILogger logger, string loggerName, string level)
         {
             var serilogAppender = new SerilogAppender(logger);
             serilogAppender.ActivateOptions();
