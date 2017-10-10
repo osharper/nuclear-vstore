@@ -31,8 +31,12 @@ namespace NuClear.VStore.Kafka
                     { "socket.blocking.max.ms", 1 },
                     { "queue.buffering.max.ms", 5 },
                     { "queue.buffering.max.kbytes", 10240 },
+                    { "batch.num.messages", 100 },
+                    { "message.max.bytes", 10240 },
 #if DEBUG
                     { "debug", "msg" },
+#else
+                    { "log.connection.close", "false" },
 #endif
                     {
                         "default.topic.config",

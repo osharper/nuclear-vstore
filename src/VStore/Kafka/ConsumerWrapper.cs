@@ -52,8 +52,10 @@ namespace NuClear.VStore.Kafka
                     { "queued.min.messages", 1000 },
 #if DEBUG
                     { "debug", "msg" },
+#else
+                    { "log.connection.close", "false" },
 #endif
-                    {
+                {
                         "default.topic.config",
                         new Dictionary<string, object>
                             {
