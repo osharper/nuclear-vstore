@@ -91,7 +91,6 @@ namespace NuClear.VStore.Host
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
-        // ReSharper disable once UnusedMember.Global
         public override void ConfigureServices(IServiceCollection services)
         {
             services
@@ -271,7 +270,6 @@ namespace NuClear.VStore.Host
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        // ReSharper disable once UnusedMember.Global
         public override void Configure(IApplicationBuilder app)
         {
             app.UseExceptionHandler(
