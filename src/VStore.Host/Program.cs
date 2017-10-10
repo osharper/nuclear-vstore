@@ -18,7 +18,7 @@ namespace NuClear.VStore.Host
             WebHost.CreateDefaultBuilder(args)
                    .ConfigureServices(services => services.AddAutofac())
                    .UseStartup<Startup>()
-                   .UseSerilog()
+                   .UseSerilog(dispose: true)
                    .Build();
     }
 }

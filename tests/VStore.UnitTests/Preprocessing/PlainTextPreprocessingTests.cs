@@ -9,7 +9,7 @@ namespace VStore.UnitTests.Preprocessing
         [Fact]
         public void TestOnNullString()
         {
-            Assert.Equal(null, ElementTextHarmonizer.ProcessPlain(null));
+            Assert.Null(ElementTextHarmonizer.ProcessPlain(null));
         }
 
         [Fact]

@@ -27,7 +27,7 @@ namespace VStore.UnitTests
             valueChanger(value);
 
             var errors = validator(value, constraints).ToList();
-            Assert.Equal(1, errors.Count);
+            Assert.Single(errors);
             Assert.IsType<TError>(errors.First());
 
             return (TError)errors.First();
@@ -49,23 +49,23 @@ namespace VStore.UnitTests
             Assert.Equal(expectedErrorsCount, errors.Count);
             if (containsRestrictedSymbols)
             {
-                Assert.Equal(1, errors.OfType<NonBreakingSpaceSymbolError>().Count());
-                Assert.Equal(1, errors.OfType<ControlCharactersInTextError>().Count());
+                Assert.Single(errors.OfType<NonBreakingSpaceSymbolError>());
+                Assert.Single(errors.OfType<ControlCharactersInTextError>());
             }
 
             if (constraints.MaxSymbols.HasValue)
             {
-                Assert.Equal(1, errors.OfType<ElementTextTooLongError>().Count());
+                Assert.Single(errors.OfType<ElementTextTooLongError>());
             }
 
             if (constraints.MaxLines.HasValue)
             {
-                Assert.Equal(1, errors.OfType<TooManyLinesError>().Count());
+                Assert.Single(errors.OfType<TooManyLinesError>());
             }
 
             if (constraints.MaxSymbolsPerWord.HasValue)
             {
-                Assert.Equal(1, errors.OfType<ElementWordsTooLongError>().Count());
+                Assert.Single(errors.OfType<ElementWordsTooLongError>());
             }
         }
 

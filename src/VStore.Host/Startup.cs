@@ -275,9 +275,6 @@ namespace NuClear.VStore.Host
             IHostingEnvironment env,
             IApplicationLifetime appLifetime)
         {
-            // Ensure any buffered events are sent at shutdown
-            appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
-
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
                     {
