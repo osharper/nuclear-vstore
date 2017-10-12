@@ -2,7 +2,7 @@
   "profiles": {
     "VStore.Worker": {
       "commandName": "Project",
-      "commandLineArgs": "collect binaries range=00:30:00 delay=00:00:05",
+      "commandLineArgs": "collect binaries batchsize=200 delay=00:00:05",
       "environmentVariables": {
         "VSTORE_ENVIRONMENT": "Development"
       }

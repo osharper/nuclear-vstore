@@ -8,6 +8,7 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Events;
+using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Kafka
 {
@@ -15,8 +16,8 @@ namespace NuClear.VStore.Kafka
     {
         private const int DefaultPartition = 0;
 
-        public EventReader(ILogger logger, string brokerEndpoints)
-            : base(logger, brokerEndpoints)
+        public EventReader(ILogger logger, KafkaOptions kafkaOptions)
+            : base(logger, kafkaOptions)
         {
         }
 

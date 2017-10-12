@@ -7,17 +7,19 @@ using Confluent.Kafka.Serialization;
 
 using Microsoft.Extensions.Logging;
 
+using NuClear.VStore.Options;
+
 namespace NuClear.VStore.Kafka
 {
     public abstract class ConsumerWrapper : IDisposable
     {
         private readonly ILogger _logger;
 
-        protected ConsumerWrapper(ILogger logger, string brokerEndpoints, string groupId = null)
+        protected ConsumerWrapper(ILogger logger, KafkaOptions kafkaOptions, string groupId = null)
         {
             _logger = logger;
             Consumer = new Consumer<string, string>(
-                CreateConsumerConfig(brokerEndpoints, groupId),
+                CreateConsumerConfig(kafkaOptions, groupId),
                 new StringDeserializer(Encoding.UTF8),
                 new StringDeserializer(Encoding.UTF8));
 
@@ -38,22 +40,23 @@ namespace NuClear.VStore.Kafka
             Consumer.Dispose();
         }
 
-        private static Dictionary<string, object> CreateConsumerConfig(string brokerEndpoints, string groupId)
+        private static Dictionary<string, object> CreateConsumerConfig(KafkaOptions kafkaOptions, string groupId)
             => new Dictionary<string, object>
                 {
-                    { "bootstrap.servers", brokerEndpoints },
+                    // https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
+                    { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
                     { "group.id", !string.IsNullOrEmpty(groupId) ? groupId : Guid.NewGuid().ToString() },
-                    { "socket.blocking.max.ms", 1 },
-                    { "enable.auto.commit", false },
-                    { "fetch.wait.max.ms", 5 },
-                    { "fetch.error.backoff.ms", 5 },
-                    { "fetch.message.max.bytes", 10240 },
-                    { "queued.min.messages", 1000 },
+                    { "enable.auto.commit", kafkaOptions.Consumer.EnableAutoCommit },
+                    { "fetch.wait.max.ms", kafkaOptions.Consumer.FetchWaitMaxMs },
+                    { "fetch.error.backoff.ms", kafkaOptions.Consumer.FetchErrorBackoffMs },
+                    { "fetch.message.max.bytes", kafkaOptions.Consumer.FetchMessageMaxBytes },
+                    { "queued.min.messages", kafkaOptions.Consumer.QueuedMinMessages },
 #if DEBUG
                     { "debug", "msg" },
+                    { "socket.blocking.max.ms", 1 }, // https://github.com/edenhill/librdkafka/wiki/How-to-decrease-message-latency
 #else
-                    { "log.connection.close", "false" },
+                    { "log.connection.close", false },
 #endif
                 {
                         "default.topic.config",

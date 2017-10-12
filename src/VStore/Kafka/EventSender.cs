@@ -26,17 +26,18 @@ namespace NuClear.VStore.Kafka
 
             var producerConfig = new Dictionary<string, object>
                 {
+                    // https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "socket.blocking.max.ms", 1 },
-                    { "queue.buffering.max.ms", 5 },
-                    { "queue.buffering.max.kbytes", 10240 },
-                    { "batch.num.messages", 100 },
-                    { "message.max.bytes", 10240 },
+                    { "queue.buffering.max.ms", kafkaOptions.Producer.QueueBufferingMaxMs },
+                    { "queue.buffering.max.kbytes", kafkaOptions.Producer.QueueBufferingMaxKbytes },
+                    { "batch.num.messages", kafkaOptions.Producer.BatchNumMessages },
+                    { "message.max.bytes", kafkaOptions.Producer.MessageMaxBytes },
 #if DEBUG
                     { "debug", "msg" },
+                    { "socket.blocking.max.ms", 1 }, // https://github.com/edenhill/librdkafka/wiki/How-to-decrease-message-latency
 #else
-                    { "log.connection.close", "false" },
+                    { "log.connection.close", false },
 #endif
                     {
                         "default.topic.config",
