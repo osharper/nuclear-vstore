@@ -28,18 +28,18 @@
   <ItemGroup>
     <PackageReference Include="Autofac" Version="4.6.1" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="4.2.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="1.1.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="1.1.3" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
-    <PackageReference Include="Prometheus.Client.Owin" Version="1.1.0" />
+    <PackageReference Include="Prometheus.Client.Owin" Version="1.2.1" />
     <PackageReference Include="System.Runtime.Serialization.Formatters" Version="4.3.0" />
-    <PackageReference Include="Microsoft.NETCore.DotNetHostPolicy" Version="1.1.2" />
-    <PackageReference Include="Microsoft.NETCore.Runtime.CoreCLR" Version="1.1.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel" Version="1.1.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Diagnostics" Version="1.1.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="1.1.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Cors" Version="1.1.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Formatters.Json" Version="1.1.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.ApiExplorer" Version="1.1.3" />
+    <PackageReference Include="Microsoft.NETCore.DotNetHostPolicy" Version="1.1.4" />
+    <PackageReference Include="Microsoft.NETCore.Runtime.CoreCLR" Version="1.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel" Version="1.1.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics" Version="1.1.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="1.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Cors" Version="1.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Formatters.Json" Version="1.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.ApiExplorer" Version="1.1.4" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="1.2.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="1.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="1.1.2" />
