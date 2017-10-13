@@ -7,7 +7,7 @@
     <PackageId>VStore.Host</PackageId>
     <!--<RuntimeIdentifier>osx.10.12-x64</RuntimeIdentifier>-->
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
-    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
   </PropertyGroup>
   <ItemGroup>
