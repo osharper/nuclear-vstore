@@ -13,9 +13,6 @@ using Amazon.S3.Model;
 
 using CHMsharp;
 
-using ImageSharp;
-using ImageSharp.Formats;
-
 using Microsoft.Extensions.Caching.Memory;
 
 using Newtonsoft.Json;
@@ -36,13 +33,16 @@ using NuClear.VStore.Templates;
 
 using Prometheus.Client;
 
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+
 namespace NuClear.VStore.Sessions
 {
     public sealed class SessionManagementService
     {
         private const string PdfHeader = "%PDF-";
 
-        private static readonly Dictionary<FileFormat, string> BitmapImageFormatsMap =
+        private static readonly IReadOnlyDictionary<FileFormat, string> BitmapImageFormatsMap =
             new Dictionary<FileFormat, string>
                 {
                         { FileFormat.Bmp, "image/bmp" },
@@ -50,6 +50,14 @@ namespace NuClear.VStore.Sessions
                         { FileFormat.Jpeg, "image/jpeg" },
                         { FileFormat.Jpg, "image/jpeg" },
                         { FileFormat.Png, "image/png" }
+                };
+
+        private static readonly IReadOnlyDictionary<FileFormat, string> ContentTypesMap =
+            new Dictionary<FileFormat, string>
+                {
+                    { FileFormat.Chm, "application/vnd.ms-htmlhelp" },
+                    { FileFormat.Svg, "image/svg+xml" },
+                    { FileFormat.Pdf, "application/pdf" }
                 };
 
         private readonly TimeSpan _sessionExpiration;
@@ -238,11 +246,12 @@ namespace NuClear.VStore.Sessions
             {
                 using (var getResponse = await _cephS3Client.GetObjectAsync(_filesBucketName, uploadKey))
                 {
+                    string contentType;
                     using (getResponse.ResponseStream)
                     {
                         var sessionDescriptor = uploadSession.SessionDescriptor;
                         var elementDescriptor = uploadSession.ElementDescriptor;
-                        EnsureFileContentIsValid(
+                        contentType = EnsureFileContentIsValid(
                             elementDescriptor.TemplateCode,
                             uploadSession.FileName,
                             elementDescriptor.Type,
@@ -253,10 +262,11 @@ namespace NuClear.VStore.Sessions
                     var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
                     var fileName = metadataWrapper.Read<string>(MetadataElement.Filename);
 
-                    var fileExtension = Path.GetExtension(fileName);
+                    var fileExtension = Path.GetExtension(fileName).ToLowerInvariant();
                     var fileKey = Path.ChangeExtension(uploadSession.SessionId.AsS3ObjectKey(uploadResponse.ETag), fileExtension);
                     var copyRequest = new CopyObjectRequest
                         {
+                            ContentType = contentType,
                             SourceBucket = _filesBucketName,
                             SourceKey = uploadKey,
                             DestinationBucket = _filesBucketName,
@@ -332,7 +342,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void EnsureFileContentIsValid(
+        private static string EnsureFileContentIsValid(
             int templateCode,
             string fileName,
             ElementDescriptorType elementDescriptorType,
@@ -342,14 +352,11 @@ namespace NuClear.VStore.Sessions
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.BitmapImage:
-                    ValidateBitmapImage(templateCode, (BitmapImageElementConstraints)elementDescriptorConstraints, inputStream);
-                    break;
+                    return ValidateBitmapImage(templateCode, (BitmapImageElementConstraints)elementDescriptorConstraints, inputStream);
                 case ElementDescriptorType.VectorImage:
-                    ValidateVectorImage(templateCode, DetectFileFormat(fileName), inputStream);
-                    break;
+                    return ValidateVectorImage(templateCode, DetectFileFormat(fileName), inputStream);
                 case ElementDescriptorType.Article:
-                    ValidateArticle(templateCode, inputStream);
-                    break;
+                    return ValidateArticle(templateCode, inputStream);
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:
@@ -383,7 +390,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void ValidateVectorImage(int templateCode, FileFormat fileFormat, Stream inputStream)
+        private static string ValidateVectorImage(int templateCode, FileFormat fileFormat, Stream inputStream)
         {
             switch (fileFormat)
             {
@@ -402,6 +409,8 @@ namespace NuClear.VStore.Sessions
                 default:
                     throw new ArgumentOutOfRangeException(nameof(fileFormat), fileFormat, "Unsupported file format");
             }
+
+            return ContentTypesMap[fileFormat];
         }
 
         private static void ValidateBitmapImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)
@@ -420,7 +429,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void ValidateBitmapImage(int templateCode, BitmapImageElementConstraints constraints, Stream inputStream)
+        private static string ValidateBitmapImage(int templateCode, BitmapImageElementConstraints constraints, Stream inputStream)
         {
             var imageFormats = constraints.SupportedFileFormats
                                           .Aggregate(
@@ -463,6 +472,8 @@ namespace NuClear.VStore.Sessions
                     throw new InvalidBinaryException(templateCode, new ImageAlphaChannelError());
                 }
             }
+
+            return format.DefaultMimeType;
         }
 
         private static void ValidatePdf(int templateCode, Stream inputStream)
@@ -498,14 +509,16 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static bool IsImageContainsAlphaChannel(IImageBase<Rgba32> image)
+        private static bool IsImageContainsAlphaChannel(Image<Rgba32> image)
         {
-            var pixels = image.Pixels;
-            for (var i = 0; i < pixels.Length; ++i)
+            for (var x = 0; x < image.Width; ++x)
             {
-                if (pixels[i].A != byte.MaxValue)
+                for (var y = 0; y < image.Height; ++y)
                 {
-                    return true;
+                    if (image[x, y].A != byte.MaxValue)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -526,9 +539,9 @@ namespace NuClear.VStore.Sessions
         private static bool ValidateFileExtension(string extension, IBinaryElementConstraints constraints)
         {
             return Enum.TryParse(extension, true, out FileFormat format)
-                           && Enum.IsDefined(typeof(FileFormat), format)
-                           && format.ToString().Equals(extension, StringComparison.OrdinalIgnoreCase)
-                           && constraints.SupportedFileFormats.Any(f => f == format);
+                   && Enum.IsDefined(typeof(FileFormat), format)
+                   && format.ToString().Equals(extension, StringComparison.OrdinalIgnoreCase)
+                   && constraints.SupportedFileFormats.Any(f => f == format);
         }
 
         private static string GetDotLessExtension(string path)
@@ -539,7 +552,7 @@ namespace NuClear.VStore.Sessions
                        : dottedExtension.Trim('.').ToLowerInvariant();
         }
 
-        private static void ValidateArticle(int templateCode, Stream inputStream)
+        private static string ValidateArticle(int templateCode, Stream inputStream)
         {
             var enumeratorContext = new EnumeratorContext { IsGoalReached = false };
             try
@@ -565,6 +578,8 @@ namespace NuClear.VStore.Sessions
             {
                 throw new InvalidBinaryException(templateCode, new ArticleMissingIndexError());
             }
+
+            return ContentTypesMap[FileFormat.Chm];
         }
 
         private static EnumerateStatus ArticleEnumeratorCallback(ChmFile file, ChmUnitInfo unitInfo, EnumeratorContext context)

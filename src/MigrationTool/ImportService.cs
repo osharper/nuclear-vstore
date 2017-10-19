@@ -6,8 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ImageSharp;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +21,8 @@ using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 using NuClear.VStore.Objects;
+
+using SixLabors.ImageSharp;
 
 using File = System.IO.File;
 
@@ -420,7 +420,7 @@ namespace MigrationTool
                                          .Where(t => templateIds.Contains(t.Id))
                                          .Include(t => t.ElementTemplatesLink)
                                             .ThenInclude(link => link.ElementTemplate)
-                                         .ToArrayAsync();
+                                         .ToListAsync();
             }
 
             long importedCount = 0;
@@ -487,7 +487,7 @@ namespace MigrationTool
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
             _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
             _logger.LogInformation(
-                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount}",
                 _approvedCount + _rejectedCount,
                 _approvedCount,
                 _rejectedCount,
@@ -615,7 +615,7 @@ namespace MigrationTool
             _logger.LogInformation("Total uploaded binaries: {totalBinaries}", _uploadedBinariesCount);
             _logger.LogInformation("Total advertisements selected to whitelist: {selectedToWhitelistCount}", _selectedToWhitelistCount);
             _logger.LogInformation(
-                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                "Total moderated advertisements: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount}",
                 _approvedCount + _rejectedCount,
                 _approvedCount,
                 _rejectedCount,
@@ -758,7 +758,7 @@ namespace MigrationTool
             _logger.LogInformation("Total uploaded binaries during repeated import: {totalBinaries}", _uploadedBinariesCount);
             _logger.LogInformation("Total advertisements selected to whitelist during repeated import: {selectedToWhitelistCount}", _selectedToWhitelistCount);
             _logger.LogInformation(
-                "Total moderated advertisements during repeated import: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount};",
+                "Total moderated advertisements during repeated import: {totalModerated} (approved: {approvedCount}; rejected: {rejectedCount}). Total drafted: {draftedCount}",
                 _approvedCount + _rejectedCount,
                 _approvedCount,
                 _rejectedCount,

@@ -52,12 +52,12 @@ namespace NuClear.VStore.Worker.Jobs
             _eventSender = eventSender;
             _versionEventReceiver = new EventReceiver(
                 logger,
-                kafkaOptions.BrokerEndpoints,
+                kafkaOptions,
                 $"{VersionsGroupId}-{kafkaOptions.ConsumerGroupToken}",
                 new[] { kafkaOptions.ObjectEventsTopic });
             _binariesEventReceiver = new EventReceiver(
                 logger,
-                kafkaOptions.BrokerEndpoints,
+                kafkaOptions,
                 $"{BinariesGroupId}-{kafkaOptions.ConsumerGroupToken}",
                 new[] { kafkaOptions.ObjectEventsTopic });
         }
