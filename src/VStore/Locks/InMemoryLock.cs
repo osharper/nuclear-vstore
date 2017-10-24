@@ -12,8 +12,8 @@ namespace NuClear.VStore.Locks
     public sealed class InMemoryLock : IRedLock
     {
         private readonly IMemoryCache _memoryCache;
-        private readonly string _resource;
 
+        public string Resource { get; }
         public string LockId { get; } = Guid.NewGuid().ToString();
         public bool IsAcquired { get; private set; }
         public int ExtendCount { get; } = 0;
@@ -21,7 +21,7 @@ namespace NuClear.VStore.Locks
         public InMemoryLock(IMemoryCache memoryCache, string resource, TimeSpan expiryTime)
         {
             _memoryCache = memoryCache;
-            _resource = resource;
+            Resource = resource;
 
             if (_memoryCache.Get(resource) != null)
             {
@@ -36,7 +36,7 @@ namespace NuClear.VStore.Locks
 
         public void Dispose()
         {
-            _memoryCache.Remove(_resource);
+            _memoryCache.Remove(Resource);
             IsAcquired = false;
         }
     }

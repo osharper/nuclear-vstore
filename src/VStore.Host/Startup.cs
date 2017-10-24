@@ -185,7 +185,7 @@ namespace NuClear.VStore.Host
                                var redLockEndPoints = new List<RedLockEndPoint>();
                                foreach (var endpoint in endpoints)
                                {
-                                   redLockEndPoints.Add(new DnsEndPoint(endpoint.IpAddress, endpoint.Port));
+                                   redLockEndPoints.Add(new RedLockEndPoint(new DnsEndPoint(endpoint.IpAddress, endpoint.Port)) { Password = lockOptions.Password });
                                    logger.LogInformation(
                                        "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
                                        endpoint.Host,
