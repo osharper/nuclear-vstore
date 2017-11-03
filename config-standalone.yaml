@@ -26,7 +26,6 @@ common:
   templates_bucket_name: "vstore-templates-standalone"
   objects_bucket_name: "vstore-objects-standalone"
   files_bucket_name: "vstore-files-standalone"
-  locks_bucket_name: "vstore-locks-standalone"
 
   object_events_topic: "ams_vstore_standalone.object.events"
   object_versions_topic: "ams_vstore_standalone.object.versions"
