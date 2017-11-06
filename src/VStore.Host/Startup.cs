@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -24,6 +22,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -60,6 +59,8 @@ using Serilog;
 using Serilog.Events;
 
 using Swashbuckle.AspNetCore.Swagger;
+
+using ILogger = Serilog.ILogger;
 
 namespace NuClear.VStore.Host
 {
