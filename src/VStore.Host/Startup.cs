@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Text;
 
@@ -49,6 +52,10 @@ using NuClear.VStore.Templates;
 using Prometheus.Client.Collectors;
 using Prometheus.Client.Owin;
 
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
+
 using Serilog;
 using Serilog.Events;
 
@@ -96,7 +103,7 @@ namespace NuClear.VStore.Host
             services
                  .AddOptions()
                  .Configure<CephOptions>(_configuration.GetSection("Ceph"))
-                 .Configure<LockOptions>(_configuration.GetSection("Ceph:Locks"))
+                 .Configure<DistributedLockOptions>(_configuration.GetSection("DistributedLocks"))
                  .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
                  .Configure<JwtOptions>(_configuration.GetSection("Jwt"))
                  .Configure<KafkaOptions>(_configuration.GetSection("Kafka"))
@@ -179,11 +186,41 @@ namespace NuClear.VStore.Host
         public void ConfigureContainer(ContainerBuilder builder)
         {
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
-            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<DistributedLockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<JwtOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
+            builder.Register<IDistributedLockFactory>(
+                       x =>
+                           {
+                               var lockOptions = x.Resolve<DistributedLockOptions>();
+                               if (lockOptions.DeveloperMode)
+                               {
+                                   return new InMemoryLockFactory();
+                               }
+
+                               var loggerFactory = x.Resolve<ILoggerFactory>();
+                               var logger = loggerFactory.CreateLogger<Startup>();
+
+                               var endpoints = lockOptions.GetEndPoints();
+                               var redLockEndPoints = new List<RedLockEndPoint>();
+                               foreach (var endpoint in endpoints)
+                               {
+                                   redLockEndPoints.Add(new RedLockEndPoint(new DnsEndPoint(endpoint.IpAddress, endpoint.Port)) { Password = lockOptions.Password });
+                                   logger.LogInformation(
+                                       "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
+                                       endpoint.Host,
+                                       endpoint.Port,
+                                       endpoint.IpAddress,
+                                       endpoint.Port);
+                               }
+
+                               return RedLockFactory.Create(redLockEndPoints, loggerFactory);
+                           })
+                   .As<IDistributedLockFactory>()
+                   .PreserveExistingDefaults()
+                   .SingleInstance();
             builder.Register(
                         x =>
                             {
@@ -242,7 +279,7 @@ namespace NuClear.VStore.Host
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<DistributedLockManager>().SingleInstance();
             builder.RegisterType<SessionStorageReader>().SingleInstance();
             builder.RegisterType<SessionManagementService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>()

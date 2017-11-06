@@ -44,10 +44,10 @@ namespace NuClear.VStore.Worker.Jobs
             _logger = logger;
             _sessionCleanupService = sessionCleanupService;
 
-            _referencesEventReader = new EventReader(logger, kafkaOptions.BrokerEndpoints);
+            _referencesEventReader = new EventReader(logger, kafkaOptions);
             _sessionsEventReceiver = new EventReceiver(
                 logger,
-                kafkaOptions.BrokerEndpoints,
+                kafkaOptions,
                 $"{GroupId}-{kafkaOptions.ConsumerGroupToken}",
                 new[] { kafkaOptions.SessionEventsTopic });
         }

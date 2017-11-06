@@ -11,6 +11,7 @@ using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Events;
 using NuClear.VStore.Kafka;
+using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Options;
 using NuClear.VStore.S3;
@@ -51,12 +52,12 @@ namespace NuClear.VStore.Worker.Jobs
             _eventSender = eventSender;
             _versionEventReceiver = new EventReceiver(
                 logger,
-                kafkaOptions.BrokerEndpoints,
+                kafkaOptions,
                 $"{VersionsGroupId}-{kafkaOptions.ConsumerGroupToken}",
                 new[] { kafkaOptions.ObjectEventsTopic });
             _binariesEventReceiver = new EventReceiver(
                 logger,
-                kafkaOptions.BrokerEndpoints,
+                kafkaOptions,
                 $"{BinariesGroupId}-{kafkaOptions.ConsumerGroupToken}",
                 new[] { kafkaOptions.ObjectEventsTopic });
         }
@@ -109,21 +110,28 @@ namespace NuClear.VStore.Worker.Jobs
                          attempt => TimeSpan.FromSeconds(1),
                          (ex, duration) =>
                              {
-                                 if (ex is ObjectNotFoundException)
+                                 switch (ex)
                                  {
-                                     logger.LogWarning(
-                                         "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
-                                         taskName,
-                                         ex.Message);
-                                 }
-                                 else
-                                 {
-                                     logger.LogError(
-                                         new EventId(),
-                                         ex,
-                                         "{taskName}: Unexpected error occured: {errorMessage}.",
-                                         taskName,
-                                         ex.Message);
+                                     case ObjectNotFoundException _:
+                                         logger.LogWarning(
+                                             "{taskName}: Got an event for the non-existing object. Message: {errorMessage}. The event will be processed again.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
+                                     case LockAlreadyExistsException _:
+                                         logger.LogWarning(
+                                             "{taskName}: Got an event for the object currenty locked. Message: {errorMessage}. The event will be processed again.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
+                                     default:
+                                         logger.LogError(
+                                             new EventId(),
+                                             ex,
+                                             "{taskName}: Unexpected error occured: {errorMessage}.",
+                                             taskName,
+                                             ex.Message);
+                                         break;
                                  }
                              });
 

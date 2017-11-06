@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +33,12 @@ using NuClear.VStore.Objects;
 using NuClear.VStore.Templates;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Prometheus;
+
+using Prometheus.Client.MetricServer;
+
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
 
 namespace NuClear.VStore.Worker
 {
@@ -91,18 +99,10 @@ namespace NuClear.VStore.Worker
                         config.Description = "Run cleanup job. See available arguments for details.";
                         config.HelpOption(CommandLine.HelpOptionTemplate);
                         config.Command(
-                            CommandLine.Commands.Locks,
-                            commandConfig =>
-                                {
-                                    commandConfig.Description = "Collect expired locks.";
-                                    commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
-                                    commandConfig.OnExecute(() => Run(commandConfig, jobRunner, cts));
-                                });
-                        config.Command(
                             CommandLine.Commands.Binaries,
                             commandConfig =>
                                 {
-                                    commandConfig.Description = "Collect orphan binary files.";
+                                    commandConfig.Description = "Collect unrefenced and expired binary files.";
                                     commandConfig.HelpOption(CommandLine.HelpOptionTemplate);
                                     commandConfig.Argument(CommandLine.Arguments.BatchSize, "Maximun amount of events to process for one iteration.");
                                     commandConfig.Argument(CommandLine.Arguments.Delay, "Delay between collections.");
@@ -168,7 +168,7 @@ namespace NuClear.VStore.Worker
             var services = new ServiceCollection()
                 .AddOptions()
                 .Configure<CephOptions>(configuration.GetSection("Ceph"))
-                .Configure<LockOptions>(configuration.GetSection("Ceph:Locks"))
+                .Configure<DistributedLockOptions>(configuration.GetSection("DistributedLocks"))
                 .Configure<VStoreOptions>(configuration.GetSection("VStore"))
                 .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
                 .AddLogging();
@@ -177,7 +177,7 @@ namespace NuClear.VStore.Worker
             builder.Populate(services);
 
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
-            builder.Register(x => x.Resolve<IOptions<LockOptions>>().Value).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<DistributedLockOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
@@ -187,10 +187,39 @@ namespace NuClear.VStore.Worker
 
             builder.RegisterType<JobRegistry>().SingleInstance();
             builder.RegisterType<JobRunner>().SingleInstance();
-            builder.RegisterType<LockCleanupJob>().SingleInstance();
             builder.RegisterType<BinariesCleanupJob>().SingleInstance();
             builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 
+            builder.Register<IDistributedLockFactory>(
+                       x =>
+                           {
+                               var lockOptions = x.Resolve<DistributedLockOptions>();
+                               if (lockOptions.DeveloperMode)
+                               {
+                                   return new InMemoryLockFactory();
+                               }
+
+                               var loggerFactory = x.Resolve<ILoggerFactory>();
+                               var logger = loggerFactory.CreateLogger<Program>();
+
+                               var endpoints = lockOptions.GetEndPoints();
+                               var redLockEndPoints = new List<RedLockEndPoint>();
+                               foreach (var endpoint in endpoints)
+                               {
+                                   redLockEndPoints.Add(new RedLockEndPoint(new DnsEndPoint(endpoint.IpAddress, endpoint.Port)) { Password = lockOptions.Password });
+                                   logger.LogInformation(
+                                       "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
+                                       endpoint.Host,
+                                       endpoint.Port,
+                                       endpoint.IpAddress,
+                                       endpoint.Port);
+                               }
+
+                               return RedLockFactory.Create(redLockEndPoints, loggerFactory);
+                           })
+                   .As<IDistributedLockFactory>()
+                   .PreserveExistingDefaults()
+                   .SingleInstance();
             builder.Register(
                         x =>
                             {
@@ -247,7 +276,7 @@ namespace NuClear.VStore.Worker
                         (parameterInfo, context) => parameterInfo.ParameterType == typeof(IS3Client),
                         (parameterInfo, context) => context.ResolveNamed<IS3Client>(Aws))
                     .SingleInstance();
-            builder.RegisterType<LockSessionManager>().SingleInstance();
+            builder.RegisterType<DistributedLockManager>().SingleInstance();
             builder.RegisterType<SessionCleanupService>().SingleInstance();
             builder.RegisterType<TemplatesStorageReader>()
                    .WithParameter(
@@ -263,8 +292,7 @@ namespace NuClear.VStore.Worker
 
             var container = builder.Build();
 
-            var loggerFactory = container.Resolve<ILoggerFactory>();
-            ConfigureLogger(configuration, loggerFactory);
+            ConfigureLogger(configuration, container.Resolve<ILoggerFactory>());
 
             return container;
         }

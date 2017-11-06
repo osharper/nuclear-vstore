@@ -9,6 +9,7 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 using NuClear.VStore.Events;
+using NuClear.VStore.Options;
 
 namespace NuClear.VStore.Kafka
 {
@@ -18,8 +19,8 @@ namespace NuClear.VStore.Kafka
 
         private bool _streamingStarted;
 
-        public EventReceiver(ILogger logger, string brokerEndpoints, string groupId, IEnumerable<string> topics)
-            : base(logger, brokerEndpoints, groupId)
+        public EventReceiver(ILogger logger, KafkaOptions kafkaOptions, string groupId, IEnumerable<string> topics)
+            : base(logger, kafkaOptions, groupId)
         {
             _topics = topics;
         }
