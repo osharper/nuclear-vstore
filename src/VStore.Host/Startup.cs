@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using System.Reflection;
 using System.Text;
 
-using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
 
@@ -32,7 +30,6 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Json;
-using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Routing;
@@ -55,12 +52,7 @@ using RedLockNet;
 using RedLockNet.SERedis;
 using RedLockNet.SERedis.Configuration;
 
-using Serilog;
-using Serilog.Events;
-
 using Swashbuckle.AspNetCore.Swagger;
-
-using ILogger = Serilog.ILogger;
 
 namespace NuClear.VStore.Host
 {
@@ -87,15 +79,12 @@ namespace NuClear.VStore.Host
         public Startup(IHostingEnvironment env)
         {
             _env = env;
-            var builder = new ConfigurationBuilder()
+            _configuration = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json")
                 .AddJsonFile($"appsettings.{env.EnvironmentName?.ToLower()}.json")
-                .AddEnvironmentVariables("VSTORE_");
-
-            _configuration = builder.Build();
-
-            ConfigureLogger();
+                .AddEnvironmentVariables("VSTORE_")
+                .Build();
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
@@ -363,35 +352,6 @@ namespace NuClear.VStore.Host
                             options.ShowRequestHeaders();
                         });
             }
-        }
-
-        private static void AttachToLog4Net(ILogger logger, string loggerName, string level)
-        {
-            var serilogAppender = new SerilogAppender(logger);
-            serilogAppender.ActivateOptions();
-            var log = log4net.LogManager.GetLogger(Assembly.GetEntryAssembly(), loggerName);
-            var wrapper = (log4net.Repository.Hierarchy.Logger)log.Logger;
-            wrapper.Level = wrapper.Hierarchy.LevelMap[level];
-            wrapper.AddAppender(serilogAppender);
-            wrapper.Repository.Configured = true;
-        }
-
-        private void ConfigureLogger()
-        {
-            var loggerConfiguration = new LoggerConfiguration().ReadFrom.Configuration(_configuration);
-            Log.Logger = loggerConfiguration.CreateLogger();
-
-            var log4NetLevel = Log.IsEnabled(LogEventLevel.Verbose) ? "ALL"
-                                   : Log.IsEnabled(LogEventLevel.Debug) ? "DEBUG"
-                                       : Log.IsEnabled(LogEventLevel.Information) ? "INFO"
-                                           : Log.IsEnabled(LogEventLevel.Warning) ? "WARN"
-                                               : Log.IsEnabled(LogEventLevel.Error) ? "ERROR"
-                                                   : Log.IsEnabled(LogEventLevel.Fatal) ? "FATAL" : "OFF";
-
-            AttachToLog4Net(Log.Logger, "Amazon", log4NetLevel);
-
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
-            AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
         }
     }
 }

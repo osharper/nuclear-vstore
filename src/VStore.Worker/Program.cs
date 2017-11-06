@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -28,17 +27,16 @@ using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
 using NuClear.VStore.Worker.Jobs;
 
-using Serilog;
 using NuClear.VStore.Objects;
 using NuClear.VStore.Templates;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Prometheus;
 
-using Prometheus.Client.MetricServer;
-
 using RedLockNet;
 using RedLockNet.SERedis;
 using RedLockNet.SERedis.Configuration;
+
+using Serilog;
 
 namespace NuClear.VStore.Worker
 {
@@ -51,12 +49,6 @@ namespace NuClear.VStore.Worker
 
         public static void Main(string[] args)
         {
-#if DEBUG
-            if (Debugger.IsAttached)
-            {
-                args = args.Skip(1).ToArray();
-            }
-#endif
             var env = (Environment.GetEnvironmentVariable("VSTORE_ENVIRONMENT") ?? "Production").ToLower();
 
             var basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
@@ -171,7 +163,7 @@ namespace NuClear.VStore.Worker
                 .Configure<DistributedLockOptions>(configuration.GetSection("DistributedLocks"))
                 .Configure<VStoreOptions>(configuration.GetSection("VStore"))
                 .Configure<KafkaOptions>(configuration.GetSection("Kafka"))
-                .AddLogging();
+                .AddLogging(x => x.AddSerilog(CreateLogger(configuration), true));
 
             var builder = new ContainerBuilder();
             builder.Populate(services);
@@ -292,19 +284,18 @@ namespace NuClear.VStore.Worker
 
             var container = builder.Build();
 
-            ConfigureLogger(configuration, container.Resolve<ILoggerFactory>());
-
             return container;
         }
 
-        private static void ConfigureLogger(IConfiguration configuration, ILoggerFactory loggerFactory)
+        private static Serilog.ILogger CreateLogger(IConfiguration configuration)
         {
             var loggerConfiguration = new LoggerConfiguration().ReadFrom.Configuration(configuration);
             Log.Logger = loggerConfiguration.CreateLogger();
-            loggerFactory.AddSerilog();
 
             AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Log4Net;
             AWSConfigs.LoggingConfig.LogMetricsFormat = LogMetricsFormatOption.Standard;
+
+            return Log.Logger;
         }
 
         private static int Run(CommandLineApplication app, JobRunner jobRunner, CancellationTokenSource cts)
