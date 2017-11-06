@@ -21,7 +21,7 @@ namespace NuClear.VStore.Options
                                       var host = endpoint[0].Trim();
                                       var port = int.Parse(endpoint[1].Trim());
 
-                                      var addresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
+                                      var addresses = Dns.GetHostAddresses(host);
                                       var ipAddress = addresses[0].ToString();
                                       result.Add((host, ipAddress, port));
 
