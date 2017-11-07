@@ -11,7 +11,7 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="3.3.11.4" />
     <PackageReference Include="Confluent.Kafka" Version="0.11.2-ci-75" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.6.2" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.6.3" />
     <PackageReference Include="2GIS.ChmLibCore" Version="1.0.3" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.0.0" />
