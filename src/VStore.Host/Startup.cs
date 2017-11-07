@@ -57,7 +57,7 @@ using Swashbuckle.AspNetCore.Swagger;
 namespace NuClear.VStore.Host
 {
     // ReSharper disable once ClassNeverInstantiated.Global
-    public sealed class Startup : StartupBase
+    public sealed class Startup
     {
         private const string Aws = "AWS";
         private const string Ceph = "Ceph";
@@ -74,11 +74,9 @@ namespace NuClear.VStore.Host
             };
 
         private readonly IConfigurationRoot _configuration;
-        private readonly IHostingEnvironment _env;
 
         public Startup(IHostingEnvironment env)
         {
-            _env = env;
             _configuration = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json")
@@ -88,7 +86,7 @@ namespace NuClear.VStore.Host
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
-        public override void ConfigureServices(IServiceCollection services)
+        public void ConfigureServices(IServiceCollection services)
         {
             services
                  .AddOptions()
@@ -297,7 +295,7 @@ namespace NuClear.VStore.Host
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public override void Configure(IApplicationBuilder app)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
             app.UseExceptionHandler(
                 new ExceptionHandlerOptions
@@ -313,7 +311,7 @@ namespace NuClear.VStore.Host
                                                         { "message", feature.Error.Message }
                                                     };
 
-                                    if (_env.IsDevelopment())
+                                    if (env.IsDevelopment())
                                     {
                                         error.Add("details", feature.Error.ToString());
                                     }
@@ -335,7 +333,7 @@ namespace NuClear.VStore.Host
 
             app.UseMvc();
 
-            if (!_env.IsProduction())
+            if (!env.IsProduction())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI(
