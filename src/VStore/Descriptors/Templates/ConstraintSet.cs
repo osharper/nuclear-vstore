@@ -34,7 +34,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public IElementConstraints For(Language language)
         {
-            if (_constraints.TryGetValue(language, out IElementConstraints constraints))
+            if (_constraints.TryGetValue(language, out var constraints))
             {
                 return constraints;
             }
@@ -54,8 +54,7 @@ namespace NuClear.VStore.Descriptors.Templates
 
         public override bool Equals(object obj)
         {
-            var other = obj as ConstraintSet;
-            if (other == null)
+            if (!(obj is ConstraintSet other))
             {
                 return false;
             }

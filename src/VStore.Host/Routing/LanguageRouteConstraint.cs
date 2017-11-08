@@ -36,7 +36,7 @@ namespace NuClear.VStore.Host.Routing
                 throw new ArgumentNullException(nameof(values));
             }
 
-            if (values.TryGetValue(routeKey, out object value) && value != null)
+            if (values.TryGetValue(routeKey, out var value) && value != null)
             {
                 if (value is Language)
                 {

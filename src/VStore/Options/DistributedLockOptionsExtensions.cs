@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-using RedLockNet.SERedis.Configuration;
-
 namespace NuClear.VStore.Options
 {
     public static class DistributedLockOptionsExtensions

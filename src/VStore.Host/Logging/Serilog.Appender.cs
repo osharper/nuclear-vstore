@@ -39,7 +39,7 @@ namespace NuClear.VStore.Host.Logging
 
         private static LogEventLevel ConvertLevel(Level log4NetLevel)
         {
-            if (LevelMap.TryGetValue(log4NetLevel, out LogEventLevel serilogLevel))
+            if (LevelMap.TryGetValue(log4NetLevel, out var serilogLevel))
             {
                 return serilogLevel;
             }
