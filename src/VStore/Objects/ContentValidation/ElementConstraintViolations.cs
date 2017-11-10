@@ -14,6 +14,7 @@
         NoEmptyLists,
         NoNestedLists,
         ValidLink,
-        BinaryExists
+        BinaryExists,
+        ValidColor
     }
 }

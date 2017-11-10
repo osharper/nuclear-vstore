@@ -336,6 +336,7 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
                 case ElementDescriptorType.VideoLink:
+                case ElementDescriptorType.Color:
                     throw new NotSupportedException($"Not binary element descriptor type {elementDescriptorType}");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType), elementDescriptorType, "Unsupported element descriptor type");
@@ -363,6 +364,7 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.Phone:
                 case ElementDescriptorType.VideoLink:
+                case ElementDescriptorType.Color:
                     throw new NotSupportedException($"Not binary element descriptor type {elementDescriptorType}");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType), elementDescriptorType, "Unsupported element descriptor type");

@@ -290,6 +290,8 @@ namespace NuClear.VStore.Objects
                 case ElementDescriptorType.Article:
                 case ElementDescriptorType.Phone:
                     return new ValidationRule[] { };
+                case ElementDescriptorType.Color:
+                    return new ValidationRule[] { ColorValidator.CheckValidColor };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -406,6 +408,7 @@ namespace NuClear.VStore.Objects
                     case ElementDescriptorType.VectorImage:
                     case ElementDescriptorType.Article:
                     case ElementDescriptorType.Phone:
+                    case ElementDescriptorType.Color:
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),
