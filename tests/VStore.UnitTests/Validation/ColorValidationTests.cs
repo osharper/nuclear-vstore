@@ -9,12 +9,11 @@ namespace VStore.UnitTests.Validation
     public sealed class ColorValidationTests
     {
         [Theory]
-        [InlineData("#aabbcc")]
-        [InlineData("#Fa1bc1")]
+        [InlineData("#AABBCC")]
         [InlineData("#000010")]
-        [InlineData("#AAacAe")]
-        [InlineData("#AaAaAa")]
         [InlineData("#1488FF")]
+        [InlineData("")]
+        [InlineData(null)]
         public void TestValidColor(string color)
         {
             var value = new ColorElementValue {Raw = color};
@@ -26,11 +25,10 @@ namespace VStore.UnitTests.Validation
         }
 
         [Theory]
-        [InlineData("aabbcc")]
-        [InlineData("aabbcc1")]
-        [InlineData("##aabbcc")]
-        [InlineData("##aabbc")]
-        [InlineData("#000000a")]
+        [InlineData("AABBCC")]
+        [InlineData("#AABBcC")]
+        [InlineData("##AABBC")]
+        [InlineData("#000000A")]
         [InlineData("#AABBGG")]
         [InlineData("123123#")]
         [InlineData("AAA#BBB")]
