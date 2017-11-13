@@ -18,6 +18,7 @@ using Moq;
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Host;
 using NuClear.VStore.Locks;
 using NuClear.VStore.S3;
@@ -73,6 +74,7 @@ namespace VStore.UnitTests
                 var stringResponse = await response.Content.ReadAsStringAsync();
                 var json = JArray.Parse(stringResponse);
                 Assert.NotEmpty(json);
+                Assert.Equal(Enum.GetNames(typeof(ElementDescriptorType)).Length, json.Count);
             }
         }
 

@@ -12,6 +12,9 @@ namespace VStore.UnitTests.Validation
         [InlineData("#AABBCC")]
         [InlineData("#000010")]
         [InlineData("#1488FF")]
+        [InlineData("#ABCDEF")]
+        [InlineData("#123456")]
+        [InlineData("#987654")]
         [InlineData("")]
         [InlineData(null)]
         public void TestValidColor(string color)
@@ -32,6 +35,12 @@ namespace VStore.UnitTests.Validation
         [InlineData("#AABBGG")]
         [InlineData("123123#")]
         [InlineData("AAA#BBB")]
+        [InlineData("#ABCDEБ")]
+        [InlineData("#ABCDE")]
+        [InlineData("#ABCDEF ")]
+        [InlineData(" #ABCDEF")]
+        [InlineData("\t#ABCDEF")]
+        [InlineData(" ")]
         public void TestInvalidColor(string color)
         {
             var value = new ColorElementValue {Raw = color};
