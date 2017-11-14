@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -10,6 +12,8 @@ using Moq;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Objects.ContentValidation.Errors;
+using NuClear.VStore.Sessions;
+using NuClear.VStore.Sessions.ContentValidation.Errors;
 
 using Xunit;
 
@@ -31,6 +35,41 @@ namespace VStore.UnitTests
             Assert.IsType<TError>(errors.First());
 
             return (TError)errors.First();
+        }
+
+        internal static TError MakeBinaryValidationCheck<TError>(string content, Action<int, Stream> testAction, string expectedErrorType, int templateCode = 1)
+            where TError : BinaryValidationError
+        {
+            InvalidBinaryException ex;
+            using (var stream = new MemoryStream())
+            {
+                using (var sw = new StreamWriter(stream, Encoding.ASCII))
+                {
+                    sw.Write(content);
+                    sw.Flush();
+                    stream.Position = 0;
+                    ex = Assert.Throws<InvalidBinaryException>(() => testAction(templateCode, stream));
+                }
+            }
+
+            Assert.IsType<TError>(ex.Error);
+            Assert.Equal(templateCode, ex.TemplateCode);
+            Assert.Equal(expectedErrorType, ex.Error.ErrorType);
+            return (TError)ex.Error;
+        }
+
+        public static void MakeBinaryValidationCheck(string content, Action<int, Stream> testAction, int templateCode = 1)
+        {
+            using (var stream = new MemoryStream())
+            {
+                using (var sw = new StreamWriter(stream, Encoding.ASCII))
+                {
+                    sw.Write(content);
+                    sw.Flush();
+                    stream.Position = 0;
+                    testAction(templateCode, stream);
+                }
+            }
         }
 
         internal static void InternalTextChecksTest(

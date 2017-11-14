@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
@@ -16,7 +17,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public int ActualLinesCount { get; }
 
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxLines;
+        public override string ErrorType => nameof(TextElementConstraints.MaxLines);
 
         public override JToken SerializeToJson()
         {

@@ -15,7 +15,18 @@ namespace NuClear.VStore.Objects.ContentValidation
         public static IEnumerable<ObjectElementValidationError> CheckValidColor(IObjectElementValue value, IElementConstraints constraints)
         {
             var color = (ColorElementValue)value;
-            return string.IsNullOrEmpty(color.Raw) || HexRGBColorRegex.IsMatch(color.Raw)
+            if (string.IsNullOrEmpty(color.Raw))
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
+            var colorConstraints = (ColorElementConstraints)constraints;
+            if (!colorConstraints.ValidColor)
+            {
+                return Array.Empty<ObjectElementValidationError>();
+            }
+
+            return HexRGBColorRegex.IsMatch(color.Raw)
                        ? Array.Empty<ObjectElementValidationError>()
                        : new[] { new InvalidColorFormatError() };
         }

@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Sessions.ContentValidation.Errors
@@ -16,7 +17,7 @@ namespace NuClear.VStore.Sessions.ContentValidation.Errors
 
         public string ContentFormat { get; }
 
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.ExtensionMatchContentFormat;
+        public override string ErrorType => nameof(BitmapImageElementConstraints.ExtensionMatchContentFormat);
 
         public override JToken SerializeToJson()
         {

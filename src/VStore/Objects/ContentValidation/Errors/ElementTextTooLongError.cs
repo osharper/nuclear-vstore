@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
@@ -16,7 +17,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public int ActualLength { get; }
 
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxSymbols;
+        public override string ErrorType => nameof(ITextElementConstraints.MaxSymbols);
 
         public override JToken SerializeToJson()
         {

@@ -1,7 +1,9 @@
-﻿namespace NuClear.VStore.Sessions.ContentValidation.Errors
+﻿using NuClear.VStore.Descriptors.Templates;
+
+namespace NuClear.VStore.Sessions.ContentValidation.Errors
 {
     public class InvalidArticleError : BinaryValidationError
     {
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.ValidArticle;
+        public override string ErrorType => nameof(ArticleElementConstraints.ValidArticle);
     }
 }

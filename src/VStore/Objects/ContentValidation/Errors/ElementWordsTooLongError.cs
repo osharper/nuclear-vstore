@@ -2,6 +2,7 @@
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
@@ -18,7 +19,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public IReadOnlyCollection<string> TooLongWords { get; }
 
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.MaxSymbolsPerWord;
+        public override string ErrorType => nameof(TextElementConstraints.MaxSymbolsPerWord);
 
         public override JToken SerializeToJson()
         {
