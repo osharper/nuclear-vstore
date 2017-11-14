@@ -50,7 +50,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Raw = "<i><b>" + new string('b', MaxSymbols + 1) + "</b></i>");
             Assert.Equal(MaxSymbols, error.MaxLength);
             Assert.Equal(MaxSymbols + 1, error.ActualLength);
-            Assert.Equal(ElementConstraintViolations.MaxSymbols, error.ErrorType);
+            Assert.Equal(nameof(constraints.MaxSymbols), error.ErrorType);
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace VStore.UnitTests.Validation
             Assert.Equal(MaxSymbols, error.MaxWordLength);
             Assert.Equal(1, error.TooLongWords.Count);
             Assert.Equal(value.Raw, error.TooLongWords.First());
-            Assert.Equal(ElementConstraintViolations.MaxSymbolsPerWord, error.ErrorType);
+            Assert.Equal(nameof(constraints.MaxSymbolsPerWord), error.ErrorType);
         }
 
         [Fact]
@@ -84,7 +84,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Raw += "<ul><li> 5 </li></ul>");
             Assert.Equal(constraints.MaxLines, error.MaxLinesCount);
             Assert.Equal(constraints.MaxLines + 1, error.ActualLinesCount);
-            Assert.Equal(ElementConstraintViolations.MaxLines, error.ErrorType);
+            Assert.Equal(nameof(constraints.MaxLines), error.ErrorType);
         }
 
         [Fact]
@@ -99,7 +99,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
-            Assert.Equal(ElementConstraintViolations.WithoutNonBreakingSpace, errorOnSpace.ErrorType);
+            Assert.Equal(nameof(constraints.WithoutNonBreakingSpace), errorOnSpace.ErrorType);
 
             value.Raw = AllChars.ToUpper();
             var errorOnChars = TestHelpers.MakeValidationCheck<TextElementValue, ControlCharactersInTextError>(
@@ -107,7 +107,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 FormattedTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\r");
-            Assert.Equal(ElementConstraintViolations.WithoutControlChars, errorOnChars.ErrorType);
+            Assert.Equal(nameof(constraints.WithoutControlChars), errorOnChars.ErrorType);
         }
 
         [Fact]
@@ -121,7 +121,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 FormattedTextValidator.CheckValidHtml,
                 val => val.Raw += "<ul>");
-            Assert.Equal(ElementConstraintViolations.ValidHtml, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidHtml), error.ErrorType);
         }
 
         [Fact]
@@ -137,7 +137,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Raw = "<html><head></head><body><p></p><hr></body></html>");
             Assert.Equal(5, error.UnsupportedTags.Count);
             Assert.Equal(error.UnsupportedTags, new[] { "html", "head", "body", "p", "hr" });
-            Assert.Equal(ElementConstraintViolations.SupportedTags, error.ErrorType);
+            Assert.Equal(nameof(constraints.SupportedTags), error.ErrorType);
         }
 
         [Fact]
@@ -154,7 +154,7 @@ namespace VStore.UnitTests.Validation
 
             Assert.Equal(2, error.UnsupportedAttributes.Count);
             Assert.Equal(error.UnsupportedAttributes, new[] { "class", "onclick" });
-            Assert.Equal(ElementConstraintViolations.SupportedAttributes, error.ErrorType);
+            Assert.Equal(nameof(constraints.SupportedAttributes), error.ErrorType);
         }
 
         [Fact]
@@ -169,7 +169,7 @@ namespace VStore.UnitTests.Validation
                 FormattedTextValidator.CheckEmptyList,
                 val => val.Raw = "<ul> </ul>");
 
-            Assert.Equal(ElementConstraintViolations.NoEmptyLists, error.ErrorType);
+            Assert.Equal(nameof(constraints.NoEmptyLists), error.ErrorType);
         }
 
         [Fact]
@@ -184,7 +184,7 @@ namespace VStore.UnitTests.Validation
                 FormattedTextValidator.CheckNestedList,
                 val => val.Raw = "<ul><li> outer list <ul><li> inner list </li></ul> </li></ul>");
 
-            Assert.Equal(ElementConstraintViolations.NoNestedLists, error.ErrorType);
+            Assert.Equal(nameof(constraints.NoNestedLists), error.ErrorType);
         }
 
         [Fact]
@@ -199,7 +199,7 @@ namespace VStore.UnitTests.Validation
                 FormattedTextValidator.CheckUnsupportedListElements,
                 val => val.Raw = "<ul><hr></ul>");
 
-            Assert.Equal(ElementConstraintViolations.SupportedListElements, error.ErrorType);
+            Assert.Equal(nameof(constraints.SupportedListElements), error.ErrorType);
         }
 
         [Theory]

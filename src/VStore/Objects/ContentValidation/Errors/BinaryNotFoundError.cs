@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
@@ -13,7 +14,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public string RawValue { get; }
 
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.BinaryExists;
+        public override string ErrorType => nameof(IBinaryElementConstraints.BinaryExists);
 
         public override JToken SerializeToJson()
         {

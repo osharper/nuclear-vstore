@@ -4,13 +4,13 @@ using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Descriptors
 {
-    public abstract class ValidationError<TViolation>
+    public abstract class ValidationError
     {
-        public abstract TViolation ErrorType { get; }
+        public abstract string ErrorType { get; }
 
         public virtual JToken SerializeToJson()
         {
-            var error = ErrorType.ToString();
+            var error = ErrorType;
             return new JObject
                 {
                     [Tokens.TypeToken] = char.ToLower(error[0]).ToString() + error.Substring(1),

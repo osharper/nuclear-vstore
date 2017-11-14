@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Sessions.ContentValidation.Errors
@@ -13,7 +14,7 @@ namespace NuClear.VStore.Sessions.ContentValidation.Errors
 
         public long InputStreamLength { get; }
 
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.MaxSize;
+        public override string ErrorType => nameof(IBinaryElementConstraints.MaxSize);
 
         public override JToken SerializeToJson()
         {

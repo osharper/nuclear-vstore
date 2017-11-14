@@ -34,6 +34,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Raw = new string('b', MaxSymbols + 1));
             Assert.Equal(MaxSymbols, error.MaxLength);
             Assert.Equal(MaxSymbols + 1, error.ActualLength);
+            Assert.Equal(nameof(constraints.MaxSymbols), error.ErrorType);
         }
 
         [Fact]
@@ -51,6 +52,7 @@ namespace VStore.UnitTests.Validation
             Assert.Equal(MaxSymbols, error.MaxWordLength);
             Assert.Equal(1, error.TooLongWords.Count);
             Assert.Equal(value.Raw, error.TooLongWords.First());
+            Assert.Equal(nameof(constraints.MaxSymbolsPerWord), error.ErrorType);
         }
 
         [Fact]
@@ -67,6 +69,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Raw = new string('\n', MaxLines));
             Assert.Equal(MaxLines, error.MaxLinesCount);
             Assert.Equal(MaxLines + 1, error.ActualLinesCount);
+            Assert.Equal(nameof(constraints.MaxLines), error.ErrorType);
         }
 
         [Fact]
@@ -76,18 +79,20 @@ namespace VStore.UnitTests.Validation
             var value = new TextElementValue { Raw = AllChars };
             var constraints = new PlainTextElementConstraints();
 
-            TestHelpers.MakeValidationCheck<TextElementValue, NonBreakingSpaceSymbolError>(
+            var errorSpace = TestHelpers.MakeValidationCheck<TextElementValue, NonBreakingSpaceSymbolError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\x00A0");
+            Assert.Equal(nameof(constraints.WithoutNonBreakingSpace), errorSpace.ErrorType);
 
             value.Raw = AllChars.ToUpper();
-            TestHelpers.MakeValidationCheck<TextElementValue, ControlCharactersInTextError>(
+            var errorControlChars = TestHelpers.MakeValidationCheck<TextElementValue, ControlCharactersInTextError>(
                 value,
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw = "\r");
+            Assert.Equal(nameof(constraints.WithoutControlChars), errorControlChars.ErrorType);
         }
 
         [Fact]
@@ -103,6 +108,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Text = "long text");
             Assert.Equal(constraints.MaxSymbols, error.MaxLength);
             Assert.Equal(value.Text.Length, error.ActualLength);
+            Assert.Equal(nameof(constraints.MaxSymbols), error.ErrorType);
         }
 
         [Fact]
@@ -120,6 +126,7 @@ namespace VStore.UnitTests.Validation
             Assert.Equal(MaxSymbols, error.MaxWordLength);
             Assert.Equal(1, error.TooLongWords.Count);
             Assert.Equal(value.Text, error.TooLongWords.First());
+            Assert.Equal(nameof(constraints.MaxSymbolsPerWord), error.ErrorType);
         }
 
         [Fact]
@@ -136,6 +143,7 @@ namespace VStore.UnitTests.Validation
                 val => val.Text = new string('\n', MaxLines));
             Assert.Equal(MaxLines, error.MaxLinesCount);
             Assert.Equal(MaxLines + 1, error.ActualLinesCount);
+            Assert.Equal(nameof(constraints.MaxLines), error.ErrorType);
         }
 
         [Fact]

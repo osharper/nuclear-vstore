@@ -3,15 +3,10 @@ using System.Collections.Generic;
 
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.Linq;
 
 using Amazon.S3;
 using Amazon.S3.Model;
-
-using CHMsharp;
 
 using Microsoft.Extensions.Caching.Memory;
 
@@ -28,30 +23,16 @@ using NuClear.VStore.Kafka;
 using NuClear.VStore.Options;
 using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
+using NuClear.VStore.Sessions.ContentValidation;
 using NuClear.VStore.Sessions.ContentValidation.Errors;
 using NuClear.VStore.Templates;
 
 using Prometheus.Client;
 
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-
 namespace NuClear.VStore.Sessions
 {
     public sealed class SessionManagementService
     {
-        private const string PdfHeader = "%PDF-";
-
-        private static readonly IReadOnlyDictionary<FileFormat, string> BitmapImageFormatsMap =
-            new Dictionary<FileFormat, string>
-                {
-                        { FileFormat.Bmp, "image/bmp" },
-                        { FileFormat.Gif, "image/gif" },
-                        { FileFormat.Jpeg, "image/jpeg" },
-                        { FileFormat.Jpg, "image/jpeg" },
-                        { FileFormat.Png, "image/png" }
-                };
-
         private static readonly IReadOnlyDictionary<FileFormat, string> ContentTypesMap =
             new Dictionary<FileFormat, string>
                 {
@@ -323,10 +304,10 @@ namespace NuClear.VStore.Sessions
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.BitmapImage:
-                    ValidateBitmapImageHeader(templateCode, fileFormat, inputStream);
+                    BitmapImageValidator.ValidateBitmapImageHeader(templateCode, fileFormat, inputStream);
                     break;
                 case ElementDescriptorType.VectorImage:
-                    ValidateVectorImageHeader(templateCode, fileFormat, inputStream);
+                    VectorImageValidator.ValidateVectorImageHeader(templateCode, fileFormat, inputStream);
                     break;
                 case ElementDescriptorType.Article:
                     break;
@@ -346,17 +327,22 @@ namespace NuClear.VStore.Sessions
             int templateCode,
             string fileName,
             ElementDescriptorType elementDescriptorType,
-            IElementConstraints elementDescriptorConstraints,
+            IElementConstraints elementConstraints,
             Stream inputStream)
         {
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.BitmapImage:
-                    return ValidateBitmapImage(templateCode, (BitmapImageElementConstraints)elementDescriptorConstraints, inputStream);
+                    return BitmapImageValidator.ValidateBitmapImage(templateCode, (BitmapImageElementConstraints)elementConstraints, inputStream);
                 case ElementDescriptorType.VectorImage:
-                    return ValidateVectorImage(templateCode, DetectFileFormat(fileName), inputStream);
+                {
+                    var fileFormat = DetectFileFormat(fileName);
+                    VectorImageValidator.ValidateVectorImage(templateCode, fileFormat, (VectorImageElementConstraints)elementConstraints, inputStream);
+                    return ContentTypesMap[fileFormat];
+                }
                 case ElementDescriptorType.Article:
-                    return ValidateArticle(templateCode, inputStream);
+                    ArticleValidator.ValidateArticle(templateCode, inputStream);
+                    return ContentTypesMap[FileFormat.Chm];
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:
@@ -367,162 +353,6 @@ namespace NuClear.VStore.Sessions
                 default:
                     throw new ArgumentOutOfRangeException(nameof(elementDescriptorType), elementDescriptorType, "Unsupported element descriptor type");
             }
-        }
-
-        private static void ValidateVectorImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)
-        {
-            switch (fileFormat)
-            {
-                case FileFormat.Svg:
-                    break;
-                case FileFormat.Pdf:
-                    ValidatePdf(templateCode, inputStream);
-                    break;
-                case FileFormat.Png:
-                case FileFormat.Gif:
-                case FileFormat.Bmp:
-                case FileFormat.Chm:
-                case FileFormat.Jpg:
-                case FileFormat.Jpeg:
-                    throw new NotSupportedException($"Not vector image file format {fileFormat}");
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(fileFormat), fileFormat, "Unsupported file format");
-            }
-        }
-
-        private static string ValidateVectorImage(int templateCode, FileFormat fileFormat, Stream inputStream)
-        {
-            switch (fileFormat)
-            {
-                case FileFormat.Svg:
-                    ValidateSvg(templateCode, inputStream);
-                    break;
-                case FileFormat.Pdf:
-                    break;
-                case FileFormat.Png:
-                case FileFormat.Gif:
-                case FileFormat.Bmp:
-                case FileFormat.Chm:
-                case FileFormat.Jpg:
-                case FileFormat.Jpeg:
-                    throw new NotSupportedException($"Not vector image file format {fileFormat}");
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(fileFormat), fileFormat, "Unsupported file format");
-            }
-
-            return ContentTypesMap[fileFormat];
-        }
-
-        private static void ValidateBitmapImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)
-        {
-            var format = Image.DetectFormat(inputStream);
-            if (format == null)
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidImageError());
-            }
-
-            var extension = fileFormat.ToString().ToLowerInvariant();
-            // Image format is not consistent with filename extension:
-            if (!format.FileExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-            {
-                throw new InvalidBinaryException(templateCode, new BinaryExtensionMismatchContentError(extension, format.Name.ToLowerInvariant()));
-            }
-        }
-
-        private static string ValidateBitmapImage(int templateCode, BitmapImageElementConstraints constraints, Stream inputStream)
-        {
-            var imageFormats = constraints.SupportedFileFormats
-                                          .Aggregate(
-                                              new List<string>(),
-                                              (result, next) =>
-                                                  {
-                                                      if (BitmapImageFormatsMap.TryGetValue(next, out var imageFormat))
-                                                      {
-                                                          result.Add(imageFormat);
-                                                      }
-
-                                                      return result;
-                                                  });
-
-            Image<Rgba32> image;
-            IImageFormat format;
-            try
-            {
-                image = Image.Load(inputStream, out format);
-            }
-            catch (Exception)
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidImageError());
-            }
-
-            using (image)
-            {
-                if (!imageFormats.Contains(format.DefaultMimeType, StringComparer.OrdinalIgnoreCase))
-                {
-                    throw new InvalidBinaryException(templateCode, new BinaryInvalidFormatError(format.Name.ToLowerInvariant()));
-                }
-
-                if (constraints.SupportedImageSizes.All(x => image.Width != x.Width || image.Height != x.Height))
-                {
-                    throw new InvalidBinaryException(templateCode, new ImageUnsupportedSizeError(new ImageSize { Height = image.Height, Width = image.Width }));
-                }
-
-                if (constraints.IsAlphaChannelRequired && !IsImageContainsAlphaChannel(image))
-                {
-                    throw new InvalidBinaryException(templateCode, new ImageAlphaChannelError());
-                }
-            }
-
-            return format.DefaultMimeType;
-        }
-
-        private static void ValidatePdf(int templateCode, Stream inputStream)
-        {
-            var position = inputStream.Position;
-            inputStream.Seek(0, SeekOrigin.Begin);
-            var br = new BinaryReader(inputStream, Encoding.ASCII);
-            var header = new string(br.ReadChars(PdfHeader.Length));
-            inputStream.Position = position;
-
-            if (!header.StartsWith(PdfHeader))
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidImageError());
-            }
-        }
-
-        private static void ValidateSvg(int templateCode, Stream inputStream)
-        {
-            XDocument xdoc;
-            try
-            {
-                xdoc = XDocument.Load(inputStream);
-            }
-            catch (XmlException)
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidImageError());
-            }
-
-            var svgFormat = FileFormat.Svg.ToString();
-            if (xdoc.Root == null || !svgFormat.Equals(xdoc.Root.Name.LocalName, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidImageError());
-            }
-        }
-
-        private static bool IsImageContainsAlphaChannel(Image<Rgba32> image)
-        {
-            for (var x = 0; x < image.Width; ++x)
-            {
-                for (var y = 0; y < image.Height; ++y)
-                {
-                    if (image[x, y].A != byte.MaxValue)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
 
         private static FileFormat DetectFileFormat(string fileName)
@@ -550,47 +380,6 @@ namespace NuClear.VStore.Sessions
             return string.IsNullOrEmpty(dottedExtension)
                        ? dottedExtension
                        : dottedExtension.Trim('.').ToLowerInvariant();
-        }
-
-        private static string ValidateArticle(int templateCode, Stream inputStream)
-        {
-            var enumeratorContext = new EnumeratorContext { IsGoalReached = false };
-            try
-            {
-                using (var memoryStream = new MemoryStream())
-                {
-                    inputStream.CopyTo(memoryStream);
-                    memoryStream.Position = 0;
-
-                    ChmFile.Open(memoryStream)
-                           .Enumerate(
-                               EnumerateLevel.Normal | EnumerateLevel.Files,
-                               ArticleEnumeratorCallback,
-                               enumeratorContext);
-                }
-            }
-            catch (InvalidDataException)
-            {
-                throw new InvalidBinaryException(templateCode, new InvalidArticleError());
-            }
-
-            if (!enumeratorContext.IsGoalReached)
-            {
-                throw new InvalidBinaryException(templateCode, new ArticleMissingIndexError());
-            }
-
-            return ContentTypesMap[FileFormat.Chm];
-        }
-
-        private static EnumerateStatus ArticleEnumeratorCallback(ChmFile file, ChmUnitInfo unitInfo, EnumeratorContext context)
-        {
-            if (string.Equals(unitInfo.path.TrimStart('/'), "index.html", StringComparison.OrdinalIgnoreCase))
-            {
-                context.IsGoalReached = true;
-                return EnumerateStatus.Success;
-            }
-
-            return EnumerateStatus.Continue;
         }
 
         private async Task<IElementDescriptor> GetElementDescriptor(long templateId, string templateVersionId, int templateCode)

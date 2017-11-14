@@ -2,7 +2,7 @@
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
 {
-    public abstract class ObjectElementValidationError : ValidationError<ElementConstraintViolations>
+    public abstract class ObjectElementValidationError : ValidationError
     {
     }
 }

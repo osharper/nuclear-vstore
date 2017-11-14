@@ -5,7 +5,7 @@ using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Sessions.ContentValidation.Errors
 {
-    public abstract class BinaryValidationError : ValidationError<BinaryConstraintViolations>
+    public abstract class BinaryValidationError : ValidationError
     {
         protected static readonly JsonSerializer JsonSerializer = JsonSerializer.Create(SerializerSettings.Default);
     }

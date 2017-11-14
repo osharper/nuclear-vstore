@@ -2,6 +2,7 @@
 
 using Newtonsoft.Json.Linq;
 
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Objects.ContentValidation.Errors
@@ -15,7 +16,7 @@ namespace NuClear.VStore.Objects.ContentValidation.Errors
 
         public IReadOnlyCollection<string> UnsupportedAttributes { get; }
 
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.SupportedAttributes;
+        public override string ErrorType => nameof(FormattedTextElementConstraints.SupportedAttributes);
 
         public override JToken SerializeToJson()
         {
