@@ -1,7 +1,9 @@
-﻿namespace NuClear.VStore.Objects.ContentValidation.Errors
+﻿using NuClear.VStore.Descriptors.Templates;
+
+namespace NuClear.VStore.Objects.ContentValidation.Errors
 {
     public class EmptyListError : ObjectElementValidationError
     {
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.NoEmptyLists;
+        public override string ErrorType => nameof(FormattedTextElementConstraints.NoEmptyLists);
     }
 }

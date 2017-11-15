@@ -23,7 +23,7 @@ build:app:
     - dotnet test tests/VStore.UnitTests/VStore.UnitTests.csproj --configuration Release
     - dotnet publish src/VStore.Host --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore
     - dotnet publish src/VStore.Worker --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/vstore-worker
-    - dotnet publish src/MigrationTool --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/migration-tool
+    - dotnet publish src/CloningTool --configuration Release --runtime ubuntu.14.04-x64 --output ../../publish/cloning-tool
   tags: [ 2gis, docker ]
   artifacts:
     name: "${CI_COMMIT_REF_NAME}"
@@ -31,7 +31,7 @@ build:app:
     paths:
       - publish/vstore/
       - publish/vstore-worker/
-      - publish/migration-tool/
+      - publish/cloning-tool/
 
 build:vstore-image:
   stage: build:image
@@ -55,13 +55,13 @@ build:vstore-worker-image:
   dependencies:
     - build:app
 
-build:migration-tool-image:
+build:cloning-tool-image:
   stage: build:image
   when: manual
   allow_failure: false
   script:
-    - IMAGE=ams/migration-tool TAG=$CI_TAG DOCKER_FILE=publish/migration-tool/Dockerfile DOCKER_BUILD_CONTEXT=publish/migration-tool make docker-build
-    - IMAGE=ams/migration-tool TAG=$CI_TAG make docker-push
+    - IMAGE=ams/cloning-tool TAG=$CI_TAG DOCKER_FILE=publish/cloning-tool/Dockerfile DOCKER_BUILD_CONTEXT=publish/cloning-tool make docker-build
+    - IMAGE=ams/cloning-tool TAG=$CI_TAG make docker-push
   tags: [ docker-engine, io ]
   dependencies:
     - build:app
@@ -134,7 +134,7 @@ cleanup:registry:
   script:
     - make docker-registry-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
     - make docker-registry-images-cleanup IMAGE=ams/vstore-worker TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
-    - make docker-registry-images-cleanup IMAGE=ams/migration-tool TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
+    - make docker-registry-images-cleanup IMAGE=ams/cloning-tool TAG="branch-" TIME_LIFE_IMAGE=604800 # 7 days
   dependencies: []
   tags: [ docker-engine, io ]
 
@@ -145,6 +145,6 @@ cleanup:runner:
     - make docker-containers-cleanup
     - make docker-images-cleanup TAG="branch-" TIME_LIFE_IMAGE=86400 # 4 days
     - make docker-images-cleanup IMAGE=ams/vstore-worker TAG="branch-" TIME_LIFE_IMAGE=86400 # 1 day
-    - make docker-images-cleanup IMAGE=ams/migration-tool TAG="branch-" TIME_LIFE_IMAGE=86400 # 1 day
+    - make docker-images-cleanup IMAGE=ams/cloning-tool TAG="branch-" TIME_LIFE_IMAGE=86400 # 1 day
   dependencies: []
   tags: [ docker-engine, io ]

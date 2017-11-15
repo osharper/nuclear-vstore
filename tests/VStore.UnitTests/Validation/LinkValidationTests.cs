@@ -21,7 +21,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "http://abc. com");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
         }
 
         [Fact]
@@ -35,7 +35,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "https://abc. com");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
         }
 
         [Fact]
@@ -49,7 +49,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "http://дубль-гис.\tрф");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
         }
 
         [Fact]
@@ -63,7 +63,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "\u200fhttp://дубль-гис.рф\u200e");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
         }
 
         [Fact]
@@ -77,7 +77,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "ftp://дубль-гис.рф");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
 
             value.Raw = "http://xn----9sbhbxp9bk7f.xn--p1ai";
             error = TestHelpers.MakeValidationCheck<TextElementValue, IncorrectLinkError>(
@@ -85,7 +85,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 LinkValidator.CheckLink,
                 val => val.Raw = "file://дубль-гис.рф");
-            Assert.Equal(ElementConstraintViolations.ValidLink, error.ErrorType);
+            Assert.Equal(nameof(constraints.ValidLink), error.ErrorType);
         }
 
         [Fact]
@@ -99,7 +99,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 PlainTextValidator.CheckLength,
                 val => val.Raw += "/");
-            Assert.Equal(ElementConstraintViolations.MaxSymbols, error.ErrorType);
+            Assert.Equal(nameof(constraints.MaxSymbols), error.ErrorType);
         }
 
         [Fact]
@@ -113,7 +113,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw += "\r");
-            Assert.Equal(ElementConstraintViolations.WithoutControlChars, controlCharsError.ErrorType);
+            Assert.Equal(nameof(constraints.WithoutControlChars), controlCharsError.ErrorType);
 
             value.Raw = "http://google.com/search?abc=123";
             var nonBreakingSpaceError = TestHelpers.MakeValidationCheck<TextElementValue, NonBreakingSpaceSymbolError>(
@@ -121,7 +121,7 @@ namespace VStore.UnitTests.Validation
                 constraints,
                 PlainTextValidator.CheckRestrictedSymbols,
                 val => val.Raw += (char)160);
-            Assert.Equal(ElementConstraintViolations.WithoutNonBreakingSpace, nonBreakingSpaceError.ErrorType);
+            Assert.Equal(nameof(constraints.WithoutNonBreakingSpace), nonBreakingSpaceError.ErrorType);
         }
     }
 }

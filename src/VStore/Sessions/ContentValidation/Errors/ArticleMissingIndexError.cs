@@ -1,7 +1,9 @@
-﻿namespace NuClear.VStore.Sessions.ContentValidation.Errors
+﻿using NuClear.VStore.Descriptors.Templates;
+
+namespace NuClear.VStore.Sessions.ContentValidation.Errors
 {
     public class ArticleMissingIndexError : BinaryValidationError
     {
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.ContainsIndexFile;
+        public override string ErrorType => nameof(ArticleElementConstraints.ContainsIndexFile);
     }
 }

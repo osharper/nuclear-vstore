@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.Descriptors;
+using NuClear.VStore.Descriptors.Templates;
 using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Sessions.ContentValidation.Errors
@@ -14,7 +15,7 @@ namespace NuClear.VStore.Sessions.ContentValidation.Errors
 
         public ImageSize ImageSize { get; }
 
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.SupportedImageSizes;
+        public override string ErrorType => nameof(BitmapImageElementConstraints.SupportedImageSizes);
 
         public override JToken SerializeToJson()
         {

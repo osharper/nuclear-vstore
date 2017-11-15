@@ -1,7 +1,9 @@
-﻿namespace NuClear.VStore.Sessions.ContentValidation.Errors
+﻿using NuClear.VStore.Descriptors.Templates;
+
+namespace NuClear.VStore.Sessions.ContentValidation.Errors
 {
     public class InvalidImageError : BinaryValidationError
     {
-        public override BinaryConstraintViolations ErrorType => BinaryConstraintViolations.ValidImage;
+        public override string ErrorType => nameof(IImageElementConstraints.ValidImage);
     }
 }

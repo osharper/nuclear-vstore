@@ -1,7 +1,9 @@
-﻿namespace NuClear.VStore.Objects.ContentValidation.Errors
+﻿using NuClear.VStore.Descriptors.Templates;
+
+namespace NuClear.VStore.Objects.ContentValidation.Errors
 {
     public class ControlCharactersInTextError : ObjectElementValidationError
     {
-        public override ElementConstraintViolations ErrorType => ElementConstraintViolations.WithoutControlChars;
+        public override string ErrorType => nameof(ITextElementConstraints.WithoutControlChars);
     }
 }
