@@ -22,87 +22,82 @@ namespace NuClear.VStore.Sessions.ContentValidation
         private static readonly IReadOnlyCollection<string> NonRenderedElements =
             new HashSet<string> { "mask", "clippath", "hatch", "marker", "pattern", "script", "symbol" };
 
-        public static void EnsureNoGradient(int templateCode, XElement rootNode, VectorImageElementConstraints elementConstraints)
+        public static IEnumerable<BinaryValidationError> EnsureNoGradient(XElement rootNode, VectorImageElementConstraints elementConstraints)
         {
             if (!elementConstraints.WithoutGradient)
             {
-                return;
+                return Array.Empty<BinaryValidationError>();
             }
 
             var gradientElements = new HashSet<string>(rootNode.Descendants()
                                                                .Select(e => e.Name.LocalName.ToLowerInvariant())
                                                                .Where(name => GradientElements.Contains(name)));
 
-            if (gradientElements.Count > 0)
-            {
-                throw new InvalidBinaryException(templateCode, new ImageWithGradientError(gradientElements));
-            }
+            return gradientElements.Count > 0
+                       ? new[] { new ImageWithGradientError(gradientElements) }
+                       : Array.Empty<BinaryValidationError>();
         }
 
-        public static void EnsureNoBitmaps(int templateCode, XElement rootNode, VectorImageElementConstraints elementConstraints)
+        public static IEnumerable<BinaryValidationError> EnsureNoBitmaps(XElement rootNode, VectorImageElementConstraints elementConstraints)
         {
             if (!elementConstraints.WithoutBitmaps)
             {
-                return;
+                return Array.Empty<BinaryValidationError>();
             }
 
-            if (rootNode.Descendants().Any(e => ImageElementName.Equals(e.Name.LocalName, StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new InvalidBinaryException(templateCode, new ImageWithBitmapsError());
-            }
+            return rootNode.Descendants().Any(e => ImageElementName.Equals(e.Name.LocalName, StringComparison.OrdinalIgnoreCase))
+                       ? new[] { new ImageWithBitmapsError() }
+                       : Array.Empty<BinaryValidationError>();
         }
 
-        public static void EnsureWithoutNonRenderedElements(int templateCode, XElement rootNode, VectorImageElementConstraints elementConstraints)
+        public static IEnumerable<BinaryValidationError> EnsureWithoutNonRenderedElements(XElement rootNode, VectorImageElementConstraints elementConstraints)
         {
             if (!elementConstraints.WithoutNonRenderedElements)
             {
-                return;
+                return Array.Empty<BinaryValidationError>();
             }
 
             var nonRenderedElements = new HashSet<string>(rootNode.Descendants()
                                                                   .Select(e => e.Name.LocalName.ToLowerInvariant())
                                                                   .Where(name => NonRenderedElements.Contains(name)));
 
-            if (nonRenderedElements.Count > 0)
-            {
-                throw new InvalidBinaryException(templateCode, new ImageWithNonRenderedElementsError(nonRenderedElements));
-            }
+            return nonRenderedElements.Count > 0
+                       ? new[] { new ImageWithNonRenderedElementsError(nonRenderedElements) }
+                       : Array.Empty<BinaryValidationError>();
         }
 
-        public static void EnsureNoUrlInStyles(int templateCode, XElement rootNode, VectorImageElementConstraints elementConstraints)
+        public static IEnumerable<BinaryValidationError> EnsureNoUrlInStyles(XElement rootNode, VectorImageElementConstraints elementConstraints)
         {
             if (!elementConstraints.WithoutUrlInStyles)
             {
-                return;
+                return Array.Empty<BinaryValidationError>();
             }
 
             if (rootNode.Attributes().Any(a => IsStyleAttribute(a) && StyleContainsUrl(a.Value)))
             {
-                throw new InvalidBinaryException(templateCode, new ImageWithUrlInStylesError());
+                return new[] { new ImageWithUrlInStylesError() };
             }
 
             if (rootNode.Descendants().Any(e => IsStyleElement(e) && StyleContainsUrl(e.Value)))
             {
-                throw new InvalidBinaryException(templateCode, new ImageWithUrlInStylesError());
+                return new[] { new ImageWithUrlInStylesError() };
             }
 
-            if (rootNode.Descendants().Any(e => e.Attributes().Any(a => IsStyleAttribute(a) && StyleContainsUrl(a.Value))))
-            {
-                throw new InvalidBinaryException(templateCode, new ImageWithUrlInStylesError());
-            }
+            return rootNode.Descendants().Any(e => e.Attributes().Any(a => IsStyleAttribute(a) && StyleContainsUrl(a.Value)))
+                       ? new[] { new ImageWithUrlInStylesError() }
+                       : Array.Empty<BinaryValidationError>();
         }
 
-        public static void EnsureNoUnclosedPaths(int templateCode, XElement rootNode, VectorImageElementConstraints elementConstraints)
+        public static IEnumerable<BinaryValidationError> EnsureNoUnclosedPaths(XElement rootNode, VectorImageElementConstraints elementConstraints)
         {
             if (!elementConstraints.PathsAreClosed)
             {
-                return;
+                return Array.Empty<BinaryValidationError>();
             }
 
-            if (rootNode.Descendants().Any(e => IsPathElement(e) && IsUnclosedPath(e)))
-            {
-                throw new InvalidBinaryException(templateCode, new ImageWithUnclosedPathsError());
-            }
+            return rootNode.Descendants().Any(e => IsPathElement(e) && IsUnclosedPath(e))
+                       ? new[] { new ImageWithUnclosedPathsError() }
+                       : Array.Empty<BinaryValidationError>();
         }
 
         // https://www.w3.org/TR/SVG/paths.html#PathDataClosePathCommand

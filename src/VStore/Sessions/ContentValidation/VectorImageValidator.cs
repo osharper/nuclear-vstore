@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -16,7 +17,7 @@ namespace NuClear.VStore.Sessions.ContentValidation
         private const string PdfHeader = "%PDF-";
         private const string SvgRootName = "svg";
 
-        private delegate void SvgValidationRule(int templateCode, XElement rootNode, VectorImageElementConstraints constraints);
+        private delegate IEnumerable<BinaryValidationError> SvgValidationRule(XElement rootNode, VectorImageElementConstraints constraints);
 
         private static readonly IEnumerable<SvgValidationRule> SvgValidationRules =
             new SvgValidationRule[]
@@ -104,9 +105,15 @@ namespace NuClear.VStore.Sessions.ContentValidation
                 throw new InvalidBinaryException(templateCode, new InvalidImageError());
             }
 
+            var errors = new List<BinaryValidationError>();
             foreach (var validationRule in SvgValidationRules)
             {
-                validationRule(templateCode, xdoc.Root, elementConstraints);
+                errors.AddRange(validationRule(xdoc.Root, elementConstraints));
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidBinaryException(templateCode, errors);
             }
         }
     }

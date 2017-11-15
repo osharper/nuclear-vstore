@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 using Newtonsoft.Json.Linq;
 
@@ -12,19 +13,31 @@ namespace NuClear.VStore.Sessions
         public InvalidBinaryException(int templateCode, BinaryValidationError error)
         {
             TemplateCode = templateCode;
-            Error = error;
+            Errors = new[] { error };
+        }
+
+        public InvalidBinaryException(int templateCode, IReadOnlyCollection<BinaryValidationError> errors)
+        {
+            TemplateCode = templateCode;
+            Errors = errors;
         }
 
         public int TemplateCode { get; }
 
-        public BinaryValidationError Error { get; }
+        public IReadOnlyCollection<BinaryValidationError> Errors { get; }
 
         public JToken SerializeToJson()
         {
+            var elementErrors = new JArray();
+            foreach (var error in Errors)
+            {
+                elementErrors.Add(error.SerializeToJson());
+            }
+
             return new JObject
                 {
                     [Tokens.TemplateCodeToken] = TemplateCode,
-                    [Tokens.ErrorsToken] = new JArray { Error.SerializeToJson() }
+                    [Tokens.ErrorsToken] = elementErrors
                 };
         }
     }

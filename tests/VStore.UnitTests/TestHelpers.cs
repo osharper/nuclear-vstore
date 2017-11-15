@@ -52,10 +52,13 @@ namespace VStore.UnitTests
                 }
             }
 
-            Assert.IsType<TError>(ex.Error);
+            Assert.Single(ex.Errors);
+
+            var error = ex.Errors.First();
+            Assert.IsType<TError>(error);
             Assert.Equal(templateCode, ex.TemplateCode);
-            Assert.Equal(expectedErrorType, ex.Error.ErrorType);
-            return (TError)ex.Error;
+            Assert.Equal(expectedErrorType, error.ErrorType);
+            return (TError)error;
         }
 
         public static void MakeBinaryValidationCheck(string content, Action<int, Stream> testAction, int templateCode = 1)
