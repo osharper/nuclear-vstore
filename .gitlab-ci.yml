@@ -58,7 +58,6 @@ build:vstore-worker-image:
 build:cloning-tool-image:
   stage: build:image
   when: manual
-  allow_failure: false
   script:
     - IMAGE=ams/cloning-tool TAG=$CI_TAG DOCKER_FILE=publish/cloning-tool/Dockerfile DOCKER_BUILD_CONTEXT=publish/cloning-tool make docker-build
     - IMAGE=ams/cloning-tool TAG=$CI_TAG make docker-push
