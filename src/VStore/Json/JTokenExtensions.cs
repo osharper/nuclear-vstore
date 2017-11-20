@@ -28,6 +28,8 @@ namespace NuClear.VStore.Json
                     return valueToken.ToObject<PhoneElementValue>();
                 case ElementDescriptorType.Color:
                     return valueToken.ToObject<ColorElementValue>();
+                case ElementDescriptorType.Logo:
+                    return valueToken.ToObject<LogoElementValue>();
                 default:
                     return null;
             }

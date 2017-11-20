@@ -65,7 +65,8 @@ namespace NuClear.VStore.Templates
                 new ElementDescriptor(ElementDescriptorType.Link, 7, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
                 new ElementDescriptor(ElementDescriptorType.Phone, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
                 new ElementDescriptor(ElementDescriptorType.VideoLink, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.Color, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ColorElementConstraints()) }))
+                new ElementDescriptor(ElementDescriptorType.Color, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ColorElementConstraints()) })),
+                new ElementDescriptor(ElementDescriptorType.Logo, 11, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LogoElementConstraints {SupportedFileFormats = new[] {FileFormat.Png, FileFormat.Jpg, FileFormat.Jpeg}, CropShape = CropShape.Circle, CustomImageSupportedFileFormats = new []{ FileFormat.Png }})}))
             };
 
         public async Task<string> CreateTemplate(long id, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)
@@ -162,11 +163,14 @@ namespace NuClear.VStore.Templates
                                                case LinkElementConstraints linkElementConstraints:
                                                    VerifyLinkConstraints(x.TemplateCode, linkElementConstraints);
                                                    break;
+                                               case LogoElementConstraints logoElementConstraints:
+                                                   VerifyLogoConstraints(x.TemplateCode, logoElementConstraints);
+                                                   break;
                                                case PhoneElementConstraints _:
                                                case ColorElementConstraints _:
                                                    break;
                                                default:
-                                                   throw new ArgumentOutOfRangeException(nameof(constraints.ElementConstraints), constraints.ElementConstraints, "Unsupported element contraints");
+                                                   throw new ArgumentOutOfRangeException(nameof(constraints.ElementConstraints), constraints.ElementConstraints, "Unsupported element constraints");
                                            }
                                        }
                                    }));
@@ -284,6 +288,25 @@ namespace NuClear.VStore.Templates
             if (linkElementConstraints.MaxSymbols <= 0)
             {
                 throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.NegativeMaxSymbols);
+            }
+        }
+
+        private static void VerifyLogoConstraints(int templateCode, LogoElementConstraints logoElementConstraints)
+        {
+            bool SizeRangeIsConsistent(ImageSizeRange range)
+            {
+                return range.Min.Width < range.Max.Width && range.Min.Height < range.Max.Height && range.Min.Width > 0 && range.Min.Height > 0;
+            }
+
+            if (!SizeRangeIsConsistent(logoElementConstraints.ImageSizeRange) || !SizeRangeIsConsistent(logoElementConstraints.CustomImageSizeRange))
+            {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.InvalidImageSizeRange);
+            }
+
+            if (logoElementConstraints.CustomImageSizeRange.Max.Width > logoElementConstraints.ImageSizeRange.Min.Width ||
+                logoElementConstraints.CustomImageSizeRange.Max.Height > logoElementConstraints.ImageSizeRange.Min.Height)
+            {
+                throw new TemplateValidationException(templateCode, TemplateElementValidationErrors.CustomImageSizeRangeOverlapsWithOriginal);
             }
         }
 

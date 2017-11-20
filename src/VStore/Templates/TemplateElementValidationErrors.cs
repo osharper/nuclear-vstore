@@ -17,6 +17,8 @@
         InvalidImageSize,
         UnsupportedArticleFileFormat,
         UnsupportedImageFileFormat,
-        MaxSizeLimitExceeded
+        MaxSizeLimitExceeded,
+        InvalidImageSizeRange,
+        CustomImageSizeRangeOverlapsWithOriginal
     }
 }

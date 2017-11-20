@@ -33,6 +33,7 @@ namespace NuClear.VStore.Objects
         private readonly string _bucketName;
         private readonly int _degreeOfParallelism;
         private readonly Uri _fileStorageEndpoint;
+        private readonly Uri _previewEndpoint;
 
         public ObjectsStorageReader(
             CephOptions cephOptions,
@@ -47,6 +48,7 @@ namespace NuClear.VStore.Objects
             _bucketName = cephOptions.ObjectsBucketName;
             _degreeOfParallelism = cephOptions.DegreeOfParallelism;
             _fileStorageEndpoint = vStoreOptions.FileStorageEndpoint;
+            _previewEndpoint = vStoreOptions.PreviewEndpoint;
         }
 
         public async Task<ContinuationContainer<IdentifyableObjectRecord<long>>> List(string continuationToken)
@@ -244,9 +246,14 @@ namespace NuClear.VStore.Objects
                         {
                             binaryElementValue.DownloadUri = new Uri(_fileStorageEndpoint, binaryElementValue.Raw);
 
-                            if (binaryElementValue is IImageElementValue imageElementValue)
+                            switch (binaryElementValue)
                             {
-                                imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                                case ILogoElementValue logoElementValue:
+                                    logoElementValue.PreviewUri = new Uri(_previewEndpoint, $"{id}/{versionId}/{elementPersistenceDescriptor.TemplateCode}");
+                                    break;
+                                case IImageElementValue imageElementValue:
+                                    imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
+                                    break;
                             }
                         }
 

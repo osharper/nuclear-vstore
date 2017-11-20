@@ -309,6 +309,9 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.VectorImage:
                     VectorImageValidator.ValidateVectorImageHeader(templateCode, fileFormat, inputStream);
                     break;
+                case ElementDescriptorType.Logo:
+                    LogoImageValidator.ValidateLogoImageHeader(templateCode, fileFormat, inputStream);
+                    break;
                 case ElementDescriptorType.Article:
                     break;
                 case ElementDescriptorType.PlainText:
@@ -344,6 +347,8 @@ namespace NuClear.VStore.Sessions
                 case ElementDescriptorType.Article:
                     ArticleValidator.ValidateArticle(templateCode, inputStream);
                     return ContentTypesMap[FileFormat.Chm];
+                case ElementDescriptorType.Logo:
+                    return LogoImageValidator.ValidateLogo(templateCode, (LogoElementConstraints)elementConstraints, inputStream);
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:

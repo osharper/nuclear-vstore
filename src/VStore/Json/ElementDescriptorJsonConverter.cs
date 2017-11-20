@@ -80,6 +80,9 @@ namespace NuClear.VStore.Json
                     case ElementDescriptorType.Color:
                         constraints = property.Value.ToObject<ColorElementConstraints>();
                         break;
+                    case ElementDescriptorType.Logo:
+                        constraints = property.Value.ToObject<LogoElementConstraints>();
+                        break;
                     default:
                         return null;
                 }

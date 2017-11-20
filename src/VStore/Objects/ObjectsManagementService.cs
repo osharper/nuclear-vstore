@@ -27,6 +27,7 @@ using NuClear.VStore.Options;
 using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;
+using NuClear.VStore.Sessions.ContentValidation;
 using NuClear.VStore.Templates;
 
 using Prometheus.Client;
@@ -292,6 +293,9 @@ namespace NuClear.VStore.Objects
                     return new ValidationRule[] { };
                 case ElementDescriptorType.Color:
                     return new ValidationRule[] { ColorValidator.CheckValidColor };
+                    
+                case ElementDescriptorType.Logo:
+                    return new ValidationRule[] { LogoValidator.CheckValidLogo };
                 default:
                     throw new ArgumentOutOfRangeException(nameof(descriptor.Type), descriptor.Type, $"Unsupported element descriptor type for descriptor {descriptor.Id}");
             }
@@ -320,9 +324,36 @@ namespace NuClear.VStore.Objects
                     }
                     else
                     {
-                        ++binariesCount;
-                        var metadata = metadataForBinaries[elementDescriptor.Id];
-                        value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                        if (binaryElementValue is ILogoElementValue logoElementValue)
+                        {
+                            var originalMeta = metadataForBinaries[binaryElementValue.Raw];
+                            var customImages = logoElementValue.CustomImages
+                                                               .Select(x =>
+                                                                           {
+                                                                               var customImageMeta = metadataForBinaries[x.Raw];
+                                                                               return new CustomImage
+                                                                                   {
+                                                                                       Filename = customImageMeta.Filename,
+                                                                                       Filesize = customImageMeta.Filesize,
+                                                                                       Raw = x.Raw,
+                                                                                       Size = x.Size
+                                                                                   };
+                                                                           })
+                                                               .ToList();
+                            value = new LogoElementPersistenceValue(logoElementValue.Raw,
+                                                                    originalMeta.Filename,
+                                                                    originalMeta.Filesize,
+                                                                    logoElementValue.CropShape,
+                                                                    logoElementValue.CropArea,
+                                                                    customImages);
+                            binariesCount += customImages.Count + 1;
+                        }
+                        else
+                        {
+                            var metadata = metadataForBinaries[binaryElementValue.Raw];
+                            value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
+                            binariesCount++;
+                        }
                     }
                 }
 
@@ -409,6 +440,7 @@ namespace NuClear.VStore.Objects
                     case ElementDescriptorType.Article:
                     case ElementDescriptorType.Phone:
                     case ElementDescriptorType.Color:
+                    case ElementDescriptorType.Logo:
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(descriptor.Type),
@@ -418,48 +450,60 @@ namespace NuClear.VStore.Objects
             }
         }
 
-        private async Task<IReadOnlyDictionary<long, BinaryMetadata>> RetrieveMetadataForBinaries(
+        private async Task<IReadOnlyDictionary<string, BinaryMetadata>> RetrieveMetadataForBinaries(
             long id,
             IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            var allErrors = new Dictionary<int, IReadOnlyCollection<ObjectElementValidationError>>();
-            var tasks = objectElements
-                .Select(async x =>
-                            {
-                                var binaryElementValue = x.Value as IBinaryElementValue;
-                                if (string.IsNullOrEmpty(binaryElementValue?.Raw))
-                                {
-                                    return (Id: null, Metadata: null);
-                                }
-
-                                try
-                                {
-                                    await _sessionStorageReader.VerifySessionExpirationForBinary(binaryElementValue.Raw);
-
-                                    var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(binaryElementValue.Raw);
-                                    return (Id: (long?)x.Id, Metadata: binaryMetadata);
-                                }
-                                catch (ObjectNotFoundException)
-                                {
-                                    allErrors.Add(x.TemplateCode, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
-                                    return (Id: null, Metadata: null);
-                                }
-                                catch (SessionExpiredException)
-                                {
-                                    allErrors.Add(x.TemplateCode, new[] { new BinaryNotFoundError(binaryElementValue.Raw) });
-                                    return (Id: null, Metadata: null);
-                                }
-                            })
-                .ToList();
-            await Task.WhenAll(tasks);
-            if (allErrors.Count > 0)
+            IEnumerable<string> GetFileKeys(IObjectElementDescriptor element)
             {
-                throw new InvalidObjectException(id, allErrors);
+                var binaryRawValues = new List<string>();
+                if (!(element.Value is IBinaryElementValue binaryElementValue) || string.IsNullOrEmpty(binaryElementValue.Raw))
+                {
+                    return binaryRawValues;
+                }
+
+                binaryRawValues.Add(binaryElementValue.Raw);
+                if (binaryElementValue is ILogoElementValue logoElementValue)
+                {
+                    binaryRawValues.AddRange(logoElementValue.CustomImages.Select(x => x.Raw));
+                }
+
+                return binaryRawValues;
             }
 
-            return tasks.Select(x => x.Result)
-                        .Where(x => x.Id.HasValue)
-                        .ToDictionary(x => x.Id.Value, x => x.Metadata);
+            var elementsRawValues = objectElements.SelectMany(x => GetFileKeys(x).Select(y => new { x.TemplateCode, Raw = y }));
+            var tasks = elementsRawValues.Select(async x =>
+                                                     {
+                                                         try
+                                                         {
+                                                             await _sessionStorageReader.VerifySessionExpirationForBinary(x.Raw);
+
+                                                             var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(x.Raw);
+                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: binaryMetadata, Error: (ObjectElementValidationError)null);
+                                                         }
+                                                         catch (ObjectNotFoundException)
+                                                         {
+                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
+                                                         }
+                                                         catch (SessionExpiredException)
+                                                         {
+                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
+                                                         }
+                                                     })
+                                         .ToList();
+
+            var results = await Task.WhenAll(tasks);
+
+            var errors = results.Where(x => x.Error != null)
+                                .GroupBy(x => x.TemplateCode)
+                                .ToDictionary(x => x.Key, x => (IReadOnlyCollection<ObjectElementValidationError>)x.Select(e => e.Error).ToList());
+            if (errors.Count > 0)
+            {
+                throw new InvalidObjectException(id, errors);
+            }
+
+            return results.Where(x => x.Metadata != null)
+                          .ToDictionary(x => x.Raw, x => x.Metadata);
         }
     }
 }

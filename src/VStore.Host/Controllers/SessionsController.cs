@@ -53,10 +53,10 @@ namespace NuClear.VStore.Host.Controllers
                     templateCode => Url.Action(
                         nameof(UploadFile),
                         new
-                        {
-                            sessionId,
-                            templateCode
-                        }));
+                            {
+                                sessionId,
+                                templateCode
+                            }));
 
                 Response.Headers[HeaderNames.ETag] = $"\"{sessionId}\"";
                 Response.Headers[HeaderNames.Expires] = sessionContext.ExpiresAt.ToString("R");

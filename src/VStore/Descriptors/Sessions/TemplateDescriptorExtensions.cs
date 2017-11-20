@@ -12,7 +12,8 @@ namespace NuClear.VStore.Descriptors.Sessions
             return templateDescriptor.Elements
                                      .Where(x => x.Type == ElementDescriptorType.Article ||
                                                  x.Type == ElementDescriptorType.BitmapImage ||
-                                                 x.Type == ElementDescriptorType.VectorImage)
+                                                 x.Type == ElementDescriptorType.VectorImage ||
+                                                 x.Type == ElementDescriptorType.Logo)
                                      .Select(x => x.TemplateCode)
                                      .ToList();
         }

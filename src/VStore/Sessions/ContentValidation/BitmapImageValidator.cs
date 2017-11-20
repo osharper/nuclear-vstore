@@ -14,16 +14,6 @@ namespace NuClear.VStore.Sessions.ContentValidation
 {
     public static class BitmapImageValidator
     {
-        private static readonly IReadOnlyDictionary<FileFormat, string> BitmapImageFormatsMap =
-            new Dictionary<FileFormat, string>
-                {
-                    { FileFormat.Bmp, "image/bmp" },
-                    { FileFormat.Gif, "image/gif" },
-                    { FileFormat.Jpeg, "image/jpeg" },
-                    { FileFormat.Jpg, "image/jpeg" },
-                    { FileFormat.Png, "image/png" }
-                };
-
         public static void ValidateBitmapImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)
         {
             var format = Image.DetectFormat(inputStream);
@@ -47,7 +37,7 @@ namespace NuClear.VStore.Sessions.ContentValidation
                                               new List<string>(),
                                               (result, next) =>
                                               {
-                                                  if (BitmapImageFormatsMap.TryGetValue(next, out var imageFormat))
+                                                  if (ImageUtils.ImageFormat2MimeTypeMap.TryGetValue(next, out var imageFormat))
                                                   {
                                                       result.Add(imageFormat);
                                                   }
@@ -78,29 +68,13 @@ namespace NuClear.VStore.Sessions.ContentValidation
                     throw new InvalidBinaryException(templateCode, new ImageUnsupportedSizeError(new ImageSize { Height = image.Height, Width = image.Width }));
                 }
 
-                if (constraints.IsAlphaChannelRequired && !IsImageContainsAlphaChannel(image))
+                if (constraints.IsAlphaChannelRequired && !ImageUtils.IsImageContainsAlphaChannel(image))
                 {
-                    throw new InvalidBinaryException(templateCode, new ImageAlphaChannelError());
+                    throw new InvalidBinaryException(templateCode, new ImageMissingAlphaChannelError());
                 }
             }
 
             return format.DefaultMimeType;
-        }
-
-        private static bool IsImageContainsAlphaChannel(Image<Rgba32> image)
-        {
-            for (var x = 0; x < image.Width; ++x)
-            {
-                for (var y = 0; y < image.Height; ++y)
-                {
-                    if (image[x, y].A != byte.MaxValue)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
     }
 }

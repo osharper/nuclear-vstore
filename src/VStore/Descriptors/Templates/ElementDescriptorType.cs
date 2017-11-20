@@ -11,6 +11,7 @@
         Link,
         Phone,
         VideoLink,
-        Color
+        Color,
+        Logo
     }
 }
