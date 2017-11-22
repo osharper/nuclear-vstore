@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net;
 using System.Text;
 
 using Amazon.Runtime;
@@ -50,7 +49,6 @@ using Prometheus.Client.Owin;
 
 using RedLockNet;
 using RedLockNet.SERedis;
-using RedLockNet.SERedis.Configuration;
 
 using Swashbuckle.AspNetCore.Swagger;
 
@@ -179,6 +177,7 @@ namespace NuClear.VStore.Host
             builder.Register(x => x.Resolve<IOptions<JwtOptions>>().Value).SingleInstance();
             builder.Register(x => x.Resolve<IOptions<KafkaOptions>>().Value).SingleInstance();
 
+            builder.RegisterType<RedLockMultiplexerProvider>().SingleInstance();
             builder.Register<IDistributedLockFactory>(
                        x =>
                            {
@@ -188,23 +187,9 @@ namespace NuClear.VStore.Host
                                    return new InMemoryLockFactory();
                                }
 
+                               var multiplexerProvider = x.Resolve<RedLockMultiplexerProvider>();
                                var loggerFactory = x.Resolve<ILoggerFactory>();
-                               var logger = loggerFactory.CreateLogger<Startup>();
-
-                               var endpoints = lockOptions.GetEndPoints();
-                               var redLockEndPoints = new List<RedLockEndPoint>();
-                               foreach (var endpoint in endpoints)
-                               {
-                                   redLockEndPoints.Add(new RedLockEndPoint(new DnsEndPoint(endpoint.IpAddress, endpoint.Port)) { Password = lockOptions.Password });
-                                   logger.LogInformation(
-                                       "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
-                                       endpoint.Host,
-                                       endpoint.Port,
-                                       endpoint.IpAddress,
-                                       endpoint.Port);
-                               }
-
-                               return RedLockFactory.Create(redLockEndPoints, loggerFactory);
+                               return RedLockFactory.Create(multiplexerProvider.Get(), loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
                    .PreserveExistingDefaults()

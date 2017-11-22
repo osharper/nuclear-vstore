@@ -182,6 +182,7 @@ namespace NuClear.VStore.Worker
             builder.RegisterType<BinariesCleanupJob>().SingleInstance();
             builder.RegisterType<ObjectEventsProcessingJob>().SingleInstance();
 
+            builder.RegisterType<RedLockMultiplexerProvider>().SingleInstance();
             builder.Register<IDistributedLockFactory>(
                        x =>
                            {
@@ -191,23 +192,9 @@ namespace NuClear.VStore.Worker
                                    return new InMemoryLockFactory();
                                }
 
+                               var multiplexerProvider = x.Resolve<RedLockMultiplexerProvider>();
                                var loggerFactory = x.Resolve<ILoggerFactory>();
-                               var logger = loggerFactory.CreateLogger<Program>();
-
-                               var endpoints = lockOptions.GetEndPoints();
-                               var redLockEndPoints = new List<RedLockEndPoint>();
-                               foreach (var endpoint in endpoints)
-                               {
-                                   redLockEndPoints.Add(new RedLockEndPoint(new DnsEndPoint(endpoint.IpAddress, endpoint.Port)) { Password = lockOptions.Password });
-                                   logger.LogInformation(
-                                       "{host}:{port} ({ipAddress}:{port}) will be used as RedLock endpoint.",
-                                       endpoint.Host,
-                                       endpoint.Port,
-                                       endpoint.IpAddress,
-                                       endpoint.Port);
-                               }
-
-                               return RedLockFactory.Create(redLockEndPoints, loggerFactory);
+                               return RedLockFactory.Create(multiplexerProvider.Get(), loggerFactory);
                            })
                    .As<IDistributedLockFactory>()
                    .PreserveExistingDefaults()

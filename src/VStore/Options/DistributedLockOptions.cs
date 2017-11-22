@@ -6,6 +6,8 @@ namespace NuClear.VStore.Options
     {
         public bool DeveloperMode { get; set; }
         public string EndPoints { get; set; }
+        public int? ConnectionTimeout { get; set; }
+        public int? SyncTimeout { get; set; }
         public string Password { get; set; }
         public TimeSpan Expiration { get; set; }
     }
