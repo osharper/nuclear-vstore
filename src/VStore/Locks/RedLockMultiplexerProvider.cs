@@ -74,13 +74,13 @@ namespace NuClear.VStore.Locks
 
                 var redisConfig = new ConfigurationOptions
                     {
-                        AbortOnConnectFail = false,
+                        AbortOnConnectFail = true,
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
                         KeepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive,
                         // Time (seconds) to check configuration. This serves as a keep-alive for interactive sockets, if it is supported.
-                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive
+                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive,
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
@@ -89,20 +89,39 @@ namespace NuClear.VStore.Locks
                     (sender, args) =>
                         {
                             _logger.LogWarning(
-                                $"ConnectionFailed: {GetFriendlyName(args.EndPoint)} ConnectionType: {args.ConnectionType} FailureType: {args.FailureType}");
+                                args.Exception,
+                                "ConnectionFailed: {endpoint} ConnectionType: {connectionType} FailureType: {failureType}",
+                                GetFriendlyName(args.EndPoint),
+                                args.ConnectionType,
+                                args.FailureType);
                         };
 
                 multiplexer.ConnectionRestored +=
                     (sender, args) =>
                         {
                             _logger.LogWarning(
-                                $"ConnectionRestored: {GetFriendlyName(args.EndPoint)} ConnectionType: {args.ConnectionType} FailureType: {args.FailureType}");
+                                args.Exception,
+                                "ConnectionRestored: {endpoint} ConnectionType: {connectionType} FailureType: {failureType}",
+                                GetFriendlyName(args.EndPoint),
+                                args.ConnectionType,
+                                args.FailureType);
+                        };
+
+                multiplexer.InternalError +=
+                    (sender, args) =>
+                        {
+                            _logger.LogWarning(
+                                args.Exception,
+                                "InternalError: {endpoint} ConnectionType: {connectionType} Origin: {origin}",
+                                GetFriendlyName(args.EndPoint),
+                                args.ConnectionType,
+                                args.Origin);
                         };
 
                 multiplexer.ErrorMessage +=
                     (sender, args) =>
                         {
-                            _logger.LogWarning($"ErrorMessage: {GetFriendlyName(args.EndPoint)} Message: {args.Message}");
+                            _logger.LogWarning("ErrorMessage: {endpoint} Message: {message}", GetFriendlyName(args.EndPoint), args.Message);
                         };
 
                 multiplexers.Add(multiplexer);
