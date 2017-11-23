@@ -76,13 +76,15 @@ namespace NuClear.VStore.Locks
 
                 var redisConfig = new ConfigurationOptions
                     {
+                        DefaultVersion = new Version(4, 0),
                         AbortOnConnectFail = true,
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
+                        ResponseTimeout = _lockOptions.KeepAlive ?? DefaultKeepAlive,
                         KeepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive,
                         // Time (seconds) to check configuration. This serves as a keep-alive for interactive sockets, if it is supported.
-                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive,
+                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
