@@ -136,12 +136,12 @@ namespace NuClear.VStore.Locks
                 multiplexers.Add(multiplexer);
             }
 
-            RunConnectionChecker(multiplexers, keepAlive, logWriter);
+            RunConnectionChecker(multiplexers, keepAlive);
 
             return multiplexers;
         }
 
-        private void RunConnectionChecker(IList<RedLockMultiplexer> multiplexers, int keepAlive, TextWriter logWriter)
+        private void RunConnectionChecker(IList<RedLockMultiplexer> multiplexers, int keepAlive)
         {
             Task.Factory.StartNew(
                 () =>
@@ -163,7 +163,8 @@ namespace NuClear.VStore.Locks
                                     _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
                                     try
                                     {
-                                        multiplexer.ConnectionMultiplexer.Configure(logWriter);
+                                        multiplexer.ConnectionMultiplexer.PublishReconfigure();
+                                        _logger.LogWarning("RedLock endpoint {endpoint} is now available.", GetFriendlyName(endpoint));
                                     }
                                     catch
                                     {
