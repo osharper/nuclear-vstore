@@ -84,6 +84,8 @@ namespace NuClear.VStore.Locks
                     {
                         DefaultVersion = new Version(4, 0),
                         AbortOnConnectFail = false,
+                        EndPoints = { new DnsEndPoint(endpoint.Host, endpoint.Port) },
+                        CommandMap = CommandMap.Create(new HashSet<string> { "SUBSCRIBE" }, available: false),
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
@@ -91,7 +93,6 @@ namespace NuClear.VStore.Locks
                         // Time (seconds) to check configuration. This serves as a keep-alive for interactive sockets, if it is supported.
                         ConfigCheckSeconds = keepAlive
                     };
-                redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
                 var multiplexer = ConnectionMultiplexer.Connect(redisConfig, logWriter);
                 multiplexer.ConnectionFailed +=
@@ -136,7 +137,7 @@ namespace NuClear.VStore.Locks
                 multiplexers.Add(multiplexer);
             }
 
-            RunConnectionChecker(multiplexers, keepAlive);
+            // RunConnectionChecker(multiplexers, keepAlive);
 
             return multiplexers;
         }
@@ -163,20 +164,13 @@ namespace NuClear.VStore.Locks
                                 try
                                 {
                                     _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
-                                    if (multiplexer.IsConnected)
-                                    {
-                                        var server = multiplexer.GetServer(endpoint);
-                                        server.Ping();
-                                        _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
-                                        multiplexer.Configure();
-                                    }
+                                    var server = multiplexer.GetServer(endpoint);
+                                    server.Ping();
+                                    _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
                                 }
                                 catch
                                 {
+                                    _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
                                     multiplexer.Configure();
                                 }
                             }
