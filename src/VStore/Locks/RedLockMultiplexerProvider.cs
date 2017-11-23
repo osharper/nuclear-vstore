@@ -162,9 +162,9 @@ namespace NuClear.VStore.Locks
                                 var multiplexer = multiplexers[i].ConnectionMultiplexer;
                                 try
                                 {
-                                    if (multiplexers[i].ConnectionMultiplexer.IsConnected)
+                                    _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
+                                    if (multiplexer.IsConnected)
                                     {
-                                        _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
                                         var server = multiplexer.GetServer(endpoint);
                                         server.Ping();
                                         _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
@@ -172,13 +172,12 @@ namespace NuClear.VStore.Locks
                                     else
                                     {
                                         _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
-                                        multiplexer.Dispose();
-                                        multiplexers[i] = ConnectionMultiplexer.Connect(configuration);
+                                        multiplexer.Configure();
                                     }
                                 }
                                 catch
                                 {
-                                    multiplexer.Dispose();
+                                    multiplexer.Configure();
                                 }
                             }
 
