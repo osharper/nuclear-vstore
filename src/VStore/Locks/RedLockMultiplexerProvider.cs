@@ -17,6 +17,7 @@ namespace NuClear.VStore.Locks
     {
         private const int DefaultConnectionTimeout = 1000;
         private const int DefaultSyncTimeout = 1000;
+        private const int DefaultKeepAlive = 1;
 
         private readonly object _syncRoot = new object();
         private readonly DistributedLockOptions _lockOptions;
@@ -77,7 +78,9 @@ namespace NuClear.VStore.Locks
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
-                        KeepAlive = 1
+                        KeepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive,
+                        // Time (seconds) to check configuration. This serves as a keep-alive for interactive sockets, if it is supported.
+                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
