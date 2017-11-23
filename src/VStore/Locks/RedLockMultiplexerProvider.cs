@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
@@ -22,6 +24,7 @@ namespace NuClear.VStore.Locks
         private const int DefaultKeepAlive = 1;
 
         private readonly object _syncRoot = new object();
+        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly DistributedLockOptions _lockOptions;
         private readonly ILogger<RedLockMultiplexerProvider> _logger;
 
@@ -48,6 +51,7 @@ namespace NuClear.VStore.Locks
 
         public void Dispose()
         {
+            _cancellationTokenSource.Cancel();
             if (_multiplexers != null)
             {
                 foreach (var multiplexer in _multiplexers)
@@ -66,6 +70,8 @@ namespace NuClear.VStore.Locks
             }
 
             var multiplexers = new List<RedLockMultiplexer>(endpoints.Count);
+            var keepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive;
+            var logWriter = new LogWriter(_logger);
             foreach (var endpoint in endpoints)
             {
                 _logger.LogInformation(
@@ -81,14 +87,13 @@ namespace NuClear.VStore.Locks
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
-                        ResponseTimeout = _lockOptions.KeepAlive ?? DefaultKeepAlive,
-                        KeepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive,
+                        KeepAlive = keepAlive,
                         // Time (seconds) to check configuration. This serves as a keep-alive for interactive sockets, if it is supported.
-                        ConfigCheckSeconds = _lockOptions.KeepAlive ?? DefaultKeepAlive
+                        ConfigCheckSeconds = keepAlive
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
-                var multiplexer = ConnectionMultiplexer.Connect(redisConfig, new LogWriter(_logger));
+                var multiplexer = ConnectionMultiplexer.Connect(redisConfig, logWriter);
                 multiplexer.ConnectionFailed +=
                     (sender, args) =>
                         {
@@ -131,7 +136,48 @@ namespace NuClear.VStore.Locks
                 multiplexers.Add(multiplexer);
             }
 
+            RunConnectionChecker(multiplexers, keepAlive, logWriter);
+
             return multiplexers;
+        }
+
+        private void RunConnectionChecker(IList<RedLockMultiplexer> multiplexers, int keepAlive, TextWriter logWriter)
+        {
+            Task.Factory.StartNew(
+                () =>
+                    {
+                        while (true)
+                        {
+                            foreach (var multiplexer in multiplexers)
+                            {
+                                var endpoint = multiplexer.ConnectionMultiplexer.GetEndPoints()[0];
+                                try
+                                {
+                                    _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
+                                    var server = multiplexer.ConnectionMultiplexer.GetServer(endpoint);
+                                    server.Ping();
+                                    _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
+                                }
+                                catch
+                                {
+                                    _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
+                                    try
+                                    {
+                                        multiplexer.ConnectionMultiplexer.Configure(logWriter);
+                                    }
+                                    catch
+                                    {
+                                        // Retrying anyway
+                                    }
+                                }
+                            }
+
+                            Thread.Sleep(TimeSpan.FromSeconds(keepAlive));
+                        }
+                    },
+                _cancellationTokenSource.Token,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
         }
 
         private static string GetFriendlyName(EndPoint endPoint)
