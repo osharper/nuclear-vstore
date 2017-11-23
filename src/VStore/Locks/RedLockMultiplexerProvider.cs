@@ -83,7 +83,7 @@ namespace NuClear.VStore.Locks
                 var redisConfig = new ConfigurationOptions
                     {
                         DefaultVersion = new Version(4, 0),
-                        AbortOnConnectFail = true,
+                        AbortOnConnectFail = false,
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
@@ -146,30 +146,47 @@ namespace NuClear.VStore.Locks
             Task.Factory.StartNew(
                 () =>
                     {
+                        var connectionInfos = multiplexers
+                            .Select(
+                                x =>
+                                    new
+                                        {
+                                            EndPoint = x.ConnectionMultiplexer.GetEndPoints()[0],
+                                            x.ConnectionMultiplexer.Configuration
+                                        })
+                            .ToList();
                         while (true)
                         {
-                            foreach (var multiplexer in multiplexers)
+                            for (var i = 0; i < connectionInfos.Count; ++i)
                             {
-                                var endpoint = multiplexer.ConnectionMultiplexer.GetEndPoints()[0];
+                                var endpoint = connectionInfos[i].EndPoint;
+                                var configuration = connectionInfos[i].Configuration;
                                 try
                                 {
-                                    _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
-                                    var server = multiplexer.ConnectionMultiplexer.GetServer(endpoint);
-                                    server.Ping();
-                                    _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
+                                    if (multiplexers[i].ConnectionMultiplexer.IsConnected)
+                                    {
+                                        _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
+                                        var server = multiplexers[i].ConnectionMultiplexer.GetServer(endpoint);
+                                        server.Ping();
+                                        _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
+                                        var multiplexer = ConnectionMultiplexer.Connect(configuration);
+                                        if (multiplexer.IsConnected)
+                                        {
+                                            multiplexers[i] = multiplexer;
+                                        }
+                                        else
+                                        {
+                                            multiplexer.Dispose();
+                                        }
+                                    }
                                 }
                                 catch
                                 {
-                                    _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
-                                    try
-                                    {
-                                        multiplexer.ConnectionMultiplexer.PublishReconfigure();
-                                        _logger.LogWarning("RedLock endpoint {endpoint} is now available.", GetFriendlyName(endpoint));
-                                    }
-                                    catch
-                                    {
-                                        // Retrying anyway
-                                    }
+                                    multiplexers[i].ConnectionMultiplexer.Dispose();
                                 }
                             }
 
