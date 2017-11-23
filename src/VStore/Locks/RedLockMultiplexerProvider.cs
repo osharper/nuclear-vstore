@@ -78,6 +78,7 @@ namespace NuClear.VStore.Locks
                     {
                         AbortOnConnectFail = true,
                         Password = _lockOptions.Password,
+                        AllowAdmin = true,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
                         KeepAlive = _lockOptions.KeepAlive ?? DefaultKeepAlive,
