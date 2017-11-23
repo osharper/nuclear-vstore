@@ -147,13 +147,11 @@ namespace NuClear.VStore.Locks
                 () =>
                     {
                         var connectionInfos = multiplexers
-                            .Select(
-                                x =>
-                                    new
-                                        {
-                                            EndPoint = x.ConnectionMultiplexer.GetEndPoints()[0],
-                                            x.ConnectionMultiplexer.Configuration
-                                        })
+                            .Select(x => new
+                                {
+                                    EndPoint = x.ConnectionMultiplexer.GetEndPoints()[0],
+                                    x.ConnectionMultiplexer.Configuration
+                                })
                             .ToList();
                         while (true)
                         {
@@ -161,32 +159,26 @@ namespace NuClear.VStore.Locks
                             {
                                 var endpoint = connectionInfos[i].EndPoint;
                                 var configuration = connectionInfos[i].Configuration;
+                                var multiplexer = multiplexers[i].ConnectionMultiplexer;
                                 try
                                 {
                                     if (multiplexers[i].ConnectionMultiplexer.IsConnected)
                                     {
                                         _logger.LogTrace("Cheking endpoint {endpoint} for availablity.", GetFriendlyName(endpoint));
-                                        var server = multiplexers[i].ConnectionMultiplexer.GetServer(endpoint);
+                                        var server = multiplexer.GetServer(endpoint);
                                         server.Ping();
                                         _logger.LogTrace("Cheking endpoint {endpoint} is available.", GetFriendlyName(endpoint));
                                     }
                                     else
                                     {
                                         _logger.LogWarning("RedLock endpoint {endpoint} is unavailable. Trying to reconnect.", GetFriendlyName(endpoint));
-                                        var multiplexer = ConnectionMultiplexer.Connect(configuration);
-                                        if (multiplexer.IsConnected)
-                                        {
-                                            multiplexers[i] = multiplexer;
-                                        }
-                                        else
-                                        {
-                                            multiplexer.Dispose();
-                                        }
+                                        multiplexer.Dispose();
+                                        multiplexers[i] = ConnectionMultiplexer.Connect(configuration);
                                     }
                                 }
                                 catch
                                 {
-                                    multiplexers[i].ConnectionMultiplexer.Dispose();
+                                    multiplexer.Dispose();
                                 }
                             }
 
