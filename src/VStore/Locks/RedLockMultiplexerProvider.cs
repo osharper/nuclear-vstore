@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 
 using Microsoft.Extensions.Logging;
 
@@ -84,7 +86,7 @@ namespace NuClear.VStore.Locks
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
-                var multiplexer = ConnectionMultiplexer.Connect(redisConfig);
+                var multiplexer = ConnectionMultiplexer.Connect(redisConfig, new LogWriter(_logger));
                 multiplexer.ConnectionFailed +=
                     (sender, args) =>
                         {
@@ -141,6 +143,22 @@ namespace NuClear.VStore.Locks
             }
 
             return endPoint.ToString();
+        }
+
+        private class LogWriter : TextWriter
+        {
+            private readonly ILogger _logger;
+
+            public LogWriter(ILogger logger)
+            {
+                _logger = logger;
+            }
+
+            public override Encoding Encoding => Encoding.UTF8;
+
+            public override void WriteLine(string value) => _logger.LogTrace(value);
+            public override void WriteLine(string format, object arg0) => _logger.LogTrace(format, arg0);
+            public override void WriteLine(string format, params object[] arg) => _logger.LogTrace(format, arg);
         }
     }
 }
