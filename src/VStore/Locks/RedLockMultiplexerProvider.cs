@@ -15,7 +15,7 @@ namespace NuClear.VStore.Locks
 {
     public sealed class RedLockMultiplexerProvider : IDisposable
     {
-        private const int DefaultConnectionTimeout = 100;
+        private const int DefaultConnectionTimeout = 1000;
         private const int DefaultSyncTimeout = 1000;
 
         private readonly object _syncRoot = new object();
@@ -77,6 +77,7 @@ namespace NuClear.VStore.Locks
                         Password = _lockOptions.Password,
                         ConnectTimeout = _lockOptions.ConnectionTimeout ?? DefaultConnectionTimeout,
                         SyncTimeout = _lockOptions.SyncTimeout ?? DefaultSyncTimeout,
+                        KeepAlive = 1
                     };
                 redisConfig.EndPoints.Add(new DnsEndPoint(endpoint.Host, endpoint.Port));
 
