@@ -281,11 +281,11 @@ namespace NuClear.VStore.Objects
                 case ElementDescriptorType.Link:
                 case ElementDescriptorType.VideoLink:
                     return new ValidationRule[]
-                               {
-                                   LinkValidator.CheckLink,
-                                   PlainTextValidator.CheckLength,
-                                   PlainTextValidator.CheckRestrictedSymbols
-                               };
+                        {
+                            LinkValidator.CheckLink,
+                            PlainTextValidator.CheckLength,
+                            PlainTextValidator.CheckRestrictedSymbols
+                        };
                 case ElementDescriptorType.BitmapImage:
                 case ElementDescriptorType.VectorImage:
                 case ElementDescriptorType.Article:
@@ -293,7 +293,6 @@ namespace NuClear.VStore.Objects
                     return new ValidationRule[] { };
                 case ElementDescriptorType.Color:
                     return new ValidationRule[] { ColorValidator.CheckValidColor };
-                    
                 case ElementDescriptorType.Logo:
                     return new ValidationRule[] { LogoValidator.CheckValidLogo };
                 default:
@@ -315,57 +314,17 @@ namespace NuClear.VStore.Objects
 
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
-                var value = elementDescriptor.Value;
-                if (elementDescriptor.Value is IBinaryElementValue binaryElementValue)
-                {
-                    if (string.IsNullOrEmpty(binaryElementValue.Raw))
-                    {
-                        value = new BinaryElementPersistenceValue(null, null, null);
-                    }
-                    else
-                    {
-                        if (binaryElementValue is ILogoElementValue logoElementValue)
-                        {
-                            var originalMeta = metadataForBinaries[binaryElementValue.Raw];
-                            var customImages = logoElementValue.CustomImages
-                                                               .Select(x =>
-                                                                           {
-                                                                               var customImageMeta = metadataForBinaries[x.Raw];
-                                                                               return new CustomImage
-                                                                                   {
-                                                                                       Filename = customImageMeta.Filename,
-                                                                                       Filesize = customImageMeta.Filesize,
-                                                                                       Raw = x.Raw,
-                                                                                       Size = x.Size
-                                                                                   };
-                                                                           })
-                                                               .ToList();
-                            value = new LogoElementPersistenceValue(logoElementValue.Raw,
-                                                                    originalMeta.Filename,
-                                                                    originalMeta.Filesize,
-                                                                    logoElementValue.CropShape,
-                                                                    logoElementValue.CropArea,
-                                                                    customImages);
-                            binariesCount += customImages.Count + 1;
-                        }
-                        else
-                        {
-                            var metadata = metadataForBinaries[binaryElementValue.Raw];
-                            value = new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize);
-                            binariesCount++;
-                        }
-                    }
-                }
-
-                var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, value);
+                var (elementPersistenceValue, referencedBinariesCount) = Convert2PersistenceValue(elementDescriptor.Value, metadataForBinaries);
+                var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, elementPersistenceValue);
+                binariesCount += referencedBinariesCount;
                 putRequest = new PutObjectRequest
-                                 {
-                                     Key = id.AsS3ObjectKey(elementDescriptor.Id),
-                                     BucketName = _bucketName,
-                                     ContentType = ContentType.Json,
-                                     ContentBody = JsonConvert.SerializeObject(elementPersistenceDescriptor, SerializerSettings.Default),
-                                     CannedACL = S3CannedACL.PublicRead
-                                 };
+                    {
+                        Key = id.AsS3ObjectKey(elementDescriptor.Id),
+                        BucketName = _bucketName,
+                        ContentType = ContentType.Json,
+                        ContentBody = JsonConvert.SerializeObject(elementPersistenceDescriptor, SerializerSettings.Default),
+                        CannedACL = S3CannedACL.PublicRead
+                    };
 
                 metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
                 metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
@@ -379,21 +338,21 @@ namespace NuClear.VStore.Objects
             var objectVersions = await _objectsStorageReader.GetObjectLatestVersions(id);
             var elementVersions = objectVersions.Where(x => !x.Id.EndsWith(Tokens.ObjectPostfix)).ToList();
             var objectPersistenceDescriptor = new ObjectPersistenceDescriptor
-                                                  {
-                                                      TemplateId = objectDescriptor.TemplateId,
-                                                      TemplateVersionId = objectDescriptor.TemplateVersionId,
-                                                      Language = objectDescriptor.Language,
-                                                      Properties = objectDescriptor.Properties,
-                                                      Elements = elementVersions
-                                                  };
+                {
+                    TemplateId = objectDescriptor.TemplateId,
+                    TemplateVersionId = objectDescriptor.TemplateVersionId,
+                    Language = objectDescriptor.Language,
+                    Properties = objectDescriptor.Properties,
+                    Elements = elementVersions
+                };
             putRequest = new PutObjectRequest
-                             {
-                                 Key = objectKey,
-                                 BucketName = _bucketName,
-                                 ContentType = ContentType.Json,
-                                 ContentBody = JsonConvert.SerializeObject(objectPersistenceDescriptor, SerializerSettings.Default),
-                                 CannedACL = S3CannedACL.PublicRead
-                             };
+                {
+                    Key = objectKey,
+                    BucketName = _bucketName,
+                    ContentType = ContentType.Json,
+                    ContentBody = JsonConvert.SerializeObject(objectPersistenceDescriptor, SerializerSettings.Default),
+                    CannedACL = S3CannedACL.PublicRead
+                };
 
             metadataWrapper = MetadataCollectionWrapper.For(putRequest.Metadata);
             metadataWrapper.Write(MetadataElement.Author, authorInfo.Author);
@@ -410,6 +369,48 @@ namespace NuClear.VStore.Objects
             return objectVersions.Where(x => x.Id.EndsWith(Tokens.ObjectPostfix))
                                  .Select(x => x.VersionId)
                                  .Single();
+        }
+
+        private static (IObjectElementValue, int) Convert2PersistenceValue(IObjectElementValue elementValue,
+                                                                           IReadOnlyDictionary<string, BinaryMetadata> metadataForBinaries)
+        {
+            if (!(elementValue is IBinaryElementValue binaryElementValue))
+            {
+                return (elementValue, 0);
+            }
+
+            if (string.IsNullOrEmpty(binaryElementValue.Raw))
+            {
+                return (BinaryElementPersistenceValue.Empty, 0);
+            }
+
+            if (binaryElementValue is ILogoElementValue logoElementValue)
+            {
+                var originalMeta = metadataForBinaries[binaryElementValue.Raw];
+                var customImages = logoElementValue.CustomImages
+                                                   .Select(x =>
+                                                               {
+                                                                   var customImageMeta = metadataForBinaries[x.Raw];
+                                                                   return new CustomImage
+                                                                       {
+                                                                           Filename = customImageMeta.Filename,
+                                                                           Filesize = customImageMeta.Filesize,
+                                                                           Raw = x.Raw,
+                                                                           Size = x.Size
+                                                                       };
+                                                               })
+                                                   .ToList();
+                var persistenceValue = new LogoElementPersistenceValue(logoElementValue.Raw,
+                                                                       originalMeta.Filename,
+                                                                       originalMeta.Filesize,
+                                                                       logoElementValue.CropShape,
+                                                                       logoElementValue.CropArea,
+                                                                       customImages);
+                return (persistenceValue, customImages.Count + 1);
+            }
+
+            var metadata = metadataForBinaries[binaryElementValue.Raw];
+            return (new BinaryElementPersistenceValue(binaryElementValue.Raw, metadata.Filename, metadata.Filesize), 1);
         }
 
         private void PreprocessObjectElements(IEnumerable<IObjectElementDescriptor> elementDescriptors)
@@ -454,24 +455,7 @@ namespace NuClear.VStore.Objects
             long id,
             IEnumerable<IObjectElementDescriptor> objectElements)
         {
-            IEnumerable<string> GetFileKeys(IObjectElementDescriptor element)
-            {
-                var binaryRawValues = new List<string>();
-                if (!(element.Value is IBinaryElementValue binaryElementValue) || string.IsNullOrEmpty(binaryElementValue.Raw))
-                {
-                    return binaryRawValues;
-                }
-
-                binaryRawValues.Add(binaryElementValue.Raw);
-                if (binaryElementValue is ILogoElementValue logoElementValue)
-                {
-                    binaryRawValues.AddRange(logoElementValue.CustomImages.Select(x => x.Raw));
-                }
-
-                return binaryRawValues;
-            }
-
-            var elementsRawValues = objectElements.SelectMany(x => GetFileKeys(x).Select(y => new { x.TemplateCode, Raw = y }));
+            var elementsRawValues = objectElements.SelectMany(x => x.Value.ExtractFileKeys().Select(y => new { x.TemplateCode, Raw = y }));
             var tasks = elementsRawValues.Select(async x =>
                                                      {
                                                          try

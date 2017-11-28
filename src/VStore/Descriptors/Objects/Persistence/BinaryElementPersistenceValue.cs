@@ -2,6 +2,8 @@
 {
     public sealed class BinaryElementPersistenceValue : IBinaryElementPersistenceValue
     {
+        public static readonly BinaryElementPersistenceValue Empty = new BinaryElementPersistenceValue(null, null, null);
+
         public BinaryElementPersistenceValue(string raw, string filename, long? filesize)
         {
             Raw = raw;

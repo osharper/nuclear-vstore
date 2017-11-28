@@ -32,6 +32,7 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
+using NuClear.VStore.Host.Extensions;
 using NuClear.VStore.Host.Json;
 using NuClear.VStore.Host.Logging;
 using NuClear.VStore.Host.Middleware;
@@ -282,6 +283,7 @@ namespace NuClear.VStore.Host
                    .SingleInstance();
             builder.RegisterType<EventSender>().SingleInstance();
             builder.RegisterType<MetricsProvider>().SingleInstance();
+            builder.RegisterType<FileUploadParamsParser>().SingleInstance();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

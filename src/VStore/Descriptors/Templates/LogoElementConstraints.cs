@@ -15,6 +15,7 @@ namespace NuClear.VStore.Descriptors.Templates
         public bool CropAreaConsistentWithCropShape => true;
         public bool CropAreaConsistentWithImageSizeRange => true;
         public bool CustomImageConsistentWithCropShape => true;
+        public bool CustomImageTargetSizeEqualToActualSize => true;
         public ImageSizeRange CustomImageSizeRange { get; set; }
         public IEnumerable<FileFormat> CustomImageSupportedFileFormats { get; set; }
 

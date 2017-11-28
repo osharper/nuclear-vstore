@@ -25,6 +25,7 @@ using NuClear.VStore.Prometheus;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions.ContentValidation;
 using NuClear.VStore.Sessions.ContentValidation.Errors;
+using NuClear.VStore.Sessions.UploadParams;
 using NuClear.VStore.Templates;
 
 using Prometheus.Client;
@@ -204,7 +205,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, int templateCode)
+        public async Task<UploadedFileInfo> CompleteMultipartUpload(MultipartUploadSession uploadSession, int templateCode, IFileUploadParams fileUploadParams)
         {
             var uploadKey = uploadSession.SessionId.AsS3ObjectKey(uploadSession.FileKey);
             var partETags = uploadSession.Parts.Select(x => new PartETag(x.PartNumber, x.Etag)).ToList();
@@ -237,7 +238,8 @@ namespace NuClear.VStore.Sessions
                             uploadSession.FileName,
                             elementDescriptor.Type,
                             elementDescriptor.Constraints.For(sessionDescriptor.Language),
-                            getResponse.ResponseStream);
+                            getResponse.ResponseStream,
+                            fileUploadParams);
                     }
 
                     var metadataWrapper = MetadataCollectionWrapper.For(getResponse.Metadata);
@@ -304,13 +306,11 @@ namespace NuClear.VStore.Sessions
             switch (elementDescriptorType)
             {
                 case ElementDescriptorType.BitmapImage:
+                case ElementDescriptorType.Logo:
                     BitmapImageValidator.ValidateBitmapImageHeader(templateCode, fileFormat, inputStream);
                     break;
                 case ElementDescriptorType.VectorImage:
                     VectorImageValidator.ValidateVectorImageHeader(templateCode, fileFormat, inputStream);
-                    break;
-                case ElementDescriptorType.Logo:
-                    LogoImageValidator.ValidateLogoImageHeader(templateCode, fileFormat, inputStream);
                     break;
                 case ElementDescriptorType.Article:
                     break;
@@ -327,12 +327,12 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static string EnsureFileContentIsValid(
-            int templateCode,
-            string fileName,
-            ElementDescriptorType elementDescriptorType,
-            IElementConstraints elementConstraints,
-            Stream inputStream)
+        private static string EnsureFileContentIsValid(int templateCode,
+                                                       string fileName,
+                                                       ElementDescriptorType elementDescriptorType,
+                                                       IElementConstraints elementConstraints,
+                                                       Stream inputStream,
+                                                       IFileUploadParams fileUploadParams)
         {
             switch (elementDescriptorType)
             {
@@ -348,7 +348,9 @@ namespace NuClear.VStore.Sessions
                     ArticleValidator.ValidateArticle(templateCode, inputStream);
                     return ContentTypesMap[FileFormat.Chm];
                 case ElementDescriptorType.Logo:
-                    return LogoImageValidator.ValidateLogo(templateCode, (LogoElementConstraints)elementConstraints, inputStream);
+                    return fileUploadParams is CustomImageFileUploadParams customImageFileUploadParams
+                               ? LogoImageValidator.ValidateLogoCustomImage(templateCode, (LogoElementConstraints)elementConstraints, inputStream, customImageFileUploadParams)
+                               : LogoImageValidator.ValidateLogoOriginal(templateCode, (LogoElementConstraints)elementConstraints, inputStream);
                 case ElementDescriptorType.PlainText:
                 case ElementDescriptorType.FormattedText:
                 case ElementDescriptorType.FasComment:

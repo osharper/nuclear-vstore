@@ -6,16 +6,16 @@ using NuClear.VStore.Json;
 
 namespace NuClear.VStore.Sessions.ContentValidation.Errors
 {
-    public sealed class ImageSizeOutOfRangeError : BinaryValidationError
+    public sealed class CustomImageSizeOutOfRangeError : BinaryValidationError
     {
-        public ImageSizeOutOfRangeError(ImageSize imageSize)
+        public CustomImageSizeOutOfRangeError(ImageSize imageSize)
         {
             ImageSize = imageSize;
         }
 
         public ImageSize ImageSize { get; }
 
-        public override string ErrorType => nameof(LogoElementConstraints.ImageSizeRange);
+        public override string ErrorType => nameof(LogoElementConstraints.CustomImageSizeRange);
 
         public override JToken SerializeToJson()
         {

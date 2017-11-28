@@ -29,11 +29,13 @@ namespace NuClear.VStore.Host.Controllers
     public sealed class SessionsController : VStoreController
     {
         private readonly SessionManagementService _sessionManagementService;
+        private readonly FileUploadParamsParser _fileUploadParamsParser;
         private readonly ILogger<SessionsController> _logger;
 
-        public SessionsController(SessionManagementService sessionManagementService, ILogger<SessionsController> logger)
+        public SessionsController(SessionManagementService sessionManagementService, FileUploadParamsParser fileUploadParamsParser, ILogger<SessionsController> logger)
         {
             _sessionManagementService = sessionManagementService;
+            _fileUploadParamsParser = fileUploadParamsParser;
             _logger = logger;
         }
 
@@ -177,12 +179,17 @@ namespace NuClear.VStore.Host.Controllers
         [ProducesResponseType(typeof(string), 410)]
         [ProducesResponseType(typeof(object), 422)]
         [ProducesResponseType(typeof(string), 452)]
-        public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode)
+        public async Task<IActionResult> UploadFile(Guid sessionId, int templateCode, [FromHeader(Name = Http.HeaderNames.AmsFileUploadParams)] string rawFileUploadParams)
         {
             var multipartBoundary = Request.GetMultipartBoundary();
             if (string.IsNullOrEmpty(multipartBoundary))
             {
                 return BadRequest($"Expected a multipart request, but got '{Request.ContentType}'.");
+            }
+
+            if (!_fileUploadParamsParser.TryParse(rawFileUploadParams, out var fileUploadParams))
+            {
+                return BadRequest($"Cannot parse '{Http.HeaderNames.AmsFileUploadParams}' header value: '{rawFileUploadParams}'.");
             }
 
             MultipartUploadSession uploadSession = null;
@@ -210,7 +217,7 @@ namespace NuClear.VStore.Host.Controllers
                     await _sessionManagementService.UploadFilePart(uploadSession, inputStream, templateCode);
                 }
 
-                var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode);
+                var uploadedFileInfo = await _sessionManagementService.CompleteMultipartUpload(uploadSession, templateCode, fileUploadParams);
 
                 return Created(uploadedFileInfo.DownloadUri, new UploadedFileValue(uploadedFileInfo.Id));
             }

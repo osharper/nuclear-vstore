@@ -214,20 +214,6 @@ namespace NuClear.VStore.Worker.Jobs
 
         private IDisposable BinaryReferenceEventsProducing(CancellationToken cancellationToken)
         {
-
-            IEnumerable<string> SelectFileKeys(ObjectVersionRecord.ElementRecord elementRecord)
-            {
-                switch (elementRecord.Value)
-                {
-                    case ILogoElementValue logo:
-                        return new[] { logo.Raw }.Concat(logo.CustomImages.Select(x => x.Raw));
-                    case IBinaryElementValue binary:
-                        return new[] { binary.Raw };
-                    default:
-                        return Array.Empty<string>();
-                }
-            }
-
             async Task ProcessAsync(KafkaEvent<ObjectVersionCreatingEvent> @event)
             {
                 var objectId = @event.Source.ObjectId;
@@ -262,7 +248,7 @@ namespace NuClear.VStore.Worker.Jobs
                 foreach (var record in versionRecords)
                 {
                     var fileInfos = record.Elements
-                                          .SelectMany(rec => SelectFileKeys(rec).Select(key => (TemplateCode: rec.TemplateCode, FileKey: key)))
+                                          .SelectMany(rec => rec.Value.ExtractFileKeys().Select(key => (TemplateCode: rec.TemplateCode, FileKey: key)))
                                           .ToList();
                     foreach (var fileInfo in fileInfos)
                     {
