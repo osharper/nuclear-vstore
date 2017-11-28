@@ -2,9 +2,8 @@
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Http;
-using Microsoft.Net.Http.Headers;
 
-namespace NuClear.VStore.Host.Middleware
+namespace NuClear.VStore.Http.Core.Middleware
 {
     public sealed class HealthCheckMiddleware
     {
@@ -27,7 +26,7 @@ namespace NuClear.VStore.Host.Middleware
             {
                 context.Response.ContentType = "text/plain";
                 context.Response.StatusCode = 200;
-                context.Response.Headers.Add(HeaderNames.Connection, "close");
+                context.Response.Headers.Add(Microsoft.Net.Http.Headers.HeaderNames.Connection, "close");
                 await context.Response.WriteAsync("OK");
             }
         }

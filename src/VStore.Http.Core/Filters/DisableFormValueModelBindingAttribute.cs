@@ -4,7 +4,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
-namespace NuClear.VStore.Host.Filters
+namespace NuClear.VStore.Http.Core.Filters
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
     public sealed class DisableFormValueModelBindingAttribute : Attribute, IResourceFilter

@@ -2,9 +2,7 @@
 
 using Microsoft.AspNetCore.Http;
 
-using NuClear.VStore.Http;
-
-namespace NuClear.VStore.Host.Middleware
+namespace NuClear.VStore.Http.Core.Middleware
 {
     public sealed class CrosscuttingTraceIdentifierMiddleware
     {

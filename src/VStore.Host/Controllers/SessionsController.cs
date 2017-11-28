@@ -17,7 +17,7 @@ using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors;
 using NuClear.VStore.Descriptors.Objects;
 using NuClear.VStore.Host.Extensions;
-using NuClear.VStore.Host.Filters;
+using NuClear.VStore.Http.Core.Filters;
 using NuClear.VStore.Json;
 using NuClear.VStore.S3;
 using NuClear.VStore.Sessions;

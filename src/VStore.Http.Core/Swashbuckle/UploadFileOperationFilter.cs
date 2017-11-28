@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-using NuClear.VStore.Host.Filters;
+using NuClear.VStore.Http.Core.Filters;
 
 using Swashbuckle.AspNetCore.Swagger;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace NuClear.VStore.Host.Swashbuckle
+namespace NuClear.VStore.Http.Core.Swashbuckle
 {
     public class UploadFileOperationFilter : IOperationFilter
     {

@@ -30,11 +30,11 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 using NuClear.VStore.Host.Json;
-using NuClear.VStore.Host.Middleware;
 using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Routing;
-using NuClear.VStore.Host.Swashbuckle;
 using NuClear.VStore.Http;
+using NuClear.VStore.Http.Core.Middleware;
+using NuClear.VStore.Http.Core.Swashbuckle;
 using NuClear.VStore.Json;
 using NuClear.VStore.Kafka;
 using NuClear.VStore.Locks;

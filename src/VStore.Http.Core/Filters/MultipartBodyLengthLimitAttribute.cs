@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-using NuClear.VStore.Options;
-
-namespace NuClear.VStore.Host.Filters
+namespace NuClear.VStore.Http.Core.Filters
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
     public sealed class MultipartBodyLengthLimitAttribute : Attribute, IAuthorizationFilter, IOrderedFilter
@@ -20,10 +18,10 @@ namespace NuClear.VStore.Host.Filters
         {
             if (_formOptions == null)
             {
-                var options = context.HttpContext.RequestServices.GetService<IOptions<VStoreOptions>>();
+                //var options = context.HttpContext.RequestServices.GetService<IOptions<VStoreOptions>>();
                 _formOptions = new FormOptions
                     {
-                        MultipartBodyLengthLimit = options.Value.MaxBinarySize
+                        //MultipartBodyLengthLimit = options.Value.MaxBinarySize
                     };
             }
 
