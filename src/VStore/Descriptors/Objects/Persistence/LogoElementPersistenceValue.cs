@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 
-using NuClear.VStore.Descriptors.Templates;
-
 namespace NuClear.VStore.Descriptors.Objects.Persistence
 {
     public class LogoElementPersistenceValue : IBinaryElementPersistenceValue
@@ -21,5 +19,14 @@ namespace NuClear.VStore.Descriptors.Objects.Persistence
 
         public CropArea CropArea { get; set; }
         public IEnumerable<CustomImage> CustomImages { get; set; }
+
+        public class CustomImage
+        {
+            public ImageSize Size { get; set; }
+            public string Raw { get; set; }
+
+            public string Filename { get; set; }
+            public long? Filesize { get; set; }
+        }
     }
 }

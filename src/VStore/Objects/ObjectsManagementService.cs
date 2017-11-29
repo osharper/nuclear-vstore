@@ -391,7 +391,7 @@ namespace NuClear.VStore.Objects
                                                    .Select(x =>
                                                                {
                                                                    var customImageMeta = metadataForBinaries[x.Raw];
-                                                                   return new CustomImage
+                                                                   return new LogoElementPersistenceValue.CustomImage
                                                                        {
                                                                            Filename = customImageMeta.Filename,
                                                                            Filesize = customImageMeta.Filesize,

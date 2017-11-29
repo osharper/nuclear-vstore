@@ -250,6 +250,11 @@ namespace NuClear.VStore.Objects
                             {
                                 case ILogoElementValue logoElementValue:
                                     logoElementValue.PreviewUri = new Uri(_previewEndpoint, $"{id}/{objectVersionId}/{elementPersistenceDescriptor.TemplateCode}");
+                                    foreach (var customImage in logoElementValue.CustomImages)
+                                    {
+                                        customImage.DownloadUri = new Uri(_fileStorageEndpoint, customImage.Raw);
+                                    }
+
                                     break;
                                 case IImageElementValue imageElementValue:
                                     imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
