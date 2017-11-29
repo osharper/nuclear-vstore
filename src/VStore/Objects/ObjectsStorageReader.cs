@@ -249,7 +249,7 @@ namespace NuClear.VStore.Objects
                             switch (binaryElementValue)
                             {
                                 case ILogoElementValue logoElementValue:
-                                    logoElementValue.PreviewUri = new Uri(_previewEndpoint, $"{id}/{versionId}/{elementPersistenceDescriptor.TemplateCode}");
+                                    logoElementValue.PreviewUri = new Uri(_previewEndpoint, $"{id}/{objectVersionId}/{elementPersistenceDescriptor.TemplateCode}");
                                     break;
                                 case IImageElementValue imageElementValue:
                                     imageElementValue.PreviewUri = new Uri(_fileStorageEndpoint, imageElementValue.Raw);
