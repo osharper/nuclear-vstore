@@ -29,10 +29,10 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
-using NuClear.VStore.Host.Json;
 using NuClear.VStore.Host.Options;
 using NuClear.VStore.Host.Routing;
 using NuClear.VStore.Http;
+using NuClear.VStore.Http.Core.Json;
 using NuClear.VStore.Http.Core.Middleware;
 using NuClear.VStore.Http.Core.Swashbuckle;
 using NuClear.VStore.Json;

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace NuClear.VStore.Host.ActionResults
+namespace NuClear.VStore.Http.Core.ActionResults
 {
     public sealed class NotModifiedResult : StatusCodeResult
     {

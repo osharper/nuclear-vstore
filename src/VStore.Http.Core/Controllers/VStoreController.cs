@@ -5,12 +5,11 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 
 using Newtonsoft.Json.Linq;
 
-using NuClear.VStore.Host.ActionResults;
-using NuClear.VStore.Http;
+using NuClear.VStore.Http.Core.ActionResults;
 
-using NoContentResult = NuClear.VStore.Host.ActionResults.NoContentResult;
+using NoContentResult = NuClear.VStore.Http.Core.ActionResults.NoContentResult;
 
-namespace NuClear.VStore.Host.Controllers
+namespace NuClear.VStore.Http.Core.Controllers
 {
     public abstract class VStoreController : ControllerBase
     {

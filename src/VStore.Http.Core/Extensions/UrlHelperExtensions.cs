@@ -2,7 +2,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 
-namespace NuClear.VStore.Host.Extensions
+namespace NuClear.VStore.Http.Core.Extensions
 {
     /// <summary>
     /// <see cref="IUrlHelper"/> extension methods.

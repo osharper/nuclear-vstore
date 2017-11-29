@@ -9,7 +9,8 @@ using Newtonsoft.Json.Linq;
 
 using NuClear.VStore.DataContract;
 using NuClear.VStore.Descriptors.Templates;
-using NuClear.VStore.Host.Extensions;
+using NuClear.VStore.Http.Core.Controllers;
+using NuClear.VStore.Http.Core.Extensions;
 using NuClear.VStore.Json;
 using NuClear.VStore.Locks;
 using NuClear.VStore.Objects;

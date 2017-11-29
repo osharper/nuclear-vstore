@@ -2,7 +2,7 @@
 
 using Newtonsoft.Json;
 
-namespace NuClear.VStore.Host.Json
+namespace NuClear.VStore.Http.Core.Json
 {
     public sealed class Int64ToStringJsonConverter : JsonConverter
     {

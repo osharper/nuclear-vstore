@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Net.Http.Headers;
 
-namespace NuClear.VStore.Host.ActionResults
+namespace NuClear.VStore.Http.Core.ActionResults
 {
     public sealed class NoContentResult : StatusCodeResult
     {
@@ -15,7 +14,7 @@ namespace NuClear.VStore.Host.ActionResults
         public override void ExecuteResult(ActionContext context)
         {
             base.ExecuteResult(context);
-            context.HttpContext.Response.Headers[HeaderNames.Location] = _location;
+            context.HttpContext.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.Location] = _location;
         }
     }
 }

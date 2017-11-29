@@ -1,9 +1,14 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Net.Http;
 
 using Microsoft.AspNetCore.Mvc;
 
+using NuClear.VStore.Http.Core.Controllers;
+
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.Primitives;
@@ -11,8 +16,10 @@ using SixLabors.Shapes;
 
 namespace NuClear.VStore.Renderer.Controllers
 {
+    [ApiVersion("2.0")]
+    [ApiVersion("1.0", Deprecated = true)]
     [Route("preview")]
-    public class PreviewController : ControllerBase
+    public class PreviewController : VStoreController
     {
         private static readonly Stream SourceStream;
         private static readonly object Sync = new object();
@@ -27,8 +34,36 @@ namespace NuClear.VStore.Renderer.Controllers
             SourceStream.Position = 0;
         }
 
-        [HttpGet]
-        public IActionResult Get(int size)
+        [MapToApiVersion("2.0")]
+        [HttpGet("{width}x{height}")]
+        public IActionResult Get(int width, int height)
+        {
+            Image<Rgba32> source;
+            IImageFormat sourceFormat;
+            lock (Sync)
+            {
+                source = Image.Load(SourceStream, out sourceFormat);
+                SourceStream.Position = 0;
+            }
+            try
+            {
+                Resize(source, new Size(width, height));
+
+                var resultStream = new MemoryStream();
+                source.Save(resultStream, new JpegEncoder { Quality = 100 });
+
+                resultStream.Position = 0;
+                return new FileStreamResult(resultStream, sourceFormat.DefaultMimeType);
+            }
+            finally
+            {
+                source?.Dispose();
+            }
+        }
+
+        [Obsolete, MapToApiVersion("1.0")]
+        [HttpGet("{width}x{height}")]
+        public IActionResult GetV10(int width, int height)
         {
             Image<Rgba32> source;
             lock (Sync)
@@ -38,7 +73,8 @@ namespace NuClear.VStore.Renderer.Controllers
             }
             try
             {
-                ConvertToCircle(source, source.Height*0.5f, new Size(size, size));
+                ApplyRoundedCorners(source, source.Height*0.5f);
+                Resize(source, new Size(width, height));
 
                 var resultStream = new MemoryStream();
                 source.Save(resultStream, ImageFormats.Png);
@@ -59,9 +95,8 @@ namespace NuClear.VStore.Renderer.Controllers
             return new FileStreamResult(file, "image/png");
         }
 
-        private static void ConvertToCircle(Image<Rgba32> image, float cornerRadius, Size size)
+        private static void Resize(Image<Rgba32> image, Size size)
         {
-            ApplyRoundedCorners(image, cornerRadius);
             image.Mutate(ctx => ctx.Resize(new ResizeOptions
                 {
                     Size = size,
