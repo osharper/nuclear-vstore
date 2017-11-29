@@ -56,7 +56,7 @@ namespace NuClear.VStore.Sessions.ContentValidation
 
         public static string ValidateLogoCustomImage(int templateCode, LogoElementConstraints constraints, Stream inputStream, CustomImageFileUploadParams customImageFileUploadParams)
         {
-            var supportedMimeTypes = constraints.CustomImageSupportedFileFormats
+            var supportedMimeTypes = constraints.SupportedFileFormats
                                                 .Select(x => ImageUtils.ImageFormat2MimeTypeMap[x])
                                                 .ToList();
 
@@ -75,7 +75,7 @@ namespace NuClear.VStore.Sessions.ContentValidation
             {
                 if (!supportedMimeTypes.Contains(format.DefaultMimeType, StringComparer.OrdinalIgnoreCase))
                 {
-                    throw new InvalidBinaryException(templateCode, new CustomImageInvalidFormatError(format.Name.ToLowerInvariant()));
+                    throw new InvalidBinaryException(templateCode, new BinaryInvalidFormatError(format.Name.ToLowerInvariant()));
                 }
 
                 var imageSize = new ImageSize { Width = image.Width, Height = image.Height };
@@ -84,19 +84,14 @@ namespace NuClear.VStore.Sessions.ContentValidation
                     throw new InvalidBinaryException(templateCode, new CustomImageTargetSizeNotEqualToActualSize(imageSize));
                 }
 
-                if (constraints.CropShape == CropShape.Circle && imageSize.Width != imageSize.Height)
+                if (constraints.CustomImageIsSquare && imageSize.Width != imageSize.Height)
                 {
-                    throw new InvalidBinaryException(templateCode, new CustomImageIsInconsistentWithCropShapeError());
+                    throw new InvalidBinaryException(templateCode, new CustomImageIsNotSquareError());
                 }
 
                 if (!constraints.CustomImageSizeRange.Includes(imageSize))
                 {
                     throw new InvalidBinaryException(templateCode, new CustomImageSizeOutOfRangeError(imageSize));
-                }
-
-                if (!ImageUtils.IsImageContainsAlphaChannel(image))
-                {
-                    throw new InvalidBinaryException(templateCode, new CustomImageMissingAlphaChannelError());
                 }
             }
 

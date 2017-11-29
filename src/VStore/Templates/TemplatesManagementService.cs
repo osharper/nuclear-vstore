@@ -66,7 +66,7 @@ namespace NuClear.VStore.Templates
                 new ElementDescriptor(ElementDescriptorType.Phone, 8, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new PhoneElementConstraints()) })),
                 new ElementDescriptor(ElementDescriptorType.VideoLink, 9, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LinkElementConstraints()) })),
                 new ElementDescriptor(ElementDescriptorType.Color, 10, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new ColorElementConstraints()) })),
-                new ElementDescriptor(ElementDescriptorType.Logo, 11, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LogoElementConstraints {SupportedFileFormats = new[] {FileFormat.Png, FileFormat.Jpg, FileFormat.Jpeg}, CropShape = CropShape.Circle, CustomImageSupportedFileFormats = new []{ FileFormat.Png }})}))
+                new ElementDescriptor(ElementDescriptorType.Logo, 11, new JObject(), new ConstraintSet(new[] { new ConstraintSetItem(Language.Unspecified, new LogoElementConstraints {SupportedFileFormats = new[] {FileFormat.Png, FileFormat.Gif, FileFormat.Jpg, FileFormat.Jpeg}})}))
             };
 
         public async Task<string> CreateTemplate(long id, AuthorInfo authorInfo, ITemplateDescriptor templateDescriptor)

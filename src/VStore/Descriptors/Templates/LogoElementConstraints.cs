@@ -8,16 +8,13 @@ namespace NuClear.VStore.Descriptors.Templates
     {
         public ImageSizeRange ImageSizeRange { get; set; }
         public bool AlphaChannelNotAllowed => true;
-        public CropShape CropShape { get; set; }
 
-        public bool CustomImageAlphaChannelRequired => true;
         public int? CustomImageMaxSize { get; set; }
-        public bool CropAreaConsistentWithCropShape => true;
+        public bool CropAreaIsSquare => true;
         public bool CropAreaConsistentWithImageSizeRange => true;
-        public bool CustomImageConsistentWithCropShape => true;
+        public bool CustomImageIsSquare => true;
         public bool CustomImageTargetSizeEqualToActualSize => true;
         public ImageSizeRange CustomImageSizeRange { get; set; }
-        public IEnumerable<FileFormat> CustomImageSupportedFileFormats { get; set; }
 
         public IEnumerable<FileFormat> SupportedFileFormats { get; set; }
         public int? MaxSize { get; set; }
@@ -34,11 +31,9 @@ namespace NuClear.VStore.Descriptors.Templates
                 return false;
             if (ReferenceEquals(this, other))
                 return true;
-            return ImageSizeRange.Equals(other.ImageSizeRange) && CropShape == other.CropShape && CustomImageMaxSize == other.CustomImageMaxSize &&
+            return ImageSizeRange.Equals(other.ImageSizeRange) && CustomImageMaxSize == other.CustomImageMaxSize &&
                    CustomImageSizeRange.Equals(other.CustomImageSizeRange) && MaxSize == other.MaxSize && MaxFilenameLength == other.MaxFilenameLength &&
-                   (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats)) &&
-                   (ReferenceEquals(CustomImageSupportedFileFormats, other.CustomImageSupportedFileFormats) ||
-                    CustomImageSupportedFileFormats.SequenceEqual(other.CustomImageSupportedFileFormats));
+                   (ReferenceEquals(SupportedFileFormats, other.SupportedFileFormats) || SupportedFileFormats.SequenceEqual(other.SupportedFileFormats));
         }
 
         public override bool Equals(object obj)
@@ -55,7 +50,6 @@ namespace NuClear.VStore.Descriptors.Templates
             unchecked
             {
                 var hashCode = ImageSizeRange.GetHashCode();
-                hashCode = (hashCode * 397) ^ (int)CropShape;
                 hashCode = (hashCode * 397) ^ CustomImageMaxSize.GetHashCode();
                 hashCode = (hashCode * 397) ^ CustomImageSizeRange.GetHashCode();
                 hashCode = (hashCode * 397) ^ MaxSize.GetHashCode();

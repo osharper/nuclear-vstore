@@ -403,7 +403,6 @@ namespace NuClear.VStore.Objects
                 var persistenceValue = new LogoElementPersistenceValue(logoElementValue.Raw,
                                                                        originalMeta.Filename,
                                                                        originalMeta.Filesize,
-                                                                       logoElementValue.CropShape,
                                                                        logoElementValue.CropArea,
                                                                        customImages);
                 return (persistenceValue, customImages.Count + 1);
