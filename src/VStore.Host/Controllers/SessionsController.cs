@@ -209,7 +209,8 @@ namespace NuClear.VStore.Host.Controllers
                                     file.FileName,
                                     file.ContentType,
                                     file.Length,
-                                    templateCode);
+                                    templateCode,
+                                    fileUploadParams);
                 _logger.LogInformation("Multipart upload for file '{fileName}' in session '{sessionId}' was initiated.", file.FileName, sessionId);
 
                 using (var inputStream = file.OpenReadStream())

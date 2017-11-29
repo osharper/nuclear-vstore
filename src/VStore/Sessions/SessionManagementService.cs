@@ -128,12 +128,12 @@ namespace NuClear.VStore.Sessions
             _createdSessionsMetric.Inc();
         }
 
-        public async Task<MultipartUploadSession> InitiateMultipartUpload(
-            Guid sessionId,
-            string fileName,
-            string contentType,
-            long fileLength,
-            int templateCode)
+        public async Task<MultipartUploadSession> InitiateMultipartUpload(Guid sessionId,
+                                                                          string fileName,
+                                                                          string contentType,
+                                                                          long fileLength,
+                                                                          int templateCode,
+                                                                          IFileUploadParams fileUploadParams)
         {
             if (string.IsNullOrEmpty(fileName))
             {
@@ -144,21 +144,21 @@ namespace NuClear.VStore.Sessions
             if (sessionDescriptor.BinaryElementTemplateCodes.All(x => x != templateCode))
             {
                 throw new InvalidTemplateException(
-                          $"Binary content is not expected for the item '{templateCode}' within template '{sessionDescriptor.TemplateId}' " +
-                          $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
+                    $"Binary content is not expected for the item '{templateCode}' within template '{sessionDescriptor.TemplateId}' " +
+                    $"with version Id '{sessionDescriptor.TemplateVersionId}'.");
             }
 
             var elementDescriptor = await GetElementDescriptor(sessionDescriptor.TemplateId, sessionDescriptor.TemplateVersionId, templateCode);
-            EnsureFileMetadataIsValid(elementDescriptor, fileLength, sessionDescriptor.Language, fileName);
+            EnsureFileMetadataIsValid(elementDescriptor, fileLength, sessionDescriptor.Language, fileName, fileUploadParams);
 
             var fileKey = Guid.NewGuid().ToString();
             var key = sessionId.AsS3ObjectKey(fileKey);
             var request = new InitiateMultipartUploadRequest
-                              {
-                                  BucketName = _filesBucketName,
-                                  Key = key,
-                                  ContentType = contentType
-                              };
+                {
+                    BucketName = _filesBucketName,
+                    Key = key,
+                    ContentType = contentType
+                };
             var metadataWrapper = MetadataCollectionWrapper.For(request.Metadata);
             metadataWrapper.Write(MetadataElement.Filename, fileName);
 
@@ -276,7 +276,7 @@ namespace NuClear.VStore.Sessions
             }
         }
 
-        private static void EnsureFileMetadataIsValid(IElementDescriptor elementDescriptor, long inputStreamLength, Language language, string fileName)
+        private static void EnsureFileMetadataIsValid(IElementDescriptor elementDescriptor, long inputStreamLength, Language language, string fileName, IFileUploadParams fileUploadParams)
         {
             var constraints = (IBinaryElementConstraints)elementDescriptor.Constraints.For(language);
             if (constraints.MaxFilenameLength < fileName.Length)
@@ -287,6 +287,13 @@ namespace NuClear.VStore.Sessions
             if (constraints.MaxSize < inputStreamLength)
             {
                 throw new InvalidBinaryException(elementDescriptor.TemplateCode, new BinaryTooLargeError(inputStreamLength));
+            }
+
+            if (constraints is LogoElementConstraints logoConstraints &&
+                fileUploadParams is CustomImageFileUploadParams &&
+                logoConstraints.CustomImageMaxSize < inputStreamLength)
+            {
+                throw new InvalidBinaryException(elementDescriptor.TemplateCode, new CustomImageTooLargeError(inputStreamLength));
             }
 
             var extension = GetDotLessExtension(fileName);
