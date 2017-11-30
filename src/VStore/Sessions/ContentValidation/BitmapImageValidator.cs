@@ -17,11 +17,11 @@ namespace NuClear.VStore.Sessions.ContentValidation
         private static readonly IReadOnlyDictionary<FileFormat, string> BitmapImageFormatsMap =
             new Dictionary<FileFormat, string>
                 {
-                    { FileFormat.Bmp, "image/bmp" },
-                    { FileFormat.Gif, "image/gif" },
-                    { FileFormat.Jpeg, "image/jpeg" },
-                    { FileFormat.Jpg, "image/jpeg" },
-                    { FileFormat.Png, "image/png" }
+                    { FileFormat.Bmp, ImageFormats.Bmp.DefaultMimeType },
+                    { FileFormat.Gif, ImageFormats.Gif.DefaultMimeType },
+                    { FileFormat.Jpeg, ImageFormats.Jpeg.DefaultMimeType },
+                    { FileFormat.Jpg, ImageFormats.Jpeg.DefaultMimeType },
+                    { FileFormat.Png, ImageFormats.Png.DefaultMimeType }
                 };
 
         public static void ValidateBitmapImageHeader(int templateCode, FileFormat fileFormat, Stream inputStream)

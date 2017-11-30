@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore;
+﻿using Autofac.Extensions.DependencyInjection;
+
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 
 using Serilog;
@@ -14,6 +16,7 @@ namespace NuClear.VStore.Renderer
 
         public static IWebHost BuildWebHost(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
+                   .ConfigureServices(services => services.AddAutofac())
                    .UseStartup<Startup>()
                    .UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration))
                    .Build();

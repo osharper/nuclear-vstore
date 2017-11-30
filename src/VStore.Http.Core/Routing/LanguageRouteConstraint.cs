@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Routing;
 
 using NuClear.VStore.Descriptors;
 
-namespace NuClear.VStore.Host.Routing
+namespace NuClear.VStore.Http.Core.Routing
 {
     public class LanguageRouteConstraint : IRouteConstraint
     {

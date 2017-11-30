@@ -43,9 +43,6 @@ namespace NuClear.VStore.S3
         public async Task<DeleteObjectResponse> DeleteObjectAsync(string bucketName, string key)
             => await _s3Client.DeleteObjectAsync(bucketName, key);
 
-        public async Task<DeleteObjectResponse> DeleteObjectAsync(string bucketName, string key, string versionId)
-            => await _s3Client.DeleteObjectAsync(bucketName, key, versionId);
-
         public async Task<CopyObjectResponse> CopyObjectAsync(CopyObjectRequest request)
             => await _s3Client.CopyObjectAsync(request);
     }

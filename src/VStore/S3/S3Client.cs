@@ -44,9 +44,6 @@ namespace NuClear.VStore.S3
         async Task<DeleteObjectResponse> IS3Client.DeleteObjectAsync(string bucketName, string key)
             => await _amazonS3.DeleteObjectAsync(bucketName, key);
 
-        async Task<DeleteObjectResponse> IS3Client.DeleteObjectAsync(string bucketName, string key, string versionId)
-            => await _amazonS3.DeleteObjectAsync(bucketName, key, versionId);
-
         async Task<CopyObjectResponse> IS3Client.CopyObjectAsync(CopyObjectRequest request)
             => await _amazonS3.CopyObjectAsync(request);
     }
