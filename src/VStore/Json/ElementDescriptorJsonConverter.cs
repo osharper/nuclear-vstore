@@ -77,6 +77,9 @@ namespace NuClear.VStore.Json
                     case ElementDescriptorType.Phone:
                         constraints = property.Value.ToObject<PhoneElementConstraints>();
                         break;
+                    case ElementDescriptorType.Color:
+                        constraints = property.Value.ToObject<ColorElementConstraints>();
+                        break;
                     default:
                         return null;
                 }
