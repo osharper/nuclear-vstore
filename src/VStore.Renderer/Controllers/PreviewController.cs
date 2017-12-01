@@ -10,7 +10,8 @@ namespace NuClear.VStore.Renderer.Controllers
 {
     [ApiVersion("2.0")]
     [ApiVersion("1.0", Deprecated = true)]
-    [Route("preview")]
+    [Route("api/{api-version:apiVersion}/previews")]
+    [Route("previews")]
     public class PreviewController : VStoreController
     {
         private readonly ImagePreviewService _imagePreviewService;

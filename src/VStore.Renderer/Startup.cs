@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using Amazon.Runtime;
 using Amazon.S3;
@@ -62,6 +61,7 @@ namespace NuClear.VStore.Renderer
             services
                 .AddOptions()
                 .Configure<CephOptions>(_configuration.GetSection("Ceph"))
+                .Configure<VStoreOptions>(_configuration.GetSection("VStore"))
                 .Configure<RouteOptions>(options => options.ConstraintMap.Add("lang", typeof(LanguageRouteConstraint)));
 
             services.AddMvcCore()
@@ -95,7 +95,7 @@ namespace NuClear.VStore.Renderer
         public void ConfigureContainer(ContainerBuilder builder)
         {
             builder.Register(x => x.Resolve<IOptions<CephOptions>>().Value).SingleInstance();
-            builder.RegisterInstance(new VStoreOptions { FileStorageEndpoint = new Uri("ams://unused") }).SingleInstance();
+            builder.Register(x => x.Resolve<IOptions<VStoreOptions>>().Value).SingleInstance();
             builder.RegisterInstance(new DistributedLockOptions()).SingleInstance();
 
             builder.RegisterType<InMemoryLockFactory>().As<IDistributedLockFactory>().PreserveExistingDefaults().SingleInstance();

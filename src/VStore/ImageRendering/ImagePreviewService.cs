@@ -52,11 +52,11 @@ namespace NuClear.VStore.ImageRendering
             int height)
         {
             var rawStream = await GetRawStream(id, versionId, templateCode);
-            using (var image = LoadImage(templateCode, rawStream, out var format))
+            using (var image = Decode(templateCode, rawStream, out var format))
             {
                 Resize(image, new Size(width, height));
 
-                var imageStream = Save(image, format);
+                var imageStream = Encode(image, format);
                 return (imageStream, format.DefaultMimeType);
             }
         }
@@ -70,17 +70,17 @@ namespace NuClear.VStore.ImageRendering
             int height)
         {
             var rawStream = await GetRawStream(id, versionId, templateCode);
-            using (var image = LoadImage(templateCode, rawStream, out var format))
+            using (var image = Decode(templateCode, rawStream, out var format))
             {
-                ApplyRoundedCorners(image, image.Height * 0.5f);
                 Resize(image, new Size(width, height));
+                ApplyRoundedCorners(image, image.Height * 0.5f);
 
-                var imageStream = Save(image, format);
+                var imageStream = Encode(image, format);
                 return (imageStream, format.DefaultMimeType);
             }
         }
 
-        private static Image<Rgba32> LoadImage(int templateCode, Stream sourceStream, out IImageFormat format)
+        private static Image<Rgba32> Decode(int templateCode, Stream sourceStream, out IImageFormat format)
         {
             using (sourceStream)
             {
@@ -89,7 +89,7 @@ namespace NuClear.VStore.ImageRendering
                 {
                     image = Image.Load(sourceStream, out format);
                 }
-                catch (Exception)
+                catch
                 {
                     throw new InvalidBinaryException(templateCode, new InvalidImageError());
                 }
@@ -104,11 +104,11 @@ namespace NuClear.VStore.ImageRendering
                 {
                     Size = size,
                     Sampler = new Lanczos2Resampler(),
-                    Mode = ResizeMode.Crop
+                    Mode = ResizeMode.Stretch
                 }));
         }
 
-        private MemoryStream Save(Image<Rgba32> image, IImageFormat format)
+        private MemoryStream Encode(Image<Rgba32> image, IImageFormat format)
         {
             var imageStream = new MemoryStream();
             image.Save(imageStream, Encoders[format.DefaultMimeType]);
