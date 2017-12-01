@@ -10,6 +10,7 @@
         FasComment,
         Link,
         Phone,
-        VideoLink
+        VideoLink,
+        Color
     }
 }
