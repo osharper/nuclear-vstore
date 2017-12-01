@@ -45,10 +45,11 @@ namespace NuClear.VStore.Sessions.ContentValidation
                     throw new InvalidBinaryException(templateCode, new ImageSizeOutOfRangeError(imageSize));
                 }
 
-                if (ImageUtils.IsImageContainsAlphaChannel(image))
-                {
-                    throw new InvalidBinaryException(templateCode, new ImageHasAlphaChannelError());
-                }
+                // TODO: раскомментить/удалить после согласования проверок на альфа канал
+                //if (ImageUtils.IsImageContainsAlphaChannel(image))
+                //{
+                //    throw new InvalidBinaryException(templateCode, new ImageHasAlphaChannelError());
+                //}
             }
 
             return format.DefaultMimeType;

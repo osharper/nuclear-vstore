@@ -15,7 +15,7 @@ namespace NuClear.VStore.Objects.ContentValidation
             var logoValue = (ILogoElementValue)value;
             var logoConstraints = (LogoElementConstraints)constraints;
 
-            var cropSize = new ImageSize { Width = Math.Abs(logoValue.CropArea.X1 - logoValue.CropArea.X2), Height = Math.Abs(logoValue.CropArea.Y1 - logoValue.CropArea.Y2) };
+            var cropSize = new ImageSize { Width = logoValue.CropArea.Width, Height = logoValue.CropArea.Height };
             if (logoConstraints.CropAreaIsSquare && cropSize.Width != cropSize.Height)
             {
                 return new[] { new CropAreaIsNotSquareError() };

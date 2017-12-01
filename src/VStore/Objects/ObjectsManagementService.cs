@@ -314,9 +314,9 @@ namespace NuClear.VStore.Objects
 
             foreach (var elementDescriptor in objectDescriptor.Elements)
             {
-                var (elementPersistenceValue, referencedBinariesCount) = Convert2PersistenceValue(elementDescriptor.Value, metadataForBinaries);
+                var (elementPersistenceValue, detectedBinariesCount) = Convert2PersistenceValue(elementDescriptor.Value, metadataForBinaries);
                 var elementPersistenceDescriptor = new ObjectElementPersistenceDescriptor(elementDescriptor, elementPersistenceValue);
-                binariesCount += referencedBinariesCount;
+                binariesCount += detectedBinariesCount;
                 putRequest = new PutObjectRequest
                     {
                         Key = id.AsS3ObjectKey(elementDescriptor.Id),
@@ -371,8 +371,9 @@ namespace NuClear.VStore.Objects
                                  .Single();
         }
 
-        private static (IObjectElementValue, int) Convert2PersistenceValue(IObjectElementValue elementValue,
-                                                                           IReadOnlyDictionary<string, BinaryMetadata> metadataForBinaries)
+        private static (IObjectElementValue elementPersistenceValue, int detectedBinariesCount) Convert2PersistenceValue(IObjectElementValue elementValue,
+                                                                                                                         IReadOnlyDictionary<string, BinaryMetadata>
+                                                                                                                             metadataForBinaries)
         {
             if (!(elementValue is IBinaryElementValue binaryElementValue))
             {
@@ -462,15 +463,15 @@ namespace NuClear.VStore.Objects
                                                              await _sessionStorageReader.VerifySessionExpirationForBinary(x.Raw);
 
                                                              var binaryMetadata = await _sessionStorageReader.GetBinaryMetadata(x.Raw);
-                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: binaryMetadata, Error: (ObjectElementValidationError)null);
+                                                             return (TemplateCode: x.TemplateCode, FileKey: x.Raw, Metadata: binaryMetadata, Error: (ObjectElementValidationError)null);
                                                          }
                                                          catch (ObjectNotFoundException)
                                                          {
-                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
+                                                             return (TemplateCode: x.TemplateCode, FileKey: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
                                                          }
                                                          catch (SessionExpiredException)
                                                          {
-                                                             return (TemplateCode: x.TemplateCode, Raw: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
+                                                             return (TemplateCode: x.TemplateCode, FileKey: x.Raw, Metadata: null, Error: new BinaryNotFoundError(x.Raw));
                                                          }
                                                      })
                                          .ToList();
@@ -486,7 +487,7 @@ namespace NuClear.VStore.Objects
             }
 
             return results.Where(x => x.Metadata != null)
-                          .ToDictionary(x => x.Raw, x => x.Metadata);
+                          .ToDictionary(x => x.FileKey, x => x.Metadata);
         }
     }
 }
