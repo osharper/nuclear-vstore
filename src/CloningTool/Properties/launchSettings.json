@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "CloningTool": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "AMS_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
